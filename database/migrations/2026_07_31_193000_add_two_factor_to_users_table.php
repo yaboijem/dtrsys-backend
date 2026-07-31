@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->text('two_factor_secret')->nullable()->after('remember_token');
             $table->timestamp('two_factor_confirmed_at')->nullable()->after('two_factor_secret');
-            $table->json('two_factor_recovery_codes')->nullable()->after('two_factor_confirmed_at');
+            $table->text('two_factor_recovery_codes')->nullable()->after('two_factor_confirmed_at');
         });
     }
 
@@ -20,5 +20,4 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn(['two_factor_secret', 'two_factor_confirmed_at', 'two_factor_recovery_codes']);
         });
-    }
-};
+    }};
