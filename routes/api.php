@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
@@ -46,6 +48,12 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefix('admin')->group(function () {
     Route::get('/fraud-flags', [FraudFlagController::class, 'index']);
     Route::post('/fraud-flags/{fraudFlag}/review', [FraudFlagController::class, 'review']);
+});
+
+Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager|Department Head'])->prefix('admin')->group(function () {
+    Route::get('/attendance', [AttendanceAdminController::class, 'index']);
+    Route::get('/attendance/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer'])->prefix('admin')->group(function () {
