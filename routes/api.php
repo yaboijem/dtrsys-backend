@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
+use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\PayrollExportController;
 use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
@@ -40,6 +41,11 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('shifts', ShiftController::class);
     Route::apiResource('employees', EmployeeController::class);
+});
+
+Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefix('admin')->group(function () {
+    Route::get('/fraud-flags', [FraudFlagController::class, 'index']);
+    Route::post('/fraud-flags/{fraudFlag}/review', [FraudFlagController::class, 'review']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer'])->prefix('admin')->group(function () {
