@@ -129,6 +129,8 @@ class AttendanceApiTest extends TestCase
     {
         $employee = $this->makeEmployee();
 
+        $this->travelTo(now()->startOfDay()->setTime(8, 0));
+
         $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
             ...$this->punchPayload($employee->branch),
             'selfie' => UploadedFile::fake()->image('selfie.jpg'),

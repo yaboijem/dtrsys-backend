@@ -18,10 +18,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/auth/mfa/verify', [AuthController::class, 'mfaVerify'])->middleware('throttle:mfa');
+Route::post('/auth/mfa/enable', [AuthController::class, 'mfaEnable']);
+Route::post('/auth/mfa/confirm', [AuthController::class, 'mfaConfirm']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::get('/auth/mfa/status', [AuthController::class, 'mfaStatus']);
+    Route::post('/auth/mfa/disable', [AuthController::class, 'mfaDisable']);
 
     Route::get('/device/change-requests', [DeviceChangeRequestController::class, 'index']);
     Route::post('/device/change-requests', [DeviceChangeRequestController::class, 'store']);
