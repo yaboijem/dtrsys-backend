@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\FaceVerificationService;
+use App\Services\MockFaceVerificationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -11,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(FaceVerificationService::class, MockFaceVerificationService::class);
     }
 
     public function boot(): void

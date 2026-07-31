@@ -1,6 +1,9 @@
 <?php
 
+use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\DeviceBlockedException;
+use App\Exceptions\FaceVerificationFailedException;
+use App\Exceptions\GpsOutOfRangeException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,5 +36,28 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => 'You do not have permission to perform this action.',
                 'code' => 'forbidden',
             ], 403);
+        });
+
+        $exceptions->render(function (AttendanceConflictException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'attendance_conflict',
+            ], 409);
+        });
+
+        $exceptions->render(function (GpsOutOfRangeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'gps_out_of_range',
+                'details' => $e->details,
+            ], 422);
+        });
+
+        $exceptions->render(function (FaceVerificationFailedException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'face_verification_failed',
+                'details' => $e->details,
+            ], 422);
         });
     })->create();
