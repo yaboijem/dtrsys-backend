@@ -24,6 +24,7 @@ class AttendanceService
         private readonly FaceVerificationService $faceVerificationService,
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly NotificationService $notificationService,
+        private readonly ImageService $imageService,
     ) {}
 
     public function timeIn(User $user, array $data): Attendance
@@ -149,7 +150,7 @@ class AttendanceService
             return null;
         }
 
-        $path = $selfie->store('attendance', config('dtr.attendance.photo_disk'));
+        $path = $this->imageService->compressAndStore($selfie, 'attendance', config('dtr.attendance.photo_disk'));
 
         $photo = AttendancePhoto::create([
             'attendance_id' => $attendance->id,

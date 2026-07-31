@@ -4,6 +4,7 @@ use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,6 +30,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'code' => 'device_not_registered',
                 'pending_device_change_request' => $e->hasPendingRequest,
             ], 403);
+        });
+
+        $exceptions->render(function (AuthenticationException $e) {
+            return response()->json([
+                'message' => 'Unauthenticated. Please log in again.',
+                'code' => 'unauthenticated',
+            ], 401);
         });
 
         $exceptions->render(function (UnauthorizedException $e) {

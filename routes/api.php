@@ -27,7 +27,7 @@ Route::post('/auth/mfa/verify', [AuthController::class, 'mfaVerify'])->middlewar
 Route::post('/auth/mfa/enable', [AuthController::class, 'mfaEnable']);
 Route::post('/auth/mfa/confirm', [AuthController::class, 'mfaConfirm']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::get('/auth/mfa/status', [AuthController::class, 'mfaStatus']);
@@ -36,10 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/device/change-requests', [DeviceChangeRequestController::class, 'index']);
     Route::post('/device/change-requests', [DeviceChangeRequestController::class, 'store']);
 
-    Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn']);
-    Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut']);
+    Route::middleware('throttle:attendance')->group(function () {
+        Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn']);
+        Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut']);
+        Route::post('/attendance/sync', [AttendanceController::class, 'sync']);
+    });
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
-    Route::post('/attendance/sync', [AttendanceController::class, 'sync']);
 
     Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/today', [ScheduleController::class, 'today']);

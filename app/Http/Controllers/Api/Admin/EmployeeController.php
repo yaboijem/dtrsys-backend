@@ -10,6 +10,7 @@ use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\ImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -135,7 +136,11 @@ class EmployeeController extends Controller
     {
         $oldPath = $employee->reference_photo_path;
 
-        $path = $request->file('photo')->store('reference-photos', config('dtr.attendance.photo_disk'));
+        $path = app(ImageService::class)->compressAndStore(
+            $request->file('photo'),
+            'reference-photos',
+            config('dtr.attendance.photo_disk'),
+        );
 
         $employee->update(['reference_photo_path' => $path]);
 

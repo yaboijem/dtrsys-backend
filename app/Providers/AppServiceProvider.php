@@ -37,5 +37,23 @@ class AppServiceProvider extends ServiceProvider
                 'code' => 'too_many_attempts',
             ], 429));
         });
+
+        RateLimiter::for('attendance', function (Request $request) {
+            $key = $request->user()?->employee_id ?? $request->ip();
+
+            return Limit::perMinute(30)->by('attendance:'.$key)->response(fn () => response()->json([
+                'message' => 'Too many attendance requests. Please slow down.',
+                'code' => 'too_many_attempts',
+            ], 429));
+        });
+
+        RateLimiter::for('api', function (Request $request) {
+            $key = $request->user()?->employee_id ?? $request->ip();
+
+            return Limit::perMinute(60)->by('api:'.$key)->response(fn () => response()->json([
+                'message' => 'Too many requests. Please try again later.',
+                'code' => 'too_many_attempts',
+            ], 429));
+        });
     }
 }
