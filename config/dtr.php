@@ -19,4 +19,9 @@ return [
     'payroll' => [
         'export_disk' => env('PAYROLL_EXPORT_DISK', 'local'),
     ],
+
+    'retention' => [
+        'attendance_days' => (int) env('RETENTION_ATTENDANCE_DAYS', 730),
+        'audit_days' => (int) env('RETENTION_AUDIT_DAYS', 730),
+    ],
 ];

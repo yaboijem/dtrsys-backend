@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\DataRequestAdminController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
@@ -13,6 +14,8 @@ use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ConsentController;
+use App\Http\Controllers\Api\DataRequestController;
 use App\Http\Controllers\Api\DeviceChangeRequestController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ScheduleController;
@@ -45,6 +48,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+
+    Route::get('/employee/consent', [ConsentController::class, 'index']);
+    Route::post('/employee/consent', [ConsentController::class, 'update']);
+
+    Route::get('/employee/data-requests', [DataRequestController::class, 'index']);
+    Route::post('/employee/data-requests', [DataRequestController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->group(function () {
@@ -52,6 +61,9 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
 
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
+    Route::get('/data-requests', [DataRequestAdminController::class, 'index']);
+    Route::patch('/data-requests/{dataRequest}', [DataRequestAdminController::class, 'review']);
 
     Route::post('/schedules', [ScheduleAdminController::class, 'store']);
     Route::delete('/schedules/{schedule}', [ScheduleAdminController::class, 'destroy']);

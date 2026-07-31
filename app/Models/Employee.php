@@ -60,6 +60,16 @@ class Employee extends Model
         return $this->hasOne(Device::class)->latestOfMany();
     }
 
+    public function consents(): HasMany
+    {
+        return $this->hasMany(Consent::class);
+    }
+
+    public function deviceChangeRequests(): HasMany
+    {
+        return $this->hasMany(DeviceChangeRequest::class);
+    }
+
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->middle_name} {$this->last_name}");

@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\SyncLogFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SyncLog extends Model
 {
+    /** @use HasFactory<SyncLogFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'employee_id',
         'device_id',
