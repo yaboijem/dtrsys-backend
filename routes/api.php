@@ -47,6 +47,7 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('shifts', ShiftController::class);
     Route::apiResource('employees', EmployeeController::class);
+    Route::post('/employees/{employee}/reference-photo', [EmployeeController::class, 'referencePhoto']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefix('admin')->group(function () {

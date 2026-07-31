@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
+use App\Http\Requests\UploadReferencePhotoRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\User;
@@ -128,5 +129,24 @@ class EmployeeController extends Controller
         );
 
         return response()->json(['message' => 'Employee account deactivated.']);
+    }
+
+    public function referencePhoto(UploadReferencePhotoRequest $request, Employee $employee): EmployeeResource
+    {
+        $oldPath = $employee->reference_photo_path;
+
+        $path = $request->file('photo')->store('reference-photos', config('dtr.attendance.photo_disk'));
+
+        $employee->update(['reference_photo_path' => $path]);
+
+        $this->auditService->record(
+            $request->user(),
+            'employee.reference_photo_updated',
+            $employee,
+            $oldPath ? ['reference_photo_path' => $oldPath] : null,
+            ['reference_photo_path' => $path],
+        );
+
+        return new EmployeeResource($employee->load(['user.roles', 'branch']));
     }
 }
