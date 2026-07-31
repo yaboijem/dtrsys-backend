@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use Database\Factories\DeviceFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Device extends Model
 {
+    /** @use HasFactory<DeviceFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'employee_id',
         'device_id',

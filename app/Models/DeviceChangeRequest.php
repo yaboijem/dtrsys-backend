@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\DeviceChangeRequestFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeviceChangeRequest extends Model
 {
+    /** @use HasFactory<DeviceChangeRequestFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'employee_id',
         'current_device_id',
