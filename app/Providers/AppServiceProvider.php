@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Attendance;
+use App\Observers\AttendanceObserver;
 use App\Services\FaceVerificationService;
 use App\Services\MockFaceVerificationService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -18,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Attendance::observe(AttendanceObserver::class);
+
         RateLimiter::for('login', function (Request $request) {
             $key = (string) $request->input('employee_id', $request->ip());
 

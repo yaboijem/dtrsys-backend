@@ -7,6 +7,7 @@ use App\Http\Requests\StorePayrollExportRequest;
 use App\Http\Resources\PayrollExportResource;
 use App\Jobs\GeneratePayrollExport;
 use App\Models\PayrollExport;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -15,6 +16,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollExportController extends Controller
 {
+    public function __construct(
+        private readonly AuditService $auditService,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $exports = PayrollExport::query()
@@ -37,6 +42,8 @@ class PayrollExportController extends Controller
         ]);
 
         GeneratePayrollExport::dispatch($export);
+
+        $this->auditService->created($request->user(), 'payroll_export.created', $export);
 
         return (new PayrollExportResource($export->refresh()))
             ->response()

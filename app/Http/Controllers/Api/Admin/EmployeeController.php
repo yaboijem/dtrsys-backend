@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -15,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
+    public function __construct(
+        private readonly AuditService $auditService,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $employees = Employee::query()
@@ -60,6 +65,8 @@ class EmployeeController extends Controller
             ]);
         });
 
+        $this->auditService->created($request->user(), 'employee.created', $employee);
+
         return new EmployeeResource($employee->load(['user.roles', 'branch']));
     }
 
@@ -86,6 +93,8 @@ class EmployeeController extends Controller
                 $employee->user->syncRoles([$request->input('role')]);
             }
 
+            $before = $this->auditService->valuesOf($employee);
+
             $employee->update($request->only([
                 'branch_id',
                 'first_name',
@@ -96,15 +105,27 @@ class EmployeeController extends Controller
                 'date_hired',
             ]));
 
+            $this->auditService->changes($request->user(), 'employee.updated', $employee, $before);
+
             return $employee;
         });
+
+        $this->auditService->changes($request->user(), 'employee.updated', $employee);
 
         return new EmployeeResource($employee->load(['user.roles', 'branch']));
     }
 
-    public function destroy(Employee $employee): JsonResponse
+    public function destroy(Request $request, Employee $employee): JsonResponse
     {
         $employee->user->update(['is_active' => false]);
+
+        $this->auditService->record(
+            $request->user(),
+            'employee.deactivated',
+            $employee,
+            null,
+            ['is_active' => false],
+        );
 
         return response()->json(['message' => 'Employee account deactivated.']);
     }

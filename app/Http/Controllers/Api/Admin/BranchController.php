@@ -7,12 +7,17 @@ use App\Http\Requests\StoreBranchRequest;
 use App\Http\Requests\UpdateBranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class BranchController extends Controller
 {
+    public function __construct(
+        private readonly AuditService $auditService,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $branches = Branch::query()
@@ -32,6 +37,8 @@ class BranchController extends Controller
     {
         $branch = Branch::create($request->validated());
 
+        $this->auditService->created($request->user(), 'branch.created', $branch);
+
         return new BranchResource($branch->loadCount('employees'));
     }
 
@@ -42,12 +49,16 @@ class BranchController extends Controller
 
     public function update(UpdateBranchRequest $request, Branch $branch): BranchResource
     {
+        $before = $this->auditService->valuesOf($branch);
+
         $branch->update($request->validated());
+
+        $this->auditService->changes($request->user(), 'branch.updated', $branch, $before);
 
         return new BranchResource($branch->loadCount('employees'));
     }
 
-    public function destroy(Branch $branch): JsonResponse
+    public function destroy(Request $request, Branch $branch): JsonResponse
     {
         if ($branch->employees()->exists()) {
             return response()->json([
@@ -57,6 +68,8 @@ class BranchController extends Controller
         }
 
         $branch->delete();
+
+        $this->auditService->deleted($request->user(), 'branch.deleted', $branch);
 
         return response()->json(['message' => 'Branch deleted.']);
     }

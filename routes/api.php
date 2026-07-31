@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
@@ -33,6 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->group(function () {
     Route::get('/device-change-requests', [AdminDeviceChangeRequestController::class, 'index']);
     Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
+
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
 
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('shifts', ShiftController::class);

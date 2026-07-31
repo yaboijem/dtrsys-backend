@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ReviewDeviceChangeRequest;
 use App\Http\Resources\DeviceChangeRequestResource;
 use App\Models\DeviceChangeRequest;
+use App\Services\AuditService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -13,6 +14,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class DeviceChangeRequestController extends Controller
 {
     public function __construct(
+        private readonly AuditService $auditService,
         private readonly NotificationService $notificationService,
     ) {}
 
@@ -29,12 +31,22 @@ class DeviceChangeRequestController extends Controller
 
     public function review(ReviewDeviceChangeRequest $request, DeviceChangeRequest $deviceChangeRequest): DeviceChangeRequestResource
     {
+        $oldStatus = $deviceChangeRequest->status;
+
         $deviceChangeRequest->update([
             'status' => $request->input('status'),
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
             'review_notes' => $request->input('review_notes'),
         ]);
+
+        $this->auditService->record(
+            $request->user(),
+            'device_change_request.reviewed',
+            $deviceChangeRequest,
+            ['status' => $oldStatus],
+            ['status' => $deviceChangeRequest->status],
+        );
 
         $this->notificationService->deviceChangeRequestReviewed($deviceChangeRequest);
 
