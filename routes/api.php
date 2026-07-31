@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceC
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\PayrollExportController;
+use App\Http\Controllers\Api\Admin\ReportExportController;
 use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
@@ -72,6 +73,13 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer'])->pref
     Route::post('/payroll-exports', [PayrollExportController::class, 'store']);
     Route::get('/payroll-exports/{payrollExport}', [PayrollExportController::class, 'show']);
     Route::get('/payroll-exports/{payrollExport}/download', [PayrollExportController::class, 'download']);
+});
+
+Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer|Branch Manager|Department Head'])->prefix('admin')->group(function () {
+    Route::get('/reports', [ReportExportController::class, 'index']);
+    Route::post('/reports', [ReportExportController::class, 'store']);
+    Route::get('/reports/{reportExport}', [ReportExportController::class, 'show']);
+    Route::get('/reports/{reportExport}/download', [ReportExportController::class, 'download']);
 });
 
 Route::get('/user', function (Request $request) {
