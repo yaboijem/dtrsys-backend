@@ -27,6 +27,13 @@ Route::post('/auth/mfa/verify', [AuthController::class, 'mfaVerify'])->middlewar
 Route::post('/auth/mfa/enable', [AuthController::class, 'mfaEnable']);
 Route::post('/auth/mfa/confirm', [AuthController::class, 'mfaConfirm']);
 
+Route::get('/login', function () {
+    return response()->json([
+        'message' => 'Unauthenticated. Please log in again.',
+        'code' => 'unauthenticated',
+    ], 401);
+})->name('login');
+
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
