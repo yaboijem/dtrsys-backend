@@ -1,18 +1,20 @@
+import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import { File } from 'expo-file-system';
-import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/client';
-import { Attendance, Paginated, Schedule, SyncResult, GpsOutOfRangeDetails } from '../api/types';
+import { Attendance, Paginated, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { CameraModal } from '../components/CameraModal';
 import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
-import { distanceLabel, errorMessage, formatDateTime, formatTime, minutesToDuration, newUuid, toLocalDate } from '../lib/format';
+import { distanceLabel, errorMessage, formatDateTime, formatTime, minutesToDuration, toLocalDate } from '../lib/format';
 import { getCurrentPosition, photoFileInfo } from '../lib/location';
+import { enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { useUnread } from '../notifications/UnreadContext';
 import { colors, fontSize, spacing } from '../theme';
 
@@ -20,6 +22,13 @@ interface PunchResult {
   kind: 'success' | 'error';
   title: string;
   detail?: string;
+}
+
+interface FlushResultView {
+  synced: number;
+  failed: number;
+  duplicates: number;
+  faceIssues: number;
 }
 
 export function HomeScreen() {
@@ -38,16 +47,44 @@ export function HomeScreen() {
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
   const [manualAccuracy, setManualAccuracy] = useState('25');
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [queue, setQueue] = useState<OfflinePunch[]>([]);
+  const [syncedLocal, setSyncedLocal] = useState<OfflinePunch[]>([]);
+  const [flushing, setFlushing] = useState(false);
+  const [flushResult, setFlushResult] = useState<FlushResultView | null>(null);
+  const [networkOffline, setNetworkOffline] = useState(false);
+  const flushBusyRef = useRef(false);
 
   const branch = user?.employee?.branch ?? null;
-  const isOpen = todayPunches[0]?.type === 'time_in';
 
-  const loadToday = useCallback(async () => {
+  const toLocalAttendance = (p: OfflinePunch, source: 'local_queue' | 'local_queue_synced'): Attendance => ({
+    id: -1,
+    uuid: p.client_uuid,
+    type: p.type,
+    timestamp: p.timestamp,
+    is_offline: true,
+    is_late: false,
+    work_minutes: null,
+    source,
+    notes: null,
+    synced_at: null,
+  });
+
+  const serverUuids = new Set(todayPunches.map((p) => p.uuid).filter(Boolean));
+  const syncedUuids = new Set(syncedLocal.map((p) => p.client_uuid));
+  const queueUuids = new Set(queue.map((p) => p.client_uuid));
+  const localPunches = [...queue.filter((p) => !syncedUuids.has(p.client_uuid)), ...syncedLocal]
+    .filter((p) => !serverUuids.has(p.client_uuid))
+    .map((p) => toLocalAttendance(p, queueUuids.has(p.client_uuid) ? 'local_queue' : 'local_queue_synced'));
+  const effectivePunches: Attendance[] = [...todayPunches, ...localPunches].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+  const isOpen = effectivePunches[effectivePunches.length - 1]?.type === 'time_in';
+
+  const loadToday = useCallback(async (): Promise<boolean> => {
     if (!token) {
-      return;
+      return false;
     }
+    let historyOk = false;
     try {
       const today = toLocalDate(new Date());
       await Promise.all([
@@ -71,20 +108,80 @@ export function HomeScreen() {
             { from: today, to: today, per_page: 10 },
             token,
           )
-          .then((res) => setTodayPunches(res.data)),
+          .then((res) => {
+            setTodayPunches(res.data);
+            historyOk = true;
+          })
+          .catch(() => {
+            // keep previous data so queued punches remain visible
+          }),
       ]);
     } catch {
       // individual fetches already surface errors
     } finally {
       setLoading(false);
     }
+    return historyOk;
   }, [api, token]);
+
+  const runFlush = useCallback(async () => {
+    if (flushBusyRef.current) {
+      return;
+    }
+    flushBusyRef.current = true;
+    setFlushing(true);
+    setFlushResult(null);
+    try {
+      const res = await flushOfflineQueue(api, token, deviceId);
+      if (res.hadQueue) {
+        setFlushResult({
+          synced: res.synced,
+          failed: res.failed,
+          duplicates: res.duplicates,
+          faceIssues: res.faceIssues,
+        });
+        if (res.syncedItems.length > 0) {
+          setSyncedLocal((prev) => [...prev, ...res.syncedItems]);
+        }
+      }
+      setQueue(await getOfflineQueue());
+      const ok = await loadToday();
+      if (ok) {
+        setSyncedLocal([]);
+      }
+    } catch {
+      // still offline — queue retained
+    } finally {
+      flushBusyRef.current = false;
+      setFlushing(false);
+    }
+  }, [api, token, loadToday]);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setNetworkOffline(state.isConnected === false);
+      if (state.isConnected === true && state.isInternetReachable !== false) {
+        void runFlush();
+      }
+    });
+    return unsubscribe;
+  }, [runFlush]);
 
   useFocusEffect(
     useCallback(() => {
-      loadToday();
+      getOfflineQueue().then((q) => {
+        if (!flushBusyRef.current) {
+          setQueue(q);
+        }
+      });
+      void loadToday().then((ok) => {
+        if (ok) {
+          setSyncedLocal([]);
+        }
+      });
+      void runFlush();
       refreshUnread();
-    }, [loadToday, refreshUnread]),
+    }, [loadToday, runFlush, refreshUnread]),
   );
 
   const resolveCoordinates = async (): Promise<{ latitude: number; longitude: number; accuracy: number | null } | null> => {
@@ -123,6 +220,7 @@ export function HomeScreen() {
   const submitPunch = async (uri: string, type: 'time_in' | 'time_out') => {
     setResult(null);
     setPunching(true);
+    let coords: { latitude: number; longitude: number; accuracy: number | null } | null = null;
     try {
       const photoInfo = photoFileInfo(uri);
       if (photoInfo.checkOk && (!photoInfo.exists || photoInfo.size === 0)) {
@@ -134,7 +232,7 @@ export function HomeScreen() {
         return;
       }
 
-      const coords = await resolveCoordinates();
+      coords = await resolveCoordinates();
       if (!coords) {
         return;
       }
@@ -172,9 +270,27 @@ export function HomeScreen() {
       });
       await loadToday();
       refreshUnread();
+      void runFlush();
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === 'gps_out_of_range') {
+        if (err.code === 'network_error') {
+          if (coords) {
+            const queued = await enqueueOfflinePunch(type, coords, uri);
+            setQueue(queued);
+            setResult({
+              kind: 'success',
+              title: 'Queued offline',
+              detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nNo face verification was possible offline.\nYour selfie will be verified when it syncs, and it will sync automatically when you're back online.`,
+            });
+          } else {
+            setResult({
+              kind: 'error',
+              title: 'Could not reach the server',
+              detail: `${err.message}\n\nTap Time In/Out to retry. If this keeps happening, check your Wi-Fi and the server URL in More.`,
+            });
+          }
+          await loadToday();
+        } else if (err.code === 'gps_out_of_range') {
           const details = (err.details ?? {}) as GpsOutOfRangeDetails;
           setResult({
             kind: 'error',
@@ -190,12 +306,6 @@ export function HomeScreen() {
           setResult({ kind: 'error', title: 'Session expired', detail: 'Log in again.' });
         } else if (err.status === 429) {
           setResult({ kind: 'error', title: 'Too many attempts', detail: 'Wait a minute before punching again.' });
-        } else if (err.code === 'network_error') {
-          setResult({
-            kind: 'error',
-            title: 'Could not reach the server',
-            detail: `${err.message}\n\nTap Time In/Out to retry. If this keeps happening, check your Wi-Fi and the server URL in More.`,
-          });
         } else {
           setResult({ kind: 'error', title: 'Punch failed', detail: errorMessage(err) });
         }
@@ -218,40 +328,6 @@ export function HomeScreen() {
     submitPunch(uri, isOpen ? 'time_out' : 'time_in');
   };
 
-  const handleSyncDemo = async () => {
-    setSyncResult(null);
-    setSyncing(true);
-    try {
-      const timestamp = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      const lat = branch ? branch.latitude : 14.554729;
-      const lng = branch ? branch.longitude : 121.0244452;
-      const res = await api.post<SyncResult>(
-        '/api/attendance/sync',
-        {
-          device_id: deviceId,
-          records: [
-            {
-              client_uuid: newUuid(),
-              type: 'time_in',
-              timestamp,
-              latitude: lat,
-              longitude: lng,
-              accuracy_meters: 25,
-              notes: 'Demo offline record',
-            },
-          ],
-        },
-        token,
-      );
-      setSyncResult(res);
-      await loadToday();
-    } catch (err) {
-      Alert.alert('Sync failed', errorMessage(err));
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const clockedLabel = loading ? 'Checking…' : isOpen ? 'Currently clocked in' : 'Not clocked in yet today';
 
   return (
@@ -268,6 +344,22 @@ export function HomeScreen() {
           {user?.employee?.position ? ` · ${user.employee.position}` : ''}
         </Text>
       </View>
+
+      {networkOffline ? (
+        <Banner
+          kind="warning"
+          title="You're offline"
+          detail="Punches will be queued locally and synced automatically when the connection returns."
+        />
+      ) : null}
+
+      {queue.length > 0 ? (
+        <Banner
+          kind="info"
+          title={`${queue.length} punch(es) waiting to sync`}
+          detail="Queued offline punches will be sent to the server automatically when back online."
+        />
+      ) : null}
 
       <SectionCard title="Today's schedule">
         {loading ? (
@@ -335,30 +427,50 @@ export function HomeScreen() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="Offline sync (demo)">
-        <Text style={styles.muted}>
-          Sends a sample offline time-in record (5 minutes ago) to the server via the sync endpoint.
-        </Text>
-        <Button title="Run sync demo" variant="secondary" onPress={handleSyncDemo} loading={syncing} style={styles.topSpacing} />
-        {syncResult ? (
-          <View style={styles.syncResult}>
-            <Text style={styles.syncLine}>Synced: {syncResult.synced}</Text>
-            <Text style={styles.syncLine}>Failed: {syncResult.failed}</Text>
-            <Text style={styles.syncLine}>Duplicates: {syncResult.duplicates}</Text>
-          </View>
-        ) : null}
+      <SectionCard title="Offline queue">
+        {queue.length === 0 ? (
+          <Text style={styles.muted}>
+            No pending punches. When the server is unreachable, punches are queued here and synced automatically.
+          </Text>
+        ) : (
+          <>
+            {queue.map((p) => (
+              <View key={p.client_uuid} style={styles.punchRow}>
+                <View style={styles.punchMeta}>
+                  <Text style={styles.punchTime}>{p.type === 'time_in' ? 'Time in' : 'Time out'}</Text>
+                  <Text style={styles.muted}>
+                    {formatTime(p.timestamp)} · pending sync{p.selfieUri ? ' · photo attached' : ''}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            <Button title="Sync now" variant="secondary" onPress={runFlush} loading={flushing} style={styles.topSpacing} />
+            {flushResult ? (
+              <View style={styles.syncResult}>
+                <Text style={styles.syncLine}>
+                  Synced: {flushResult.synced} · Failed: {flushResult.failed} · Duplicates: {flushResult.duplicates}
+                </Text>
+                {flushResult.faceIssues > 0 ? (
+                  <Text style={[styles.syncLine, styles.syncWarning]}>
+                    Face not detected in {flushResult.faceIssues} selfie(s) — flagged for review.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </>
+        )}
       </SectionCard>
 
-      {todayPunches.length > 0 ? (
+      {effectivePunches.length > 0 ? (
         <SectionCard title="Today's punches">
-          {todayPunches.map((p) => (
-            <View key={p.id} style={styles.punchRow}>
+          {effectivePunches.map((p) => (
+            <View key={p.uuid ?? p.id} style={styles.punchRow}>
               <View style={styles.punchMeta}>
                 <Text style={styles.punchTime}>{formatTime(p.timestamp)}</Text>
                 <Text style={styles.muted}>
                   {p.type === 'time_in' ? 'Time in' : 'Time out'}
                   {p.is_late ? ' · late' : ''}
-                  {p.is_offline ? ' · offline' : ''}
+                  {p.source === 'local_queue' ? ' · pending' : p.is_offline ? ' · offline' : ''}
                   {p.gps_location?.distance_from_branch_meters !== undefined && p.gps_location?.distance_from_branch_meters !== null
                     ? ` · ${distanceLabel(p.gps_location.distance_from_branch_meters)} from branch`
                     : ''}
@@ -473,6 +585,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.text,
     paddingVertical: 2,
+  },
+  syncWarning: {
+    color: colors.danger,
+    fontWeight: '600',
   },
   punchRow: {
     flexDirection: 'row',

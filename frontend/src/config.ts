@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   user: 'dtr_user',
   serverUrl: 'dtr_server_url',
   deviceId: 'dtr_device_id',
+  offlineQueue: 'dtr_offline_queue',
+  offlinePhotosDir: 'dtr_offline_photos',
 } as const;
 
 export const DEV_OTP_ENABLED = true;

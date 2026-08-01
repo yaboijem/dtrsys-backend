@@ -136,12 +136,37 @@ export interface MfaStatus {
   mfa_required_by_role: boolean;
 }
 
+export interface SyncRecordResult {
+  index: number;
+  status: 'created' | 'duplicate' | 'failed';
+  uuid?: string;
+  message?: string;
+  photo?: {
+    present: boolean;
+    is_verified?: boolean;
+    face_detected?: boolean | null;
+    flags?: string[];
+  };
+}
+
 export interface SyncResult {
   message: string;
   synced: number;
   failed: number;
   duplicates: number;
-  records: unknown[];
+  records: SyncRecordResult[];
+}
+
+export interface OfflinePunch {
+  client_uuid: string;
+  type: 'time_in' | 'time_out';
+  timestamp: string;
+  latitude: number;
+  longitude: number;
+  accuracy_meters: number | null;
+  notes?: string;
+  queued_at: string;
+  selfieUri?: string;
 }
 
 export interface GpsOutOfRangeDetails {
