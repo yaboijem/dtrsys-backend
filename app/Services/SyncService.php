@@ -2,24 +2,30 @@
 
 namespace App\Services;
 
+use App\Exceptions\FaceVerificationFailedException;
 use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\GpsLocation;
 use App\Models\SyncLog;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 
 class SyncService
 {
     public function __construct(
         private readonly GPSService $gpsService,
         private readonly FraudDetectionService $fraudDetectionService,
+        private readonly AttendanceService $attendanceService,
+        private readonly ScheduleService $scheduleService,
     ) {}
 
     /**
      * Server-side validation and storage of offline attendance records.
+     *
+     * @param  array<int, UploadedFile|null>  $photos  keyed by record index
      */
-    public function sync(User $user, array $records, ?string $deviceId = null): array
+    public function sync(User $user, array $records, ?string $deviceId = null, array $photos = []): array
     {
         $employee = $user->employee;
         $device = $deviceId ? Device::where('device_id', $deviceId)->first() : null;
@@ -34,7 +40,7 @@ class SyncService
             $record = is_array($record) ? $record : [];
 
             try {
-                $attendance = $this->storeRecord($employee, $device, $record);
+                $attendance = $this->storeRecord($employee, $device, $record, $photos[$index] ?? null);
 
                 if ($attendance === 'duplicate') {
                     $duplicates++;
@@ -48,6 +54,7 @@ class SyncService
                     'index' => $index,
                     'status' => 'created',
                     'uuid' => $attendance->uuid,
+                    'photo' => $this->photoResult($attendance),
                 ];
             } catch (\Throwable $e) {
                 $failed++;
@@ -77,7 +84,7 @@ class SyncService
         ];
     }
 
-    private function storeRecord($employee, ?Device $device, array $record): Attendance|string
+    private function storeRecord($employee, ?Device $device, array $record, ?UploadedFile $selfie = null): Attendance|string
     {
         $clientUuid = $record['client_uuid'] ?? null;
 
@@ -90,7 +97,7 @@ class SyncService
         }
 
         $type = $record['type'] ?? null;
-        $timestamp = $this->parseTimestamp($record['timestamp'] ?? null);
+        $timestamp = $this->parseTimestamp($record['timestamp'] ?? null)->setTimezone(config('app.timezone'));
 
         if (! in_array($type, ['time_in', 'time_out'], true)) {
             throw new \InvalidArgumentException('type must be time_in or time_out.');
@@ -118,6 +125,24 @@ class SyncService
             isset($record['accuracy_meters']) ? (float) $record['accuracy_meters'] : null,
         );
 
+        $workMinutes = null;
+        if ($type === 'time_out') {
+            $timeIn = Attendance::where('employee_id', $employee->id)
+                ->where('type', 'time_in')
+                ->where('timestamp', '<=', $timestamp)
+                ->latest('timestamp')
+                ->first();
+
+            if ($timeIn) {
+                $shift = $this->scheduleService->shiftFor($employee, $timestamp);
+                $workMinutes = $this->attendanceService->computeWorkMinutes(
+                    $timeIn,
+                    \Illuminate\Support\Carbon::instance($timestamp),
+                    $shift,
+                );
+            }
+        }
+
         $attendance = Attendance::create([
             'uuid' => $clientUuid,
             'employee_id' => $employee->id,
@@ -130,6 +155,7 @@ class SyncService
             'gps_accuracy_meters' => $record['accuracy_meters'] ?? null,
             'is_offline' => true,
             'is_late' => false,
+            'work_minutes' => $workMinutes,
             'source' => 'sync',
             'notes' => $record['notes'] ?? null,
             'synced_at' => now(),
@@ -146,9 +172,33 @@ class SyncService
             'captured_at' => $timestamp,
         ]);
 
+        if ($selfie) {
+            try {
+                $this->attendanceService->captureAndVerifyPhoto($employee, $attendance, $selfie);
+            } catch (FaceVerificationFailedException) {
+                // Offline punches are kept as-is; the photo stays unverified and is fraud-flagged.
+            }
+        }
+
         $this->fraudDetectionService->evaluate($attendance);
 
         return $attendance;
+    }
+
+    private function photoResult(Attendance $attendance): array
+    {
+        $photo = $attendance->photo;
+
+        if (! $photo) {
+            return ['present' => false];
+        }
+
+        return [
+            'present' => true,
+            'is_verified' => (bool) $photo->is_verified,
+            'face_detected' => data_get($photo->verification_result, 'face_detected'),
+            'flags' => $attendance->fraudFlags->pluck('type')->all(),
+        ];
     }
 
     private function parseTimestamp(mixed $value): Carbon

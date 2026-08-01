@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('fraud_flags', function (Blueprint $table) {
             $table->id();
             $table->foreignId('attendance_id')->constrained('attendance')->cascadeOnDelete();
-            $table->enum('type', ['gps_spoof', 'impossible_jump', 'face_mismatch', 'rapid_clock', 'out_of_radius']);
+            $table->enum('type', ['gps_spoof', 'impossible_jump', 'face_mismatch', 'rapid_clock', 'out_of_radius', 'no_face']);
             $table->enum('severity', ['low', 'medium', 'high'])->default('medium');
             $table->json('details')->nullable();
             $table->enum('status', ['open', 'reviewed', 'dismissed'])->default('open');

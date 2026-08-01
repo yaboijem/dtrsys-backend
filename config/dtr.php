@@ -4,6 +4,7 @@ return [
     'face_verification' => [
         'provider' => env('FACE_VERIFICATION_PROVIDER', 'mock'),
         'force_mismatch' => env('FACE_VERIFICATION_FORCE_MISMATCH', false),
+        'force_no_face' => env('FACE_VERIFICATION_FORCE_NO_FACE', false),
         'confidence_threshold' => 0.8,
     ],
 

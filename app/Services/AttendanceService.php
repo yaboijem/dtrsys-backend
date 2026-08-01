@@ -144,7 +144,7 @@ class AttendanceService
         return $result;
     }
 
-    private function captureAndVerifyPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
+    public function captureAndVerifyPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
     {
         if (! $selfie) {
             return null;
@@ -168,7 +168,7 @@ class AttendanceService
             'liveness_status' => $result->livenessPassed ? 'passed' : 'failed',
         ]);
 
-        if (! $result->matched || ! $result->livenessPassed) {
+        if (! $result->matched || ! $result->livenessPassed || ! $result->faceDetected) {
             throw new FaceVerificationFailedException(
                 'Face verification failed. Please try again.',
                 $result->toArray(),
