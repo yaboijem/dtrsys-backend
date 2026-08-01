@@ -206,6 +206,16 @@ class AttendanceService
         return Attendance::where('employee_id', $employee->id)
             ->where('type', $type)
             ->whereDate('timestamp', now()->toDateString())
+            ->when($type === 'time_in', function ($query) {
+                $query->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('attendance as closed')
+                        ->whereColumn('closed.employee_id', 'attendance.employee_id')
+                        ->where('closed.type', 'time_out')
+                        ->where('closed.deleted_at', null)
+                        ->whereColumn('closed.id', '>', 'attendance.id');
+                });
+            })
             ->latest('timestamp')
             ->first();
     }
