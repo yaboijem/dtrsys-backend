@@ -34,6 +34,7 @@ class AttendanceAdminResource extends JsonResource
             'device' => $this->whenLoaded('device', fn () => $this->device ? [
                 'id' => $this->device->id,
                 'device_id' => $this->device->device_id,
+                'name' => $this->device->name,
             ] : null),
             'photo' => $this->whenLoaded('photo', fn () => $this->photo ? [
                 'path' => $this->photo->path,

@@ -32,6 +32,16 @@ class EmployeeResource extends JsonResource
                 'name' => $this->branch->name,
                 'code' => $this->branch->code,
             ]),
+            'active_device' => $this->whenLoaded('devices', function () {
+                $device = $this->devices->firstWhere('is_active', true);
+
+                return $device ? [
+                    'id' => $device->id,
+                    'device_id' => $device->device_id,
+                    'name' => $device->name,
+                    'is_shared' => $device->is_shared,
+                ] : null;
+            }),
             'reference_photo_path' => $this->reference_photo_path,
         ];
     }

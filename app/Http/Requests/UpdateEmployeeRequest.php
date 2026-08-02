@@ -30,6 +30,8 @@ class UpdateEmployeeRequest extends FormRequest
             'position' => ['sometimes', 'string', 'max:255'],
             'date_hired' => ['nullable', 'date'],
             'is_active' => ['boolean'],
+            'device_name' => ['nullable', 'string', 'max:100'],
+            'device_is_shared' => ['boolean'],
         ];
     }
 }

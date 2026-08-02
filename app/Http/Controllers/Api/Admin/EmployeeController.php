@@ -27,7 +27,7 @@ class EmployeeController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $employees = Employee::query()
-            ->with(['user.roles', 'branch'])
+            ->with(['user.roles', 'branch', 'devices'])
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
                 $q->where(function ($q) use ($search) {
@@ -76,25 +76,41 @@ class EmployeeController extends Controller
 
     public function show(Employee $employee): EmployeeResource
     {
-        return new EmployeeResource($employee->load(['user.roles', 'branch']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices']));
     }
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): EmployeeResource
     {
         $employee = DB::transaction(function () use ($request, $employee) {
-            $employee->user->update([
+            $securityFieldsChanged = false;
+
+            $userUpdate = [
                 'employee_id' => $request->input('employee_id', $employee->user->employee_id),
                 'name' => $request->input('name', $employee->user->name),
                 'email' => $request->input('email', $employee->user->email),
                 'is_active' => $request->boolean('is_active', $employee->user->is_active),
-            ]);
+            ];
+
+            foreach (['employee_id', 'email', 'is_active'] as $field) {
+                if ($userUpdate[$field] != $employee->user->{$field}) {
+                    $securityFieldsChanged = true;
+                }
+            }
+
+            $employee->user->update($userUpdate);
 
             if ($request->filled('password')) {
                 $employee->user->update(['password' => $request->input('password')]);
+                $securityFieldsChanged = true;
             }
 
-            if ($request->filled('role')) {
+            if ($request->filled('role') && $request->input('role') !== $employee->user->getRoleNames()->first()) {
                 $employee->user->syncRoles([$request->input('role')]);
+                $securityFieldsChanged = true;
+            }
+
+            if ($securityFieldsChanged && $request->user()->id !== $employee->user->id) {
+                $employee->user->tokens()->delete();
             }
 
             $before = $this->auditService->valuesOf($employee);
@@ -111,17 +127,44 @@ class EmployeeController extends Controller
 
             $this->auditService->changes($request->user(), 'employee.updated', $employee, $before);
 
+            $device = $employee->devices()->where('is_active', true)->first();
+
+            if ($device && ($request->has('device_name') || $request->has('device_is_shared'))) {
+                $deviceUpdate = [];
+
+                if ($request->has('device_name')) {
+                    $deviceUpdate['name'] = $request->input('device_name') ?: null;
+                }
+
+                if ($request->has('device_is_shared')) {
+                    $deviceUpdate['is_shared'] = $request->boolean('device_is_shared');
+                }
+
+                $oldDevice = ['name' => $device->name, 'is_shared' => $device->is_shared];
+                $device->update($deviceUpdate);
+
+                $this->auditService->record(
+                    $request->user(),
+                    'device.updated',
+                    $device,
+                    $oldDevice,
+                    ['name' => $device->name, 'is_shared' => $device->is_shared],
+                );
+            }
+
             return $employee;
         });
 
         $this->auditService->changes($request->user(), 'employee.updated', $employee);
 
-        return new EmployeeResource($employee->load(['user.roles', 'branch']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices']));
     }
 
     public function destroy(Request $request, Employee $employee): JsonResponse
     {
         $employee->user->update(['is_active' => false]);
+
+        $employee->user->tokens()->delete();
 
         $this->auditService->record(
             $request->user(),
