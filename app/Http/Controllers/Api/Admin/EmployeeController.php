@@ -15,6 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeController extends Controller
 {
@@ -153,5 +155,17 @@ class EmployeeController extends Controller
         );
 
         return new EmployeeResource($employee->load(['user.roles', 'branch']));
+    }
+
+    public function referencePhotoStream(Request $request, Employee $employee): StreamedResponse
+    {
+        $path = $employee->reference_photo_path;
+
+        if (! $path || ! Storage::disk(config('dtr.attendance.photo_disk'))->exists($path)) {
+            abort(404, 'No reference photo found for this employee.');
+        }
+
+        return Storage::disk(config('dtr.attendance.photo_disk'))
+            ->response($path, 'reference_'.$employee->id.'.jpg');
     }
 }
