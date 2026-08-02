@@ -47,6 +47,7 @@ export function AttendancePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<AttendanceAdmin | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -107,13 +108,21 @@ export function AttendancePage() {
     [filters, applied],
   );
 
+  const hasApplied = useMemo(() => JSON.stringify(applied) !== JSON.stringify(EMPTY_FILTERS), [applied]);
+
   function applyFilters() {
+    if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+      setFilterError('The from date cannot be after the to date.');
+      return;
+    }
+    setFilterError(null);
     setPage(1);
     setApplied(filters);
   }
 
   function clearFilters() {
     setFilters(EMPTY_FILTERS);
+    setFilterError(null);
     setPage(1);
     setApplied(EMPTY_FILTERS);
   }
@@ -140,7 +149,7 @@ export function AttendancePage() {
           <h1 className="text-xl font-bold text-text">Attendance</h1>
           <p className="text-xs text-muted">Review punches, selfies and verification results</p>
         </div>
-        <Button variant="secondary" onClick={clearFilters} disabled={!dirty && !applied.date_from && !applied.date_to}>
+        <Button variant="secondary" onClick={clearFilters} disabled={!dirty && !hasApplied}>
           Clear filters
         </Button>
       </div>
@@ -214,6 +223,7 @@ export function AttendancePage() {
             </Button>
           </div>
         </div>
+        {filterError && <p className="mt-3 text-xs font-medium text-danger">{filterError}</p>}
       </Card>
 
       <Card>
@@ -235,7 +245,7 @@ export function AttendancePage() {
                   render: (r) => (
                     <div>
                       <div className="font-medium text-text">{r.employee.name}</div>
-                      <div className="text-xs text-muted">
+                      <div className="font-mono text-xs tnum text-muted">
                         {r.employee.employee_id} · {r.employee.department}
                       </div>
                     </div>
@@ -245,7 +255,7 @@ export function AttendancePage() {
                 {
                   key: 'timestamp',
                   header: 'Timestamp',
-                  render: (r) => <span className="whitespace-nowrap">{formatDateTime(r.timestamp)}</span>,
+                  render: (r) => <span className="font-mono tnum whitespace-nowrap">{formatDateTime(r.timestamp)}</span>,
                 },
                 {
                   key: 'branch',
@@ -267,7 +277,7 @@ export function AttendancePage() {
                 {
                   key: 'work',
                   header: 'Work',
-                  render: (r) => <span className="text-xs text-muted">{formatMinutes(r.work_minutes)}</span>,
+                  render: (r) => <span className="font-mono text-xs tnum text-muted">{formatMinutes(r.work_minutes)}</span>,
                 },
                 {
                   key: 'flags',
@@ -320,7 +330,7 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
       <div className="flex items-center justify-between">
         <div>
           <div className="text-base font-semibold text-text">{record.employee.name}</div>
-          <div className="text-xs text-muted">
+          <div className="font-mono text-xs tnum text-muted">
             {record.employee.employee_id} · {record.employee.department} · {record.employee.position}
           </div>
         </div>
@@ -328,11 +338,31 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
       </div>
 
       <div className="overflow-hidden rounded-md border border-border">
-        {record.photo ? (
-          <PhotoViewer url={`/api/admin/attendance/${record.id}/photo`} token={token} alt="Selfie" className="h-64 w-full" />
-        ) : (
-          <div className="flex h-40 items-center justify-center bg-bg text-xs text-muted">No selfie captured for this record</div>
-        )}
+        <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
+          <div>
+            <div className="bg-bg/50 px-3 py-1.5 text-xs font-medium text-muted">Selfie</div>
+            {record.photo ? (
+              <PhotoViewer
+                url={`/api/admin/attendance/${record.id}/photo`}
+                token={token}
+                alt={`Selfie of ${record.employee.name}`}
+                className="h-56 w-full"
+              />
+            ) : (
+              <div className="flex h-40 items-center justify-center bg-bg text-xs text-muted">No selfie captured for this record</div>
+            )}
+          </div>
+          <div>
+            <div className="bg-bg/50 px-3 py-1.5 text-xs font-medium text-muted">Reference photo</div>
+            <PhotoViewer
+              url={`/api/admin/employees/${record.employee.id}/reference-photo`}
+              token={token}
+              alt={`Reference photo of ${record.employee.name}`}
+              className="h-56 w-full"
+              fallbackText="No reference photo on file"
+            />
+          </div>
+        </div>
         {record.photo && (
           <div className="flex items-center gap-2 border-t border-border bg-bg/50 px-3 py-2">
             <Badge tone={record.photo.is_verified ? 'green' : 'red'}>{record.photo.is_verified ? 'Verified' : 'Not verified'}</Badge>
@@ -341,8 +371,8 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
         )}
       </div>
 
-      <Card className="divide-y divide-border px-4">
-        <DetailRow label="Timestamp">{formatDateTime(record.timestamp)}</DetailRow>
+      <Card className="divide-y divide-border px-4 py-3">
+            <DetailRow label="Timestamp"><span className="font-mono tnum">{formatDateTime(record.timestamp)}</span></DetailRow>
         <DetailRow label="Branch">
           {record.branch.name} ({record.branch.code})
         </DetailRow>
@@ -350,7 +380,7 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
           {record.device ? (
             <span className="inline-flex items-center gap-1">
               <Monitor size={13} />
-              {record.device.device_id}
+              {record.device.name ? `${record.device.name} (${record.device.device_id})` : record.device.device_id}
             </span>
           ) : (
             '—'
@@ -372,7 +402,9 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
         {gps ? (
           <div className="space-y-2">
             <DetailRow label="Coordinates">
-              {gps.latitude.toFixed(6)}, {gps.longitude.toFixed(6)}
+              <span className="font-mono tnum">
+                {Number(gps.latitude).toFixed(6)}, {Number(gps.longitude).toFixed(6)}
+              </span>
             </DetailRow>
             <DetailRow label="Distance from branch">{formatMeters(gps.distance_from_branch_meters)}</DetailRow>
             <DetailRow label="Accuracy">{gps.accuracy_meters !== null && gps.accuracy_meters !== undefined ? formatMeters(gps.accuracy_meters) : '—'}</DetailRow>
