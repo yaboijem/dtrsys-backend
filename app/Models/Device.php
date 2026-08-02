@@ -16,18 +16,21 @@ class Device extends Model
     protected $fillable = [
         'employee_id',
         'device_id',
+        'name',
         'platform',
         'model',
         'app_version',
         'first_seen_at',
         'last_seen_at',
         'is_active',
+        'is_shared',
     ];
 
     protected $casts = [
         'first_seen_at' => 'datetime',
         'last_seen_at' => 'datetime',
         'is_active' => 'boolean',
+        'is_shared' => 'boolean',
     ];
 
     public function employee(): BelongsTo
