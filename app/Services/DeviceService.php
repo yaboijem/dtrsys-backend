@@ -21,6 +21,16 @@ class DeviceService
         $existing = Device::where('device_id', $deviceId)->first();
 
         if ($existing && $existing->employee_id !== $employee->id) {
+            if ($existing->is_shared) {
+                $existing->update([
+                    'last_seen_at' => now(),
+                    'is_active' => true,
+                    ...$metadata,
+                ]);
+
+                return ['status' => self::STATUS_REGISTERED, 'device' => $existing];
+            }
+
             return [
                 'status' => self::STATUS_BLOCKED,
                 'device' => $existing,
