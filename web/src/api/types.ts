@@ -88,7 +88,7 @@ export interface AttendanceAdmin {
     position: string;
   };
   branch: BranchRef;
-  device: { id: number; device_id: string } | null;
+  device: { id: number; device_id: string; name: string | null } | null;
   photo: { path: string; is_verified: boolean; liveness_status: string | null } | null;
   gps_location: {
     latitude: number;
@@ -151,6 +151,12 @@ export interface Employee {
   is_active: boolean;
   roles: string[] | null;
   branch: BranchRef | null;
+  active_device: {
+    id: number;
+    device_id: string;
+    name: string | null;
+    is_shared: boolean;
+  } | null;
   reference_photo_path: string | null;
 }
 
@@ -184,4 +190,46 @@ export interface ScheduleAdmin {
   date: string;
   employee: { id: number; employee_id: string; name: string; department: string; branch_id: number };
   shift: { id: number; name: string; start_time: string; end_time: string; grace_minutes: number | null };
+}
+
+export type DeviceChangeRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DeviceChangeRequest {
+  id: number;
+  employee: { id: number; full_name: string; employee_id: string; branch: string | null } | null;
+  current_device_id: number | null;
+  current_device: string | null;
+  new_device_id: string;
+  reason: string | null;
+  status: DeviceChangeRequestStatus;
+  review_notes: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export type DataRequestStatus = 'pending' | 'completed' | 'rejected';
+export type DataRequestType = 'access' | 'deletion';
+
+export interface DataRequest {
+  id: number;
+  type: DataRequestType;
+  status: DataRequestStatus;
+  notes: string | null;
+  processed_at: string | null;
+  processed_by: { id: number; name: string } | null;
+  user: { id: number; employee_id: string; name: string } | null;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: number;
+  action: string;
+  model_type: string | null;
+  model_id: number | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  actor: { id: number; employee_id: string; name: string } | null;
+  created_at: string;
 }

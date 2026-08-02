@@ -1,8 +1,13 @@
 import { api } from './client';
 import type {
   AttendanceAdmin,
+  AuditLog,
   Branch,
   DashboardSummary,
+  DataRequest,
+  DataRequestStatus,
+  DeviceChangeRequest,
+  DeviceChangeRequestStatus,
   Employee,
   FraudFlag,
   LoginResponse,
@@ -60,7 +65,7 @@ export function login(employeeId: string, password: string, deviceId?: string): 
   });
 }
 
-export function verifyMfa(mfaToken: string, code: string, recoveryCode?: string): Promise<LoginResponse> {
+export function verifyMfa(mfaToken: string, code?: string, recoveryCode?: string): Promise<LoginResponse> {
   return api.post<LoginResponse>('/api/auth/mfa/verify', {
     mfa_token: mfaToken,
     code,
@@ -69,7 +74,7 @@ export function verifyMfa(mfaToken: string, code: string, recoveryCode?: string)
 }
 
 export function fetchMe(token: string): Promise<User> {
-  return api.get<User>('/api/auth/me', undefined, token);
+  return api.get<{ data: User }>('/api/auth/me', undefined, token).then((r) => r.data);
 }
 
 export function logout(token: string): Promise<void> {
@@ -114,6 +119,8 @@ export interface EmployeePayload {
   position: string;
   date_hired?: string | null;
   is_active: boolean;
+  device_name?: string | null;
+  device_is_shared?: boolean;
 }
 
 export function createEmployee(payload: EmployeePayload, token: string): Promise<Employee> {
@@ -196,4 +203,32 @@ export function createSchedule(payload: { employee_id: number; shift_id: number;
 
 export function deleteSchedule(id: number, token: string): Promise<{ message: string }> {
   return api.delete<{ message: string }>(`/api/admin/schedules/${id}`, token);
+}
+
+export function listDeviceChangeRequests(params: PaginationParams, token: string): Promise<Paginated<DeviceChangeRequest>> {
+  return api.get<RawPaginated<DeviceChangeRequest>>('/api/admin/device-change-requests', params, token).then(toPaginated);
+}
+
+export function reviewDeviceChangeRequest(
+  id: number,
+  payload: { status: Exclude<DeviceChangeRequestStatus, 'pending'>; review_notes?: string },
+  token: string,
+): Promise<DeviceChangeRequest> {
+  return api.patch<DeviceChangeRequest>(`/api/admin/device-change-requests/${id}`, payload, token);
+}
+
+export function listDataRequests(params: PaginationParams, token: string): Promise<Paginated<DataRequest>> {
+  return api.get<RawPaginated<DataRequest>>('/api/admin/data-requests', params, token).then(toPaginated);
+}
+
+export function reviewDataRequest(
+  id: number,
+  payload: { status: Exclude<DataRequestStatus, 'pending'>; notes?: string },
+  token: string,
+): Promise<DataRequest> {
+  return api.patch<DataRequest>(`/api/admin/data-requests/${id}`, payload, token);
+}
+
+export function listAuditLogs(params: PaginationParams, token: string): Promise<Paginated<AuditLog>> {
+  return api.get<RawPaginated<AuditLog>>('/api/admin/audit-logs', params, token).then(toPaginated);
 }
