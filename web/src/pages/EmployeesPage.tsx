@@ -34,6 +34,8 @@ interface FormState {
   position: string;
   date_hired: string;
   is_active: boolean;
+  device_name: string;
+  device_is_shared: boolean;
 }
 
 function emptyForm(): FormState {
@@ -51,6 +53,8 @@ function emptyForm(): FormState {
     position: '',
     date_hired: '',
     is_active: true,
+    device_name: '',
+    device_is_shared: false,
   };
 }
 
@@ -145,6 +149,8 @@ export function EmployeesPage() {
       position: employee.position,
       date_hired: employee.date_hired ?? '',
       is_active: employee.is_active,
+      device_name: employee.active_device?.name ?? '',
+      device_is_shared: employee.active_device?.is_shared ?? false,
     });
     setFieldErrors({});
     setPhotoFile(null);
@@ -170,6 +176,7 @@ export function EmployeesPage() {
         position: form.position.trim(),
         date_hired: form.date_hired || null,
         is_active: form.is_active,
+        ...(editing?.active_device ? { device_name: form.device_name.trim(), device_is_shared: form.device_is_shared } : {}),
         ...(form.password ? { password: form.password } : {}),
       };
       if (editing) {
@@ -287,7 +294,7 @@ export function EmployeesPage() {
                   render: (r) => (
                     <div>
                       <div className="font-medium text-text">{r.full_name}</div>
-                      <div className="text-xs text-muted">
+                      <div className="font-mono text-xs tnum text-muted">
                         {r.employee_id} · {r.email}
                       </div>
                     </div>
@@ -322,6 +329,7 @@ export function EmployeesPage() {
                         onClick={() => openEdit(r)}
                         className="rounded p-1.5 text-muted hover:bg-bg hover:text-primary cursor-pointer"
                         title="Edit"
+                        aria-label={`Edit ${r.full_name}`}
                       >
                         <Pencil size={14} />
                       </button>
@@ -331,6 +339,7 @@ export function EmployeesPage() {
                           onClick={() => setDeactivating(r)}
                           className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer"
                           title="Deactivate"
+                          aria-label={`Deactivate ${r.full_name}`}
                         >
                           <UserMinus size={14} />
                         </button>
@@ -396,8 +405,35 @@ export function EmployeesPage() {
           <Field label="Date hired" error={fieldErrors.date_hired?.[0]}>
             <Input type="date" value={form.date_hired} onChange={(e) => setForm({ ...form, date_hired: e.target.value })} />
           </Field>
+          {editing && (
+            <div className="space-y-3 rounded-md border border-border p-3 sm:col-span-2">
+              <div className="text-xs font-semibold text-muted">Device</div>
+              {editing.active_device ? (
+                <>
+                  <Field label="Device name" error={fieldErrors.device_name?.[0]}>
+                    <Input
+                      value={form.device_name}
+                      maxLength={100}
+                      onChange={(e) => setForm({ ...form, device_name: e.target.value })}
+                      placeholder="e.g. Juan's work phone"
+                    />
+                  </Field>
+                  <div className="flex items-center gap-2">
+                    <Toggle
+                      checked={form.device_is_shared}
+                      onChange={(v) => setForm({ ...form, device_is_shared: v })}
+                      label="Shared device"
+                    />
+                    <span className="text-sm text-text">Shared device (any employee can log in)</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted">No active device</p>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2 sm:col-span-2">
-            <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} />
+            <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Account active" />
             <span className="text-sm text-text">Account active</span>
           </div>
 
@@ -421,7 +457,7 @@ export function EmployeesPage() {
             </div>
           )}
 
-          <div className="mt-2 flex justify-end gap-2 sm:col-span-2">
+          <div className="mt-4 flex justify-end gap-2 sm:col-span-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>
