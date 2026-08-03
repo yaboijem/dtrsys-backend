@@ -135,6 +135,20 @@ class AttendanceAdminApiTest extends TestCase
     }
 
     #[Test]
+    public function attendance_list_filters_by_early_timeout(): void
+    {
+        $hr = $this->makeUser('HR');
+        $branch = Branch::factory()->create();
+        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => true]);
+        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => false]);
+
+        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/attendance?is_early_timeout=true')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.is_early_timeout', true);
+    }
+
+    #[Test]
     public function employees_cannot_access_attendance_admin(): void
     {
         $employee = $this->makeUser('Employee');
@@ -233,6 +247,20 @@ class AttendanceAdminApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('time_ins_today', 1)
             ->assertJsonPath('absent_today', 3);
+    }
+
+    #[Test]
+    public function dashboard_counts_early_time_outs(): void
+    {
+        $branch = Branch::factory()->create();
+        $hr = $this->makeUser('HR', $branch);
+
+        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => true, 'timestamp' => now()]);
+        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => false, 'timestamp' => now()]);
+
+        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
+            ->assertOk()
+            ->assertJsonPath('early_time_outs_today', 1);
     }
 
     #[Test]

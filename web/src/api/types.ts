@@ -53,6 +53,7 @@ export interface DashboardSummary {
   date: string;
   time_ins_today: number;
   late_ins_today: number;
+  early_time_outs_today: number;
   absent_today: number;
   open_fraud_flags: number;
   pending_device_change_requests: number;
@@ -76,6 +77,7 @@ export interface AttendanceAdmin {
   type: AttendanceType;
   timestamp: string;
   is_late: boolean;
+  is_early_timeout: boolean;
   work_minutes: number | null;
   source: AttendanceSource;
   is_offline: boolean;

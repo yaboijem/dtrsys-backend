@@ -49,34 +49,34 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <Screen contentContainerStyle={styles.page}>
       <View style={[styles.brand, cardShadow(isDark), { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.band, { backgroundColor: colors.band }]}>
-          <Text style={[styles.bandName, { color: colors.bandText }]}>DTR</Text>
-          <Text style={[microLabel, { color: colors.bandText, opacity: 0.8 }]}>Daily Time Record</Text>
+        <View style={[styles.mark, { backgroundColor: colors.band }]}>
+          <Text style={[styles.markText, { color: colors.bandText }]}>DTR</Text>
         </View>
-        <View style={styles.bandBody}>
-          <Text style={[styles.signInLabel, { color: colors.muted }]}>Employee sign-in</Text>
+        <Text style={[styles.title, { color: colors.ink }]}>Daily Time Record</Text>
+        <Text style={[microLabel, styles.subtitle, { color: colors.muted, opacity: 0.8 }]}>Employee sign-in</Text>
+
+        <View style={styles.fields}>
+          <LabeledInput
+            label="Employee ID"
+            value={employeeId}
+            onChangeText={setEmployeeId}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="Enter your employee ID"
+          />
+          <LabeledInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="Enter your password"
+          />
+
+          <Button title="Login" onPress={handleLogin} loading={loading} />
         </View>
       </View>
 
       {error ? <Banner kind="error" title="Login failed" detail={error} /> : null}
-
-      <LabeledInput
-        label="Employee ID"
-        value={employeeId}
-        onChangeText={setEmployeeId}
-        autoCapitalize="characters"
-        autoCorrect={false}
-        placeholder="Enter your employee ID"
-      />
-      <LabeledInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="Enter your password"
-      />
-
-      <Button title="Login" onPress={handleLogin} loading={loading} />
 
       {DEV_OTP_ENABLED ? (
         <View>
@@ -95,29 +95,37 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
   },
   brand: {
+    alignItems: 'stretch',
     borderRadius: radius.lg,
     borderWidth: 1,
-    overflow: 'hidden',
     marginBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
-  band: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  mark: {
+    alignSelf: 'center',
+    borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
-  bandName: {
+  markText: {
     fontSize: fontSize.xl,
     fontWeight: '800',
     letterSpacing: 3,
   },
-  bandBody: {
-    padding: spacing.lg,
+  title: {
+    fontSize: fontSize.xxl,
+    fontWeight: '800',
+    marginTop: spacing.lg,
+    textAlign: 'center',
   },
-  signInLabel: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
+  subtitle: {
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  fields: {
+    gap: spacing.lg,
+    marginTop: spacing.xl,
   },
   hint: {
     marginTop: spacing.sm,

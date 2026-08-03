@@ -82,7 +82,7 @@ export function HistoryScreen() {
     if (p.fraud_flags?.length) {
       return 'danger';
     }
-    if (p.type === 'time_in' && p.is_late) {
+    if ((p.type === 'time_in' && p.is_late) || (p.type === 'time_out' && p.is_early_timeout)) {
       return 'warning';
     }
     return 'neutral';
@@ -146,6 +146,7 @@ export function HistoryScreen() {
             <View style={styles.rowTop}>
               <Tag label={item.type === 'time_in' ? 'Time in' : 'Time out'} tone={toneFor(item)} />
               {item.is_late ? <Tag label="late" tone="warning" /> : null}
+              {item.type === 'time_out' && item.is_early_timeout ? <Tag label="early out" tone="warning" /> : null}
               {item.is_offline ? <Tag label="offline" tone="neutral" /> : null}
               {item.fraud_flags?.map((f) => (
                 <Tag key={f.type} label={f.type} tone="danger" />

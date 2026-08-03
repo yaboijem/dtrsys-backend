@@ -6,6 +6,8 @@ use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Device;
 use App\Models\Employee;
+use App\Models\Schedule;
+use App\Models\Shift;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -210,6 +212,32 @@ class AttendanceApiTest extends TestCase
     }
 
     #[Test]
+    public function time_out_exposes_early_timeout_flag(): void
+    {
+        $employee = $this->makeEmployee();
+        $shift = Shift::factory()->create(['start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_minutes' => 0]);
+        Schedule::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'date' => now()->toDateString(),
+        ]);
+
+        $this->travelTo(now()->startOfDay()->setTime(8, 0));
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
+            ...$this->punchPayload($employee->branch),
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertCreated();
+
+        $this->travelTo(now()->setTime(15, 0));
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-out', [
+            ...$this->punchPayload($employee->branch),
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertCreated()
+            ->assertJsonPath('data.type', 'time_out')
+            ->assertJsonPath('data.is_early_timeout', true);
+    }
+
+    #[Test]
     public function offline_records_can_be_synced(): void
     {
         $employee = $this->makeEmployee();
@@ -221,7 +249,7 @@ class AttendanceApiTest extends TestCase
 
         $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
             'device_id' => 'sync-phone',
-            'records' => [
+            'records' => json_encode([
                 [
                     'client_uuid' => 'rec-a',
                     'type' => 'time_in',
@@ -238,7 +266,7 @@ class AttendanceApiTest extends TestCase
                     'longitude' => (float) $branch->longitude + 0.0001,
                     'accuracy_meters' => 10,
                 ],
-            ],
+            ]),
         ])->assertOk()
             ->assertJsonPath('synced', 2)
             ->assertJsonPath('failed', 0);
@@ -249,12 +277,57 @@ class AttendanceApiTest extends TestCase
     }
 
     #[Test]
+    public function synced_time_out_before_shift_end_is_flagged_early(): void
+    {
+        $employee = $this->makeEmployee();
+        Device::factory()->create([
+            'employee_id' => $employee->id,
+            'device_id' => 'sync-phone-early',
+        ]);
+        $branch = $employee->branch;
+        $shift = Shift::factory()->create(['start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_minutes' => 0]);
+
+        $this->travelTo(now()->startOfDay()->setTime(10, 0));
+        Schedule::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'date' => now()->toDateString(),
+        ]);
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
+            'device_id' => 'sync-phone-early',
+            'records' => json_encode([
+                [
+                    'client_uuid' => 'early-in',
+                    'type' => 'time_in',
+                    'timestamp' => now()->setTime(8, 0)->toDateTimeString(),
+                    'latitude' => (float) $branch->latitude + 0.0001,
+                    'longitude' => (float) $branch->longitude + 0.0001,
+                    'accuracy_meters' => 10,
+                ],
+                [
+                    'client_uuid' => 'early-out',
+                    'type' => 'time_out',
+                    'timestamp' => now()->setTime(9, 0)->toDateTimeString(),
+                    'latitude' => (float) $branch->latitude + 0.0001,
+                    'longitude' => (float) $branch->longitude + 0.0001,
+                    'accuracy_meters' => 10,
+                ],
+            ]),
+        ])->assertOk()
+            ->assertJsonPath('synced', 2)
+            ->assertJsonPath('failed', 0);
+
+        $this->assertDatabaseHas('attendance', ['uuid' => 'early-out', 'is_early_timeout' => true]);
+    }
+
+    #[Test]
     public function sync_rejects_future_timestamps(): void
     {
         $employee = $this->makeEmployee();
 
         $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
-            'records' => [
+            'records' => json_encode([
                 [
                     'client_uuid' => 'rec-future',
                     'type' => 'time_in',
@@ -262,7 +335,7 @@ class AttendanceApiTest extends TestCase
                     'latitude' => 14.55,
                     'longitude' => 121.02,
                 ],
-            ],
+            ]),
         ])->assertOk()
             ->assertJsonPath('synced', 0)
             ->assertJsonPath('failed', 1);

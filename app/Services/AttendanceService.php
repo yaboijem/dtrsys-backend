@@ -65,7 +65,7 @@ class AttendanceService
             $gps = $this->verifyGps($employee, $data);
             $shift = $this->scheduleService->shiftFor($employee, $now);
 
-            $attendance = $this->createPunch($employee, 'time_out', $now, $data, $shift);
+            $attendance = $this->createPunch($employee, 'time_out', $now, $data, $shift, $timeIn->timestamp);
             $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now, $shift)]);
 
             $this->storeGpsLocation($attendance, $employee, $gps);
@@ -88,6 +88,21 @@ class AttendanceService
         return $now->gt($cutoff);
     }
 
+    public function isEarlyTimeout(Carbon $timeOut, ?Shift $shift, ?Carbon $shiftDate = null): bool
+    {
+        if (! $shift) {
+            return false;
+        }
+
+        $end = ($shiftDate ?? $timeOut)->copy()->setTimeFromTimeString($shift->end_time);
+
+        if ($shift->end_time < $shift->start_time) {
+            $end->addDay();
+        }
+
+        return $timeOut->lt($end);
+    }
+
     public function computeWorkMinutes(Attendance $timeIn, Carbon $timeOut, ?Shift $shift): int
     {
         $total = max(0, (int) $timeIn->timestamp->diffInMinutes($timeOut));
@@ -106,7 +121,7 @@ class AttendanceService
         return max(0, $total);
     }
 
-    private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift): Attendance
+    private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift, ?Carbon $shiftDate = null): Attendance
     {
         return Attendance::create([
             'employee_id' => $employee->id,
@@ -119,6 +134,7 @@ class AttendanceService
             'gps_accuracy_meters' => $data['accuracy_meters'] ?? null,
             'is_offline' => (bool) ($data['is_offline'] ?? false),
             'is_late' => $type === 'time_in' && $this->isLate($now, $shift),
+            'is_early_timeout' => $type === 'time_out' && $this->isEarlyTimeout($now, $shift, $shiftDate),
             'source' => $data['source'] ?? 'app',
             'notes' => $data['notes'] ?? null,
             'synced_at' => now(),

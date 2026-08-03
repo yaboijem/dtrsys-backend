@@ -14,7 +14,7 @@ import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { GateLamp } from '../components/GateLamp';
 import { Screen } from '../components/Screen';
 import { Stamp } from '../components/Stamp';
-import { distanceLabel, errorMessage, formatDateTime, formatTime, minutesToDuration, toLocalDate } from '../lib/format';
+import { distanceLabel, errorMessage, formatClockTime, formatDateTime, formatTime, minutesToDuration, toLocalDate } from '../lib/format';
 import { photoFileInfo, resolveGpsPosition } from '../lib/location';
 import { enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { useUnread } from '../notifications/UnreadContext';
@@ -60,6 +60,7 @@ export function HomeScreen() {
     timestamp: p.timestamp,
     is_offline: true,
     is_late: false,
+    is_early_timeout: false,
     work_minutes: null,
     source,
     notes: null,
@@ -87,9 +88,9 @@ export function HomeScreen() {
       const today = toLocalDate(new Date());
       await Promise.all([
         api
-          .get<Schedule>('/api/schedule/today', undefined, token)
+          .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
           .then((s) => {
-            setSchedule(s);
+            setSchedule(s.data);
             setScheduleMessage(null);
           })
           .catch((err: unknown) => {
@@ -365,8 +366,8 @@ export function HomeScreen() {
         ) : schedule ? (
           <>
             <Row label="Shift" value={schedule.shift?.name ?? 'No shift'} />
-            <Row label="Start" value={schedule.shift?.start_time ?? '—'} />
-            <Row label="End" value={schedule.shift?.end_time ?? '—'} />
+            <Row label="Start" value={formatClockTime(schedule.shift?.start_time)} />
+            <Row label="End" value={formatClockTime(schedule.shift?.end_time)} />
             {schedule.shift?.grace_minutes != null ? (
               <Row label="Grace period" value={`${schedule.shift.grace_minutes} min`} />
             ) : null}

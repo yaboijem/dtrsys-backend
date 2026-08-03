@@ -68,9 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (storedToken && storedUser) {
           try {
-            const me = await apiRef.current.get<User>('/api/auth/me', undefined, storedToken);
+            const me = await apiRef.current.get<{ data: User }>('/api/auth/me', undefined, storedToken);
             setToken(storedToken);
-            setUser(me);
+            setUser(me.data);
             setStatus('authed');
             return;
           } catch {
@@ -172,9 +172,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!token) {
       return;
     }
-    const me = await apiRef.current.get<User>('/api/auth/me', undefined, token);
-    setUser(me);
-    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me));
+    const me = await apiRef.current.get<{ data: User }>('/api/auth/me', undefined, token);
+    setUser(me.data);
+    await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me.data));
   }, [token]);
 
   const setDeviceId = useCallback(async (id: string) => {

@@ -58,6 +58,10 @@ function emptyForm(): FormState {
   };
 }
 
+function composeFullName(firstName: string, middleName: string, lastName: string): string {
+  return [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
+}
+
 export function EmployeesPage() {
   const { token } = useAuth();
   const { notify } = useToast();
@@ -137,7 +141,7 @@ export function EmployeesPage() {
     setEditing(employee);
     setForm({
       employee_id: employee.employee_id,
-      name: `${employee.first_name}${employee.middle_name ? ' ' + employee.middle_name : ''} ${employee.last_name}`,
+      name: composeFullName(employee.first_name, employee.middle_name ?? '', employee.last_name),
       email: employee.email,
       password: '',
       role: employee.roles?.[0] ?? 'Employee',
@@ -360,7 +364,7 @@ export function EmployeesPage() {
             <Input value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} disabled={!!editing} />
           </Field>
           <Field label="Full name" required error={fieldErrors.name?.[0]}>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled />
           </Field>
           <Field label="Email" required error={fieldErrors.email?.[0]}>
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -388,13 +392,28 @@ export function EmployeesPage() {
             </Select>
           </Field>
           <Field label="First name" required error={fieldErrors.first_name?.[0]}>
-            <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Input
+              value={form.first_name}
+              onChange={(e) =>
+                setForm({ ...form, first_name: e.target.value, name: composeFullName(e.target.value, form.middle_name, form.last_name) })
+              }
+            />
           </Field>
           <Field label="Middle name" error={fieldErrors.middle_name?.[0]}>
-            <Input value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} />
+            <Input
+              value={form.middle_name}
+              onChange={(e) =>
+                setForm({ ...form, middle_name: e.target.value, name: composeFullName(form.first_name, e.target.value, form.last_name) })
+              }
+            />
           </Field>
           <Field label="Last name" required error={fieldErrors.last_name?.[0]}>
-            <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <Input
+              value={form.last_name}
+              onChange={(e) =>
+                setForm({ ...form, last_name: e.target.value, name: composeFullName(form.first_name, form.middle_name, e.target.value) })
+              }
+            />
           </Field>
           <Field label="Department" required error={fieldErrors.department?.[0]}>
             <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />

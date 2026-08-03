@@ -33,6 +33,7 @@ class Attendance extends Model
         'gps_accuracy_meters',
         'is_offline',
         'is_late',
+        'is_early_timeout',
         'work_minutes',
         'source',
         'notes',
@@ -43,6 +44,7 @@ class Attendance extends Model
         'timestamp' => 'datetime',
         'is_offline' => 'boolean',
         'is_late' => 'boolean',
+        'is_early_timeout' => 'boolean',
         'work_minutes' => 'integer',
         'synced_at' => 'datetime',
     ];

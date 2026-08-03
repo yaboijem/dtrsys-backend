@@ -28,6 +28,7 @@ class AttendanceAdminController extends Controller
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->integer('employee_id')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
             ->when($request->filled('is_late'), fn ($q) => $q->where('is_late', $request->boolean('is_late')))
+            ->when($request->filled('is_early_timeout'), fn ($q) => $q->where('is_early_timeout', $request->boolean('is_early_timeout')))
             ->when($request->filled('source'), fn ($q) => $q->where('source', $request->input('source')))
             ->when($request->boolean('has_open_flags'), fn ($q) => $q->whereHas('fraudFlags', fn ($q) => $q->where('status', 'open')));
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Flag, Timer, UserX, Clock4, Activity } from 'lucide-react';
+import { CalendarClock, Flag, Timer, UserX, Clock4, LogOut, Activity } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { dashboardSummary, listAuditLogs } from '../api/endpoints';
 import type { AuditLog, DashboardSummary } from '../api/types';
@@ -67,6 +67,7 @@ export function DashboardPage() {
   const stats: StatDef[] = [
     { key: 'time_ins_today', label: 'Time-ins today', value: summary.time_ins_today, icon: <CalendarClock size={18} />, tone: 'bg-cyan-50 text-primary' },
     { key: 'late_ins_today', label: 'Late arrivals', value: summary.late_ins_today, icon: <Clock4 size={18} />, tone: 'bg-amber-50 text-warning' },
+    { key: 'early_time_outs_today', label: 'Early time outs', value: summary.early_time_outs_today, icon: <LogOut size={18} />, tone: 'bg-amber-50 text-warning' },
     { key: 'absent_today', label: 'Absent today', value: summary.absent_today, icon: <UserX size={18} />, tone: 'bg-slate-100 text-muted' },
     { key: 'open_fraud_flags', label: 'Open fraud flags', value: summary.open_fraud_flags, icon: <Flag size={18} />, tone: 'bg-red-50 text-danger' },
     { key: 'pending_device_change_requests', label: 'Pending device requests', value: summary.pending_device_change_requests, icon: <Timer size={18} />, tone: 'bg-violet-50 text-violet-700' },

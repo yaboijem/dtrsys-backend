@@ -19,6 +19,7 @@ interface Filters {
   employee_id: string;
   type: string;
   is_late: string;
+  is_early_timeout: string;
   source: string;
   has_open_flags: string;
 }
@@ -31,6 +32,7 @@ const EMPTY_FILTERS: Filters = {
   employee_id: '',
   type: '',
   is_late: '',
+  is_early_timeout: '',
   source: '',
   has_open_flags: '',
 };
@@ -87,6 +89,7 @@ export function AttendancePage() {
       if (applied.employee_id) params.employee_id = applied.employee_id;
       if (applied.type) params.type = applied.type;
       if (applied.is_late !== '') params.is_late = applied.is_late === '1';
+      if (applied.is_early_timeout !== '') params.is_early_timeout = applied.is_early_timeout === '1';
       if (applied.source) params.source = applied.source;
       if (applied.has_open_flags !== '') params.has_open_flags = applied.has_open_flags === '1';
       const result = await listAttendance(params, token);
@@ -203,6 +206,13 @@ export function AttendancePage() {
               <option value="0">On time</option>
             </Select>
           </Field>
+          <Field label="Early out">
+            <Select value={filters.is_early_timeout} onChange={(e) => setFilters({ ...filters, is_early_timeout: e.target.value })}>
+              <option value="">All</option>
+              <option value="1">Early out only</option>
+              <option value="0">Not early</option>
+            </Select>
+          </Field>
           <Field label="Source">
             <Select value={filters.source} onChange={(e) => setFilters({ ...filters, source: e.target.value })}>
               <option value="">All sources</option>
@@ -273,6 +283,18 @@ export function AttendancePage() {
                   header: 'Late',
                   render: (r) =>
                     r.is_late ? <Badge tone="amber">Late</Badge> : r.type === 'time_in' ? <Badge tone="gray">On time</Badge> : <span className="text-xs text-muted">—</span>,
+                },
+                {
+                  key: 'early',
+                  header: 'Early out',
+                  render: (r) =>
+                    r.type === 'time_out' && r.is_early_timeout ? (
+                      <Badge tone="amber">Early out</Badge>
+                    ) : r.type === 'time_out' ? (
+                      <Badge tone="gray">On time</Badge>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    ),
                 },
                 {
                   key: 'work',
@@ -387,6 +409,13 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
           )}
         </DetailRow>
         <DetailRow label="Work minutes">{formatMinutes(record.work_minutes)}</DetailRow>
+        <DetailRow label="Early timeout">
+          {record.type === 'time_out' ? (
+            record.is_early_timeout ? <Badge tone="amber">Early out</Badge> : <Badge tone="gray">On time</Badge>
+          ) : (
+            '—'
+          )}
+        </DetailRow>
         <DetailRow label="Source">
           <span className="inline-flex items-center gap-1.5">
             {record.is_offline ? <Badge tone="amber">Offline</Badge> : <Badge tone="gray">{record.source}</Badge>}

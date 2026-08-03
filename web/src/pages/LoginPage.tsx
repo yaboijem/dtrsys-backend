@@ -69,7 +69,7 @@ export function LoginPage() {
             <Input
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              placeholder="e.g. HR001"
+              placeholder="Enter your employee ID"
               autoComplete="username"
               autoFocus
             />
@@ -79,7 +79,7 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               autoComplete="current-password"
             />
           </Field>

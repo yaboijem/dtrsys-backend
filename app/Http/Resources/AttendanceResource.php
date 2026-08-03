@@ -16,6 +16,7 @@ class AttendanceResource extends JsonResource
             'timestamp' => $this->timestamp?->toISOString(),
             'is_offline' => $this->is_offline,
             'is_late' => $this->is_late,
+            'is_early_timeout' => $this->is_early_timeout,
             'work_minutes' => $this->work_minutes,
             'source' => $this->source,
             'notes' => $this->notes,

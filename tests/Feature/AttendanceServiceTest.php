@@ -189,6 +189,80 @@ class AttendanceServiceTest extends TestCase
     }
 
     #[Test]
+    public function early_timeout_is_flagged_when_clocking_out_before_shift_end(): void
+    {
+        [$employee] = $this->makeEmployeeWithBranch();
+        $shift = Shift::factory()->create(['start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_minutes' => 0]);
+        Schedule::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'date' => now()->toDateString(),
+        ]);
+        $service = app(AttendanceService::class);
+
+        $this->travelTo(now()->setTime(8, 0));
+        $service->timeIn($employee->user, $this->punchData($employee->branch));
+
+        $this->travelTo(now()->setTime(15, 0));
+        $timeOut = $service->timeOut($employee->user, $this->punchData($employee->branch));
+
+        $this->assertTrue($timeOut->is_early_timeout);
+    }
+
+    #[Test]
+    public function time_out_at_or_after_shift_end_is_not_flagged_early(): void
+    {
+        [$employee] = $this->makeEmployeeWithBranch();
+        $shift = Shift::factory()->create(['start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_minutes' => 0]);
+        Schedule::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'date' => now()->toDateString(),
+        ]);
+        $service = app(AttendanceService::class);
+
+        $this->travelTo(now()->setTime(8, 0));
+        $service->timeIn($employee->user, $this->punchData($employee->branch));
+
+        $this->travelTo(now()->setTime(17, 0));
+        $timeOut = $service->timeOut($employee->user, $this->punchData($employee->branch));
+
+        $this->assertFalse($timeOut->is_early_timeout);
+    }
+
+    #[Test]
+    public function time_out_without_a_schedule_is_not_flagged_early(): void
+    {
+        [$employee] = $this->makeEmployeeWithBranch();
+        $service = app(AttendanceService::class);
+
+        $this->travelTo(now()->setTime(8, 0));
+        $service->timeIn($employee->user, $this->punchData($employee->branch));
+
+        $this->travelTo(now()->setTime(15, 0));
+        $timeOut = $service->timeOut($employee->user, $this->punchData($employee->branch));
+
+        $this->assertFalse($timeOut->is_early_timeout);
+    }
+
+    #[Test]
+    public function time_in_is_never_flagged_early(): void
+    {
+        [$employee] = $this->makeEmployeeWithBranch();
+        $shift = Shift::factory()->create(['start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_minutes' => 0]);
+        Schedule::create([
+            'employee_id' => $employee->id,
+            'shift_id' => $shift->id,
+            'date' => now()->toDateString(),
+        ]);
+
+        $this->travelTo(now()->setTime(9, 0));
+        $timeIn = app(AttendanceService::class)->timeIn($employee->user, $this->punchData($employee->branch));
+
+        $this->assertFalse($timeIn->is_early_timeout);
+    }
+
+    #[Test]
     public function time_in_records_the_device(): void
     {
         [$employee] = $this->makeEmployeeWithBranch();

@@ -55,6 +55,7 @@ export interface Attendance {
   timestamp: string;
   is_offline: boolean;
   is_late: boolean;
+  is_early_timeout: boolean;
   work_minutes: number | null;
   source: string | null;
   notes: string | null;

@@ -52,6 +52,24 @@ export function formatTime(iso: string | null | undefined): string {
   return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+export function formatClockTime(time: string | null | undefined): string {
+  if (!time) {
+    return '—';
+  }
+  const match = /^(\d{1,2}):(\d{2})/.exec(time);
+  if (!match) {
+    return time;
+  }
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  if (hours === 0) {
+    hours = 12;
+  }
+  return `${hours}:${minutes} ${suffix}`;
+}
+
 export function minutesToDuration(minutes: number | null | undefined): string {
   if (minutes === null || minutes === undefined) {
     return '—';

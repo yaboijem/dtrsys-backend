@@ -49,7 +49,11 @@ class EmployeeController extends Controller
         $employee = DB::transaction(function () use ($request) {
             $user = User::create([
                 'employee_id' => $request->input('employee_id'),
-                'name' => $request->input('name'),
+                'name' => $this->composeName(
+                    $request->input('first_name'),
+                    $request->input('middle_name'),
+                    $request->input('last_name'),
+                ),
                 'email' => $request->input('email'),
                 'password' => $request->input('password'),
                 'is_active' => $request->boolean('is_active', true),
@@ -86,7 +90,11 @@ class EmployeeController extends Controller
 
             $userUpdate = [
                 'employee_id' => $request->input('employee_id', $employee->user->employee_id),
-                'name' => $request->input('name', $employee->user->name),
+                'name' => $this->composeName(
+                    $request->input('first_name', $employee->first_name),
+                    $request->has('middle_name') ? $request->input('middle_name') : $employee->middle_name,
+                    $request->input('last_name', $employee->last_name),
+                ),
                 'email' => $request->input('email', $employee->user->email),
                 'is_active' => $request->boolean('is_active', $employee->user->is_active),
             ];
@@ -210,5 +218,13 @@ class EmployeeController extends Controller
 
         return Storage::disk(config('dtr.attendance.photo_disk'))
             ->response($path, 'reference_'.$employee->id.'.jpg');
+    }
+
+    private function composeName(string $firstName, ?string $middleName, string $lastName): string
+    {
+        return trim(implode(' ', array_filter(
+            [$firstName, $middleName, $lastName],
+            fn ($part) => $part !== null && $part !== '',
+        )));
     }
 }

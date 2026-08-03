@@ -69,10 +69,10 @@ export function ConsentScreen() {
     setSaving(key);
     setNotice(null);
     try {
-      const updated = await api.post<Consent>('/api/employee/consent', { type: key, granted }, token);
+      const updated = await api.post<{ data: Consent }>('/api/employee/consent', { type: key, granted }, token);
       setConsents((prev) => {
         const others = prev.filter((c) => c.type !== key);
-        return [...others, updated];
+        return [...others, updated.data];
       });
     } catch (err) {
       Alert.alert('Update failed', errorMessage(err));

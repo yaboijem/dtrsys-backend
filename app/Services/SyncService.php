@@ -126,6 +126,7 @@ class SyncService
         );
 
         $workMinutes = null;
+        $isEarlyTimeout = false;
         if ($type === 'time_out') {
             $timeIn = Attendance::where('employee_id', $employee->id)
                 ->where('type', 'time_in')
@@ -139,6 +140,11 @@ class SyncService
                     $timeIn,
                     \Illuminate\Support\Carbon::instance($timestamp),
                     $shift,
+                );
+                $isEarlyTimeout = $this->attendanceService->isEarlyTimeout(
+                    \Illuminate\Support\Carbon::instance($timestamp),
+                    $shift,
+                    $timeIn->timestamp,
                 );
             }
         }
@@ -155,6 +161,7 @@ class SyncService
             'gps_accuracy_meters' => $record['accuracy_meters'] ?? null,
             'is_offline' => true,
             'is_late' => false,
+            'is_early_timeout' => $isEarlyTimeout,
             'work_minutes' => $workMinutes,
             'source' => 'sync',
             'notes' => $record['notes'] ?? null,

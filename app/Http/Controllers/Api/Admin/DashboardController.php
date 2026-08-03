@@ -24,6 +24,11 @@ class DashboardController extends Controller
 
         $lateIns = (clone $timeIns)->where('is_late', true);
 
+        $timeOuts = Attendance::query()->where('type', 'time_out')->whereDate('timestamp', $today);
+        $this->applyRoleScope($timeOuts, $user, 'branch_id');
+
+        $earlyTimeOuts = (clone $timeOuts)->where('is_early_timeout', true);
+
         $employees = Employee::query()->whereHas('user', fn ($q) => $q->where('is_active', true));
 
         if ($user->hasRole('Branch Manager')) {
@@ -44,6 +49,7 @@ class DashboardController extends Controller
             'date' => $today,
             'time_ins_today' => $timeIns->count(),
             'late_ins_today' => $lateIns->count(),
+            'early_time_outs_today' => $earlyTimeOuts->count(),
             'absent_today' => $absent,
             'open_fraud_flags' => $openFlags->count(),
             'pending_device_change_requests' => $pendingDeviceRequests->count(),

@@ -27,6 +27,7 @@ class FraudFlagResource extends JsonResource
                 'type' => $this->attendance->type,
                 'timestamp' => $this->attendance->timestamp?->toISOString(),
                 'is_late' => $this->attendance->is_late,
+                'is_early_timeout' => $this->attendance->is_early_timeout,
                 'work_minutes' => $this->attendance->work_minutes,
                 'source' => $this->attendance->source,
                 'is_offline' => $this->attendance->is_offline,
