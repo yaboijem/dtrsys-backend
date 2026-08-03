@@ -1,5 +1,7 @@
 *.log
 .DS_Store
+.impeccable/
+.superpowers/
 .env
 .env.backup
 .env.production
@@ -19,6 +21,10 @@
 /storage/*.key
 /storage/pail
 /vendor
+DESIGN.md
+DTR_System_Business_Proposal_v2.md
 Homestead.json
 Homestead.yaml
+PRODUCT.md
 Thumbs.db
+docs/superpowers/plans/
