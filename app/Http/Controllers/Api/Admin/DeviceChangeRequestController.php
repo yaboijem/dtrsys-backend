@@ -22,7 +22,7 @@ class DeviceChangeRequestController extends Controller
     {
         $requests = DeviceChangeRequest::query()
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
-            ->with(['employee.user', 'employee.branch'])
+            ->with(['employee.user', 'employee.branch', 'currentDevice'])
             ->latest()
             ->paginate(20);
 

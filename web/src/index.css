@@ -1,16 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #2563eb;
-  --color-primary-dark: #1d4ed8;
+  --color-primary: #0e7490;
+  --color-primary-dark: #155e75;
   --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-bg: #f1f5f9;
+  --color-success: #059669;
+  --color-warning: #b45309;
+  --color-bg: #eef4f7;
   --color-card: #ffffff;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
+  --color-border: #d7e3e9;
+  --color-text: #0a1a26;
+  --color-muted: #45616f;
+  --color-deep: #0c1b2a;
+  --color-deep-2: #102840;
+  --color-deep-border: #1d3a55;
+}
+
+@keyframes snowfall {
+  from {
+    transform: translate3d(0, -14px, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(0, 420px, 0);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 html,
@@ -21,7 +47,19 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  background:
+    radial-gradient(1100px 380px at 50% -140px, rgba(14, 116, 144, 0.09), transparent 70%),
+    var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+::selection {
+  background: rgba(14, 116, 144, 0.16);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

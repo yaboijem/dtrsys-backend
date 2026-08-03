@@ -18,6 +18,7 @@ class DeviceChangeRequestResource extends JsonResource
                 'branch' => $this->employee->relationLoaded('branch') ? $this->employee->branch->name : null,
             ]),
             'current_device_id' => $this->current_device_id,
+            'current_device' => $this->whenLoaded('currentDevice', fn () => $this->currentDevice?->device_id),
             'new_device_id' => $this->new_device_id,
             'reason' => $this->reason,
             'status' => $this->status,

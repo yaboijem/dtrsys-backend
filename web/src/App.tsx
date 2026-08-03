@@ -8,12 +8,14 @@ import { MfaPage } from './pages/MfaPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { FraudFlagsPage } from './pages/FraudFlagsPage';
+import { PendingRequestsPage } from './pages/PendingRequestsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { ShiftsPage } from './pages/ShiftsPage';
 import { SchedulesPage } from './pages/SchedulesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { Spinner } from './components/ui';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { token, loading } = useAuth();
@@ -73,6 +75,18 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR', 'Branch Manager']}>
                 <FraudFlagsPage />
+              </RequireRole>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/requests"
+        element={
+          <RequireAuth>
+            <Layout>
+              <RequireRole roles={['Super Admin', 'HR']}>
+                <PendingRequestsPage />
               </RequireRole>
             </Layout>
           </RequireAuth>
@@ -142,10 +156,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppRoutes />
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

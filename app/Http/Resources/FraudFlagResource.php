@@ -30,24 +30,24 @@ class FraudFlagResource extends JsonResource
                 'work_minutes' => $this->attendance->work_minutes,
                 'source' => $this->attendance->source,
                 'is_offline' => $this->attendance->is_offline,
-                'branch' => $this->whenLoaded('attendance.branch', fn () => $this->attendance->branch->name),
-                'employee' => $this->whenLoaded('attendance.employee', fn () => [
+                'branch' => $this->attendance->relationLoaded('branch') ? $this->attendance->branch->name : null,
+                'employee' => $this->attendance->relationLoaded('employee') ? [
                     'id' => $this->attendance->employee->id,
                     'employee_id' => $this->attendance->employee->user?->employee_id,
                     'name' => $this->attendance->employee->full_name,
                     'department' => $this->attendance->employee->department,
-                ]),
-                'photo' => $this->whenLoaded('attendance.photo', fn () => [
+                ] : null,
+                'photo' => $this->attendance->relationLoaded('photo') ? [
                     'path' => $this->attendance->photo?->path,
                     'is_verified' => $this->attendance->photo?->is_verified,
                     'liveness_status' => $this->attendance->photo?->liveness_status,
-                ]),
-                'gps_location' => $this->whenLoaded('attendance.gpsLocation', fn () => [
+                ] : null,
+                'gps_location' => $this->attendance->relationLoaded('gpsLocation') ? [
                     'is_within_radius' => $this->attendance->gpsLocation?->is_within_radius,
                     'distance_from_branch_meters' => $this->attendance->gpsLocation?->distance_from_branch_meters,
                     'latitude' => $this->attendance->gpsLocation?->latitude,
                     'longitude' => $this->attendance->gpsLocation?->longitude,
-                ]),
+                ] : null,
             ]),
             'created_at' => $this->created_at?->toISOString(),
         ];

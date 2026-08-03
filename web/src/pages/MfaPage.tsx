@@ -32,7 +32,11 @@ export function MfaPage() {
     setFieldErrors({});
     setLoading(true);
     try {
-      const result = await verifyMfa(mfaToken, (code ?? '').trim(), recoveryMode ? (code ?? '').trim() : undefined);
+      const result = await verifyMfa(
+        mfaToken,
+        recoveryMode ? undefined : (code ?? '').trim(),
+        recoveryMode ? (code ?? '').trim() : undefined,
+      );
       sessionStorage.removeItem('dtr_mfa_token');
       signIn(result.token, result.user);
       navigate('/');
@@ -49,11 +53,11 @@ export function MfaPage() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-bg p-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm">
+    <div className="flex min-h-full items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6">
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-white">
-            <ShieldCheck size={22} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-deep ring-1 ring-deep-border">
+            <ShieldCheck size={22} className="text-cyan-300" />
           </div>
           <h1 className="text-lg font-bold text-text">Two-factor authentication</h1>
           <p className="text-center text-xs text-muted">

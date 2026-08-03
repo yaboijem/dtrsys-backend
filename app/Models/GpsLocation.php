@@ -19,6 +19,10 @@ class GpsLocation extends Model
     ];
 
     protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'accuracy_meters' => 'float',
+        'distance_from_branch_meters' => 'float',
         'is_within_radius' => 'boolean',
         'captured_at' => 'datetime',
     ];

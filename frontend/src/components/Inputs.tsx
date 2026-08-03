@@ -1,18 +1,39 @@
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
-import { colors, fontSize, radius, spacing } from '../theme';
+import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 
 interface LabeledInputProps extends TextInputProps {
   label: string;
 }
 
-export function LabeledInput({ label, ...props }: LabeledInputProps) {
+export function LabeledInput({ label, onFocus, onBlur, ...props }: LabeledInputProps) {
+  const colors = useThemeColors();
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[microLabel, styles.label, { color: focused ? colors.ink : colors.muted }]}>{label}</Text>
       <TextInput
-        style={[styles.input, props.multiline && styles.multiline]}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.card,
+            borderColor: focused ? colors.band : colors.border,
+            color: colors.ink,
+          },
+          props.multiline && styles.multiline,
+        ]}
         placeholderTextColor={colors.muted}
+        accessibilityLabel={label}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
         {...props}
       />
     </View>
@@ -24,20 +45,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.muted,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 11,
+    paddingVertical: 12,
     fontSize: fontSize.md,
-    color: colors.text,
   },
   multiline: {
     minHeight: 80,

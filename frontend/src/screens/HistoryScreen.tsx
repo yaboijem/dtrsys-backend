@@ -8,11 +8,18 @@ import { Banner, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { distanceLabel, errorMessage, formatDateTime, minutesToDuration, toLocalDate } from '../lib/format';
-import { colors, fontSize, spacing } from '../theme';
+import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 
 type TypeFilter = '' | 'time_in' | 'time_out';
 
+const FILTERS: { key: TypeFilter; label: string }[] = [
+  { key: '', label: 'All' },
+  { key: 'time_in', label: 'Time in' },
+  { key: 'time_out', label: 'Time out' },
+];
+
 export function HistoryScreen() {
+  const colors = useThemeColors();
   const { api, token } = useAuth();
 
   const [records, setRecords] = useState<Attendance[]>([]);
@@ -83,21 +90,28 @@ export function HistoryScreen() {
 
   return (
     <Screen scroll={false}>
-      <Text style={styles.title}>Attendance history</Text>
+      <Text style={[styles.title, { color: colors.ink }]}>Attendance history</Text>
 
       <View style={styles.filters}>
         <View style={styles.typeRow}>
-          {(['', 'time_in', 'time_out'] as TypeFilter[]).map((t) => (
-            <TouchableOpacity
-              key={t || 'all'}
-              style={[styles.typeButton, type === t && styles.typeButtonActive]}
-              onPress={() => setType(t)}
-            >
-              <Text style={[styles.typeLabel, type === t && styles.typeLabelActive]}>
-                {t === '' ? 'All' : t === 'time_in' ? 'Time in' : 'Time out'}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {FILTERS.map(({ key, label }) => {
+            const active = type === key;
+            return (
+              <TouchableOpacity
+                key={key || 'all'}
+                style={[
+                  styles.typeButton,
+                  { backgroundColor: active ? colors.band : colors.card, borderColor: active ? colors.band : colors.border },
+                ]}
+                onPress={() => setType(key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter by ${label}`}
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.typeLabel, { color: active ? colors.bandText : colors.muted }]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
         <View style={styles.dateRow}>
           <View style={styles.dateField}>
@@ -116,15 +130,19 @@ export function HistoryScreen() {
         data={records}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.muted} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
-          <Text style={styles.empty}>{loading ? 'Loading…' : 'No attendance records match the filters.'}</Text>
+          <Text style={[styles.empty, { color: colors.muted }]}>
+            {loading ? 'Loading…' : 'No attendance records match the filters.'}
+          </Text>
         }
-        ListFooterComponent={loadingMore ? <Text style={styles.footer}>Loading more…</Text> : null}
+        ListFooterComponent={
+          loadingMore ? <Text style={[styles.footer, { color: colors.muted }]}>Loading more…</Text> : null
+        }
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <View style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.rowTop}>
               <Tag label={item.type === 'time_in' ? 'Time in' : 'Time out'} tone={toneFor(item)} />
               {item.is_late ? <Tag label="late" tone="warning" /> : null}
@@ -133,9 +151,9 @@ export function HistoryScreen() {
                 <Tag key={f.type} label={f.type} tone="danger" />
               ))}
             </View>
-            <Text style={styles.timestamp}>{formatDateTime(item.timestamp)}</Text>
+            <Text style={[styles.timestamp, { color: colors.ink }]}>{formatDateTime(item.timestamp)}</Text>
             <View style={styles.rowBottom}>
-              <Text style={styles.meta}>
+              <Text style={[styles.meta, { color: colors.muted }]}>
                 {item.branch?.name ?? '—'}
                 {item.gps_location?.distance_from_branch_meters !== null &&
                 item.gps_location?.distance_from_branch_meters !== undefined
@@ -144,7 +162,7 @@ export function HistoryScreen() {
                 {item.photo?.is_verified === true ? ' · face verified' : ''}
               </Text>
               {item.type === 'time_out' && item.work_minutes !== null ? (
-                <Text style={styles.duration}>{minutesToDuration(item.work_minutes)}</Text>
+                <Text style={[styles.duration, { color: colors.ink }]}>{minutesToDuration(item.work_minutes)}</Text>
               ) : null}
             </View>
           </View>
@@ -158,7 +176,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.text,
     marginBottom: spacing.md,
   },
   filters: {
@@ -171,24 +188,16 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: colors.card,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
-  },
-  typeButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    justifyContent: 'center',
   },
   typeLabel: {
     fontSize: fontSize.sm,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  typeLabelActive: {
-    color: colors.white,
+    fontWeight: '700',
   },
   dateRow: {
     flexDirection: 'row',
@@ -204,22 +213,20 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   row: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
   rowTop: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
     marginBottom: spacing.xs,
   },
   timestamp: {
     fontSize: fontSize.md,
     fontWeight: '700',
-    color: colors.text,
   },
   rowBottom: {
     flexDirection: 'row',
@@ -229,23 +236,19 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: fontSize.sm,
-    color: colors.muted,
     flex: 1,
     marginRight: spacing.sm,
   },
   duration: {
     fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.primary,
+    fontWeight: '800',
   },
   empty: {
     textAlign: 'center',
-    color: colors.muted,
     marginTop: spacing.xl,
   },
   footer: {
     textAlign: 'center',
-    color: colors.muted,
     paddingVertical: spacing.md,
   },
 });

@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Clock,
   Flag,
+  Inbox,
   LayoutDashboard,
   LogOut,
   ShieldCheck,
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={17} />, roles: ALL_ROLES },
   { to: '/attendance', label: 'Attendance', icon: <CalendarClock size={17} />, roles: ALL_ROLES },
   { to: '/fraud-flags', label: 'Fraud Flags', icon: <Flag size={17} />, roles: ['Super Admin', 'HR', 'Branch Manager'] },
+  { to: '/requests', label: 'Requests', icon: <Inbox size={17} />, roles: ['Super Admin', 'HR'] },
   { to: '/schedules', label: 'Schedules', icon: <CalendarDays size={17} />, roles: ALL_ROLES },
   { to: '/employees', label: 'Employees', icon: <Users size={17} />, roles: ['Super Admin', 'HR'] },
   { to: '/branches', label: 'Branches', icon: <Building2 size={17} />, roles: ['Super Admin', 'HR'] },
@@ -42,14 +44,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
-        <div className="flex items-center gap-2.5 border-b border-border px-4 py-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-white">
-            <ShieldCheck size={17} />
+      <aside className="flex w-56 shrink-0 flex-col border-r border-deep-border bg-deep">
+        <div className="flex items-center gap-2.5 border-b border-deep-border px-4 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-deep-2 ring-1 ring-deep-border">
+            <ShieldCheck size={17} className="text-cyan-300" />
           </div>
           <div>
-            <div className="text-sm font-bold text-text leading-tight">DTR Admin</div>
-            <div className="text-[11px] text-muted leading-tight">Time &amp; Attendance</div>
+            <div className="text-sm font-bold text-slate-100 leading-tight">DTR Admin</div>
+            <div className="text-[11px] text-slate-400 leading-tight">Time &amp; Attendance</div>
           </div>
         </div>
 
@@ -62,8 +64,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 end={item.to === '/'}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    isActive ? 'bg-blue-50 text-primary' : 'text-muted hover:bg-bg hover:text-text',
+                    'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors border-l border-transparent',
+                    isActive
+                      ? 'border-l-cyan-300 bg-deep-2 text-cyan-300'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200',
                   )
                 }
               >
@@ -75,17 +79,17 @@ export function Layout({ children }: { children: ReactNode }) {
         )}
 
         {!hasAccess && (
-          <div className="flex-1 px-4 py-6 text-xs text-muted">
+          <div className="flex-1 px-4 py-6 text-xs text-slate-400">
             Your role does not grant access to any admin module yet.
           </div>
         )}
 
-        <div className="border-t border-border px-4 py-3">
-          <div className="mb-2 truncate text-xs font-semibold text-text">
+        <div className="border-t border-deep-border px-4 py-3">
+          <div className="mb-2 truncate text-xs font-semibold text-slate-100">
             {user?.employee?.full_name ?? user?.name}
           </div>
-          <div className="mb-3 truncate text-[11px] text-muted">
-            {user?.employee_id} · {user?.roles.join(', ')}
+          <div className="mb-3 truncate font-mono text-[11px] tnum text-slate-400">
+            {user?.employee_id} · {user?.roles?.join(', ') ?? ''}
           </div>
           <button
             type="button"
@@ -93,7 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
               signOut();
               navigate('/login');
             }}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-bg hover:text-danger cursor-pointer"
+            className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-red-300 cursor-pointer"
           >
             <LogOut size={15} />
             Sign out

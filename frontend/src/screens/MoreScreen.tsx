@@ -1,6 +1,8 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { MfaStatus } from '../api/types';
@@ -10,9 +12,12 @@ import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { errorMessage } from '../lib/format';
-import { colors, fontSize, spacing } from '../theme';
+import { MoreStackParamList } from '../navigation/RootNavigator';
+import { fontSize, microLabel, spacing, useThemeColors } from '../theme';
 
 export function MoreScreen() {
+  const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { api, token, user, deviceId, setDeviceId, serverUrl, setServerUrl, logout } = useAuth();
 
   const [serverUrlInput, setServerUrlInput] = useState(serverUrl);
@@ -108,7 +113,7 @@ export function MoreScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>More</Text>
+      <Text style={[styles.title, { color: colors.ink }]}>More</Text>
 
       {notice ? <Banner kind="info" title={notice} /> : null}
 
@@ -121,6 +126,41 @@ export function MoreScreen() {
         <Row label="Position" value={user?.employee?.position ?? '—'} />
       </SectionCard>
 
+      <SectionCard title="Privacy">
+        <TouchableOpacity
+          style={styles.navRow}
+          onPress={() => navigation.navigate('Consent')}
+          accessibilityRole="button"
+          accessibilityLabel="Consent and data"
+        >
+          <View style={styles.navText}>
+            <Text style={[styles.navTitle, { color: colors.ink }]}>Consent & data</Text>
+            <Text style={[styles.navSub, { color: colors.muted }]}>
+              Manage consent, export a copy of your data, or request deletion.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </TouchableOpacity>
+      </SectionCard>
+
+      <SectionCard title="Security">
+        {mfaStatus ? (
+          <>
+            <View style={styles.tagRow}>
+              <Tag label={mfaStatus.mfa_enabled ? 'MFA enabled' : 'MFA not enabled'} tone={mfaStatus.mfa_enabled ? 'success' : 'warning'} />
+              {mfaStatus.mfa_required_by_role ? <Tag label="Required by role" tone="neutral" /> : null}
+            </View>
+            <Text style={[styles.sectionNote, { color: colors.muted }]}>
+              {mfaStatus.mfa_required_by_role && !mfaStatus.mfa_enabled
+                ? 'Your role requires two-factor authentication. HR can help you set it up.'
+                : 'Two-factor authentication protects privileged accounts.'}
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.sectionNote, { color: colors.muted }]}>Checking security settings…</Text>
+        )}
+      </SectionCard>
+
       <SectionCard title="Server">
         <LabeledInput label="API base URL" value={serverUrlInput} onChangeText={setServerUrlInput} autoCapitalize="none" autoCorrect={false} placeholder="http://192.168.x.x:8000" />
         <Button title="Save server URL" onPress={saveServerUrl} loading={savingUrl} variant="secondary" />
@@ -130,8 +170,10 @@ export function MoreScreen() {
         <LabeledInput label="Device ID" value={deviceIdInput} onChangeText={setDeviceIdInput} autoCapitalize="none" autoCorrect={false} placeholder="device-id" />
         <Button title="Save device ID" onPress={saveDeviceId} loading={savingDevice} variant="secondary" />
 
-        <View style={styles.divider} />
-        <Text style={styles.sectionNote}>Registered a new phone? Request approval so punches are accepted on it.</Text>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Text style={[styles.sectionNote, { color: colors.muted }]}>
+          Registered a new phone? Request approval so punches are accepted on it.
+        </Text>
         <LabeledInput label="New device ID" value={newDeviceId} onChangeText={setNewDeviceId} autoCapitalize="none" autoCorrect={false} placeholder="new-device-id" />
         <LabeledInput label="Reason" value={reason} onChangeText={setReason} multiline placeholder="e.g. Replaced old phone" />
         <Button
@@ -143,24 +185,6 @@ export function MoreScreen() {
         />
       </SectionCard>
 
-      <SectionCard title="Security">
-        {mfaStatus ? (
-          <>
-            <View style={styles.tagRow}>
-              <Tag label={mfaStatus.mfa_enabled ? 'MFA enabled' : 'MFA not enabled'} tone={mfaStatus.mfa_enabled ? 'success' : 'warning'} />
-              {mfaStatus.mfa_required_by_role ? <Tag label="Required by role" tone="neutral" /> : null}
-            </View>
-            <Text style={styles.sectionNote}>
-              {mfaStatus.mfa_required_by_role && !mfaStatus.mfa_enabled
-                ? 'Your role requires two-factor authentication. HR can help you set it up.'
-                : 'Two-factor authentication protects privileged accounts.'}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.sectionNote}>Checking security settings…</Text>
-        )}
-      </SectionCard>
-
       <Button title="Log out" variant="danger" onPress={confirmLogout} />
     </Screen>
   );
@@ -170,22 +194,37 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.text,
     marginBottom: spacing.md,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
     marginVertical: spacing.lg,
   },
   sectionNote: {
     fontSize: fontSize.sm,
-    color: colors.muted,
     marginBottom: spacing.md,
   },
   tagRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+  },
+  navText: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  navTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  navSub: {
+    fontSize: fontSize.sm,
+    marginTop: 2,
   },
 });

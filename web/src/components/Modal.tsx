@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { useDialog } from '../lib/useDialog';
 
 export function Modal({
   open,
@@ -16,28 +17,33 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialog(open, onClose, panelRef);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-deep/60 p-4 sm:p-8"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        className={cn('w-full rounded-lg bg-card shadow-xl', wide ? 'max-w-2xl' : 'max-w-lg')}
-        onClick={(e) => e.stopPropagation()}
+        aria-labelledby={titleId}
+        className={cn('w-full rounded-xl border border-border bg-card outline-none', wide ? 'max-w-2xl' : 'max-w-lg')}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-text">{title}</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-muted hover:bg-bg hover:text-text cursor-pointer">
+          <h2 id={titleId} className="text-sm font-semibold text-text">
+            {title}
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded p-1 text-muted hover:bg-bg hover:text-text cursor-pointer">
             <X size={16} />
           </button>
         </div>
@@ -69,7 +75,7 @@ export function ConfirmDialog({
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <div className="text-sm text-text">{message}</div>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-4 flex justify-end gap-2">
         <button
           type="button"
           onClick={onClose}

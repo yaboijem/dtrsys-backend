@@ -8,9 +8,10 @@ import { Banner } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { errorMessage, formatDateTime } from '../lib/format';
 import { useUnread } from '../notifications/UnreadContext';
-import { colors, fontSize, spacing } from '../theme';
+import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 
 export function NotificationsScreen() {
+  const colors = useThemeColors();
   const { api, token } = useAuth();
   const { refreshUnread, setUnreadCount } = useUnread();
 
@@ -87,34 +88,55 @@ export function NotificationsScreen() {
   return (
     <Screen scroll={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notifications</Text>
+        <Text style={[styles.title, { color: colors.ink }]}>Alerts</Text>
         {unread > 0 ? (
-          <TouchableOpacity onPress={confirmMarkAll} hitSlop={8}>
-            <Text style={styles.markAll}>Mark all read</Text>
+          <TouchableOpacity
+            onPress={confirmMarkAll}
+            accessibilityRole="button"
+            accessibilityLabel="Mark all as read"
+            hitSlop={12}
+          >
+            <Text style={[microLabel, { color: colors.band }]}>Mark all read</Text>
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {error ? <Banner kind="error" title="Failed to load notifications" detail={error} /> : null}
+      {error ? <Banner kind="error" title="Failed to load alerts" detail={error} /> : null}
 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.muted} />}
         ListEmptyComponent={
-          <Text style={styles.empty}>{loading ? 'Loading…' : 'No notifications yet.'}</Text>
+          <Text style={[styles.empty, { color: colors.muted }]}>
+            {loading ? 'Loading…' : 'No alerts yet.'}
+          </Text>
         }
         renderItem={({ item }) => {
           const isUnread = !item.read_at;
           return (
-            <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={() => markRead(item.id)}>
+            <TouchableOpacity
+              style={[
+                styles.row,
+                {
+                  backgroundColor: isUnread ? colors.card : 'transparent',
+                  borderColor: isUnread ? colors.border : 'transparent',
+                },
+              ]}
+              activeOpacity={0.7}
+              onPress={() => markRead(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={item.title ?? 'Notification'}
+            >
               <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, isUnread && styles.rowTitleUnread]}>{item.title ?? 'Notification'}</Text>
-                {item.body ? <Text style={styles.rowBody}>{item.body}</Text> : null}
-                <Text style={styles.rowTime}>{formatDateTime(item.created_at)}</Text>
+                <Text style={[styles.rowTitle, { color: isUnread ? colors.ink : colors.muted }]}>
+                  {item.title ?? 'Notification'}
+                </Text>
+                {item.body ? <Text style={[styles.rowBody, { color: colors.muted }]}>{item.body}</Text> : null}
+                <Text style={[styles.rowTime, { color: colors.muted }]}>{formatDateTime(item.created_at)}</Text>
               </View>
-              {isUnread ? <View style={styles.unreadDot} /> : null}
+              {isUnread ? <View style={[styles.unreadDot, { backgroundColor: colors.band }]} /> : null}
             </TouchableOpacity>
           );
         }}
@@ -128,17 +150,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 44,
     marginBottom: spacing.md,
   },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.text,
-  },
-  markAll: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
   list: {
     paddingBottom: 24,
@@ -146,10 +163,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 10,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -158,33 +173,25 @@ const styles = StyleSheet.create({
   },
   rowTitle: {
     fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  rowTitleUnread: {
-    color: colors.text,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   rowBody: {
     fontSize: fontSize.sm,
-    color: colors.muted,
     marginTop: 2,
+    lineHeight: 19,
   },
   rowTime: {
     fontSize: fontSize.sm,
-    color: colors.muted,
     marginTop: spacing.xs,
   },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
     marginLeft: spacing.md,
   },
   empty: {
     textAlign: 'center',
-    color: colors.muted,
     marginTop: spacing.xl,
   },
 });

@@ -13,6 +13,12 @@ export interface PhotoInfo {
   checkOk: boolean;
 }
 
+export type GpsResult =
+  | { status: 'ok'; position: Position }
+  | { status: 'denied' }
+  | { status: 'disabled' }
+  | { status: 'unavailable' };
+
 const GPS_TIMEOUT_MS = 12000;
 
 export function photoFileInfo(uri: string): PhotoInfo {
@@ -28,10 +34,20 @@ export function photoFileInfo(uri: string): PhotoInfo {
   }
 }
 
-export async function getCurrentPosition(): Promise<Position | null> {
+export async function resolveGpsPosition(): Promise<GpsResult> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    return null;
+    return { status: 'denied' };
+  }
+
+  let servicesEnabled = true;
+  try {
+    servicesEnabled = await Location.hasServicesEnabledAsync();
+  } catch {
+    // location provider status not available; let the fix attempt below surface failures
+  }
+  if (!servicesEnabled) {
+    return { status: 'disabled' };
   }
 
   const withTimeout = <T>(promise: Promise<T>) =>
@@ -55,12 +71,15 @@ export async function getCurrentPosition(): Promise<Position | null> {
   }
 
   if (!pos) {
-    return null;
+    return { status: 'unavailable' };
   }
 
   return {
-    latitude: pos.coords.latitude,
-    longitude: pos.coords.longitude,
-    accuracy: pos.coords.accuracy ?? null,
+    status: 'ok',
+    position: {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy ?? null,
+    },
   };
 }

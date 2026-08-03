@@ -9,11 +9,12 @@ import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { errorMessage } from '../lib/format';
 import { AuthStackParamList } from '../navigation/RootNavigator';
-import { colors, fontSize, spacing } from '../theme';
+import { fontSize, microLabel, spacing, useThemeColors } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Mfa'>;
 
 export function MfaScreen({ navigation }: Props) {
+  const colors = useThemeColors();
   const { mfa, verifyMfa, fetchDevOtp, devOtpEnabled } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,10 +44,11 @@ export function MfaScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen>
+    <Screen contentContainerStyle={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>Two-factor authentication</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[microLabel, { color: colors.muted }]}>Security</Text>
+        <Text style={[styles.title, { color: colors.ink }]}>Two-factor authentication</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>
           {mfa?.setupRequired
             ? 'Set up your authenticator app, then enter the code it shows.'
             : `Enter the 6-digit code from your authenticator app for ${mfa?.employeeId ?? 'your account'}.`}
@@ -70,7 +72,7 @@ export function MfaScreen({ navigation }: Props) {
       {devOtpEnabled ? (
         <View style={styles.devBox}>
           <Button title="Get code (dev)" onPress={handleDevOtp} variant="secondary" />
-          <Text style={styles.devHint}>Dev shortcut — fetches the current TOTP from the backend.</Text>
+          <Text style={[styles.devHint, { color: colors.muted }]}>Dev shortcut — fetches the current TOTP from the backend.</Text>
         </View>
       ) : null}
 
@@ -80,19 +82,23 @@ export function MfaScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  page: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+  },
   header: {
     alignItems: 'center',
     marginBottom: spacing.xl,
-    marginTop: spacing.xl,
   },
   title: {
     fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.text,
+    fontWeight: '800',
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fontSize.md,
-    color: colors.muted,
     marginTop: spacing.sm,
     textAlign: 'center',
   },
@@ -103,7 +109,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     fontSize: fontSize.sm,
-    color: colors.muted,
   },
   back: {
     marginTop: spacing.lg,

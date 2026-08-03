@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ListFilter, Plus, Trash2 } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { createSchedule, deleteSchedule, listBranches, listEmployees, listSchedules, listShifts } from '../api/endpoints';
 import type { Branch, Employee, Paginated, ScheduleAdmin, Shift } from '../api/types';
@@ -42,7 +42,7 @@ export function SchedulesPage() {
   const [deleting, setDeleting] = useState<ScheduleAdmin | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const isBranchManager = user?.roles.includes('Branch Manager') ?? false;
+  const isBranchManager = user?.roles?.includes('Branch Manager') ?? false;
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -153,8 +153,12 @@ export function SchedulesPage() {
         </Button>
       </div>
 
-      <Card className="mb-4">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <Card className="mb-4 p-4">
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted">
+          <ListFilter size={14} />
+          Filters
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Field label="Date">
             <Input type="date" value={filters.date} onChange={(e) => applyFilter({ date: e.target.value })} />
           </Field>
@@ -191,7 +195,7 @@ export function SchedulesPage() {
             </Field>
           )}
           {filters.date || filters.employee_id || filters.shift_id || filters.branch_id ? (
-            <div className="flex items-end pb-1">
+            <div className="flex items-end">
               <Button variant="secondary" onClick={() => { setFilters(EMPTY_FILTER); setPage(1); }}>
                 Clear filters
               </Button>
@@ -253,6 +257,7 @@ export function SchedulesPage() {
                       onClick={() => setDeleting(r)}
                       className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer"
                       title="Remove"
+                      aria-label={`Remove schedule for ${r.employee.name} on ${formatDate(r.date)}`}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -291,7 +296,7 @@ export function SchedulesPage() {
           <Field label="Date" required error={fieldErrors.date?.[0]}>
             <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
-          <div className="mt-2 flex justify-end gap-2">
+          <div className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>

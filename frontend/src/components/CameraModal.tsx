@@ -1,8 +1,9 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fontSize, radius, spacing } from '../theme';
+import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 import { Banner } from './Feedback';
 
 interface CameraModalProps {
@@ -12,6 +13,8 @@ interface CameraModalProps {
 }
 
 export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -36,7 +39,7 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.cameraChrome }]}>
         {permission?.granted ? (
           <CameraView
             style={styles.camera}
@@ -51,25 +54,48 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
               title="Camera permission needed"
               detail="Time-in and time-out require a selfie photo for face verification."
             />
-            <TouchableOpacity style={styles.grantButton} onPress={requestPermission}>
-              <Text style={styles.grantLabel}>Grant camera permission</Text>
+            <TouchableOpacity
+              style={[styles.grantButton, { backgroundColor: colors.band }]}
+              onPress={requestPermission}
+              accessibilityRole="button"
+              accessibilityLabel="Grant camera permission"
+            >
+              <Text style={[styles.grantLabel, { color: colors.bandText }]}>Grant camera permission</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.controls}>
+        <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
+          <Text style={[microLabel, { color: '#ffffff' }]}>Capture selfie</Text>
+        </View>
+
+        <View style={[styles.controls, { bottom: insets.bottom + spacing.xl }]}>
           {permission?.granted && (
             <TouchableOpacity
-              style={[styles.captureButton, (capturing || !cameraReady) && styles.captureButtonDisabled]}
+              style={[
+                styles.captureButton,
+                (capturing || !cameraReady) && { opacity: 0.5 },
+              ]}
               disabled={capturing || !cameraReady}
               onPress={handleCapture}
+              accessibilityRole="button"
+              accessibilityLabel="Take photo"
             >
-              {capturing ? <ActivityIndicator color={colors.white} /> : <View style={styles.captureInner} />}
+              {capturing ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <View style={[styles.captureInner, { backgroundColor: '#ffffff' }]} />
+              )}
             </TouchableOpacity>
           )}
-          <Pressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel capture"
+          >
             <Text style={styles.closeText}>Cancel</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -79,7 +105,6 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
   },
   camera: {
     flex: 1,
@@ -90,48 +115,50 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   grantButton: {
-    backgroundColor: colors.primary,
     borderRadius: radius.md,
-    paddingVertical: 13,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   grantLabel: {
-    color: colors.white,
     fontSize: fontSize.md,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   controls: {
     position: 'absolute',
-    bottom: 48,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   captureButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 4,
-    borderColor: colors.white,
+    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  captureButtonDisabled: {
-    opacity: 0.6,
-  },
   captureInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.white,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
   },
   closeButton: {
-    marginTop: spacing.lg,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
+    marginTop: spacing.md,
+    minHeight: 44,
+    minWidth: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeText: {
-    color: colors.white,
+    color: '#ffffff',
     fontSize: fontSize.md,
     fontWeight: '600',
   },

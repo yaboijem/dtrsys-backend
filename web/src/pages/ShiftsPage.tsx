@@ -95,6 +95,14 @@ export function ShiftsPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
+    if (!form.start_time || !form.end_time) {
+      setFieldErrors({
+        ...(!form.start_time ? { start_time: ['Start time is required.'] } : {}),
+        ...(!form.end_time ? { end_time: ['End time is required.'] } : {}),
+      });
+      notify('error', 'Start and end time are required.');
+      return;
+    }
     setSaving(true);
     setFieldErrors({});
     try {
@@ -203,10 +211,10 @@ export function ShiftsPage() {
                   className: 'w-20',
                   render: (r) => (
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => openEdit(r)} className="rounded p-1.5 text-muted hover:bg-bg hover:text-primary cursor-pointer" title="Edit">
+                      <button type="button" onClick={() => openEdit(r)} aria-label={`Edit ${r.name}`} className="rounded p-1.5 text-muted hover:bg-bg hover:text-primary cursor-pointer" title="Edit">
                         <Pencil size={14} />
                       </button>
-                      <button type="button" onClick={() => setDeleting(r)} className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer" title="Delete">
+                      <button type="button" onClick={() => setDeleting(r)} aria-label={`Delete ${r.name}`} className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer" title="Delete">
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -244,10 +252,10 @@ export function ShiftsPage() {
             </Field>
           </div>
           <div className="flex items-center gap-2">
-            <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} />
+            <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Shift active" />
             <span className="text-sm text-text">Shift active</span>
           </div>
-          <div className="mt-2 flex justify-end gap-2 sm:col-span-2">
+          <div className="mt-4 flex justify-end gap-2 sm:col-span-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>

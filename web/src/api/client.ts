@@ -39,15 +39,15 @@ function describeFetchError(error: unknown): string {
 }
 
 function buildUrl(baseUrl: string, path: string, params?: Record<string, string | number | boolean | undefined>): string {
-  const url = new URL(baseUrl + path);
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        url.searchParams.set(key, String(value));
-      }
+  const url = baseUrl + path;
+  if (!params) return url;
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
     }
   }
-  return url.toString();
+  return parts.length ? `${url}${url.includes('?') ? '&' : '?'}${parts.join('&')}` : url;
 }
 
 export class ApiClient {

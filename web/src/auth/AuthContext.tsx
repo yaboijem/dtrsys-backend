@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { fetchMe } from '../api/endpoints';
 import type { User } from '../api/types';
 
 const TOKEN_KEY = 'dtr_admin_token';
@@ -41,8 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const me = await api.get<User>('/api/auth/me', undefined, stored.token);
+        const me = await fetchMe(stored.token);
         if (cancelled) return;
+        localStorage.setItem(USER_KEY, JSON.stringify(me));
         setState({ token: stored.token, user: me });
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -79,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     const stored = readStored();
     if (!stored.token) return;
-    const me = await api.get<User>('/api/auth/me', undefined, stored.token);
+    const me = await fetchMe(stored.token);
     localStorage.setItem(USER_KEY, JSON.stringify(me));
     setState({ token: stored.token, user: me });
   }, []);
@@ -87,7 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = useCallback(
     (...roles: string[]) => {
       if (!user) return false;
-      return roles.some((role) => user.roles.includes(role));
+      const userRoles = user.roles ?? [];
+      return roles.some((role) => userRoles.includes(role));
     },
     [user],
   );

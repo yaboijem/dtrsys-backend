@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '../theme';
+import { spacing, useThemeColors } from '../theme';
 
 interface ScreenProps {
   children: ReactNode;
@@ -12,12 +12,11 @@ interface ScreenProps {
 }
 
 export function Screen({ children, scroll = true, contentContainerStyle, style }: ScreenProps) {
+  const colors = useThemeColors();
+
   return (
-    <SafeAreaView style={[styles.safe, style]} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.ground }, style]} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
             contentContainerStyle={[styles.content, contentContainerStyle]}
@@ -36,13 +35,12 @@ export function Screen({ children, scroll = true, contentContainerStyle, style }
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   flex: {
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: spacing.lg,
     paddingBottom: 32,
   },
 });

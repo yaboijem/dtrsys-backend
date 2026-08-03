@@ -22,21 +22,35 @@ export function DataTable<T>({
 }) {
   if (loading) {
     return (
-      <div className="divide-y divide-border">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-4 py-3.5">
-            {columns.map((col) => (
-              <div key={col.key} className={cn('h-4 flex-1 animate-pulse rounded bg-slate-100', col.className)} />
-            ))}
-          </div>
-        ))}
+      <div className="relative overflow-hidden">
+        <div className="divide-y divide-border">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3">
+              {columns.map((col) => (
+                <div key={col.key} className={cn('h-4 flex-1 animate-pulse rounded bg-slate-200/70', col.className)} />
+              ))}
+            </div>
+          ))}
+        </div>
+        <div aria-hidden className="pointer-events-none absolute inset-0 motion-reduce:hidden">
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span
+              key={i}
+              className="absolute top-[-14px] h-1 w-1 rounded-full bg-cyan-600/40"
+              style={{
+                left: `${(i * 7.3 + 3) % 100}%`,
+                animation: `snowfall ${2.4 + ((i * 0.37) % 1.6)}s linear ${-((i * 0.61) % 3)}s infinite`,
+              }}
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-1 py-14 text-center">
+      <div className="flex flex-col items-center gap-1 py-16 text-center">
         <span className="text-sm font-medium text-text">{emptyTitle}</span>
         {emptyDescription && <span className="text-xs text-muted">{emptyDescription}</span>}
       </div>
@@ -47,7 +61,7 @@ export function DataTable<T>({
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-border bg-bg/60 text-xs uppercase tracking-wide text-muted">
+          <tr className="border-b border-border bg-bg/70 text-xs uppercase tracking-wide text-muted">
             {columns.map((col) => (
               <th key={col.key} className={cn('px-4 py-2.5 font-semibold', col.className)}>
                 {col.header}
@@ -59,8 +73,18 @@ export function DataTable<T>({
           {rows.map((row) => (
             <tr
               key={keyOf(row)}
+              tabIndex={onRowClick ? 0 : undefined}
               onClick={() => onRowClick?.(row)}
-              className={cn('transition-colors', onRowClick && 'cursor-pointer hover:bg-blue-50/50')}
+              onKeyDown={(e) => {
+                if (onRowClick && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onRowClick(row);
+                }
+              }}
+              className={cn(
+                'transition-colors',
+                onRowClick && 'cursor-pointer hover:bg-cyan-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40',
+              )}
             >
               {columns.map((col) => (
                 <td key={col.key} className={cn('px-4 py-3 align-middle', col.className)}>
@@ -89,7 +113,7 @@ export function PaginationBar({
   const to = paginated.to ?? 0;
   return (
     <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted">
-      <span>
+      <span className="font-mono tnum">
         Showing {from}–{to} of {paginated.total}
       </span>
       <div className="flex items-center gap-1">
@@ -102,7 +126,7 @@ export function PaginationBar({
         >
           <ChevronLeft size={14} />
         </button>
-        <span className="px-2">
+        <span className="font-mono tnum px-2">
           Page {paginated.current_page} of {paginated.last_page}
         </span>
         <button

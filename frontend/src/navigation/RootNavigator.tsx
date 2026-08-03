@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
-import { colors } from '../theme';
 import { useUnread } from '../notifications/UnreadContext';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
@@ -13,6 +12,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { MfaScreen } from '../screens/MfaScreen';
 import { MoreScreen } from '../screens/MoreScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { useThemeColors } from '../theme';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -22,17 +22,24 @@ export type AuthStackParamList = {
 export type AppTabParamList = {
   Home: undefined;
   History: undefined;
-  Notifications: undefined;
+  Alerts: undefined;
   More: undefined;
+};
+
+export type MoreStackParamList = {
+  MoreMain: undefined;
+  Consent: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppTabs = createBottomTabNavigator<AppTabParamList>();
+const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
 function LoadingScreen() {
+  const colors = useThemeColors();
   return (
-    <View style={styles.loading}>
-      <ActivityIndicator size="large" color={colors.primary} />
+    <View style={[styles.loading, { backgroundColor: colors.ground }]}>
+      <ActivityIndicator size="large" color={colors.band} />
     </View>
   );
 }
@@ -46,18 +53,32 @@ function AuthNavigator() {
   );
 }
 
+function MoreNavigator() {
+  return (
+    <MoreStack.Navigator screenOptions={{ headerShown: false }}>
+      <MoreStack.Screen name="MoreMain" component={MoreScreen} />
+      <MoreStack.Screen name="Consent" component={ConsentScreen} />
+    </MoreStack.Navigator>
+  );
+}
+
 function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
   return <Ionicons name={name} color={color} size={size} />;
 }
 
 function AppNavigator() {
+  const colors = useThemeColors();
   const { unreadCount } = useUnread();
 
   return (
     <AppTabs.Navigator
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.band,
         tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+        },
         headerShown: false,
       }}
     >
@@ -78,7 +99,7 @@ function AppNavigator() {
         }}
       />
       <AppTabs.Screen
-        name="Notifications"
+        name="Alerts"
         component={NotificationsScreen}
         options={{
           title: 'Alerts',
@@ -88,7 +109,7 @@ function AppNavigator() {
       />
       <AppTabs.Screen
         name="More"
-        component={MoreScreen}
+        component={MoreNavigator}
         options={{
           title: 'More',
           tabBarIcon: ({ color, size }) => <TabBarIcon name="menu-outline" color={color} size={size} />,
@@ -113,6 +134,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.bg,
   },
 });

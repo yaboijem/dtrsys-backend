@@ -27,13 +27,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ notify }}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
+      <div role="status" aria-live="polite" className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             className={cn(
-              'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-card px-3.5 py-3 text-sm shadow-lg',
-              toast.kind === 'success' ? 'border-green-200 text-green-800' : 'border-red-200 text-red-800',
+              'pointer-events-auto flex items-start gap-2.5 rounded-md border bg-card px-3.5 py-3 text-sm',
+              toast.kind === 'success' ? 'border-emerald-200 text-emerald-800' : 'border-red-200 text-red-800',
             )}
           >
             {toast.kind === 'success' ? (
@@ -45,6 +45,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+              aria-label="Dismiss notification"
               className="rounded p-0.5 opacity-60 hover:opacity-100 cursor-pointer"
             >
               <X size={14} />

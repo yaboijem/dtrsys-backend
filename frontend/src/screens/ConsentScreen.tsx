@@ -1,15 +1,18 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { Consent, DataRequest, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
-import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
+import { Banner, Row, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { errorMessage, formatDateTime } from '../lib/format';
-import { colors, fontSize, spacing } from '../theme';
+import { MoreStackParamList } from '../navigation/RootNavigator';
+import { fontSize, spacing, useThemeColors } from '../theme';
 
 const CONSENT_TYPES = [
   { key: 'biometric_photos', label: 'Biometric photos', description: 'Allow capture and storage of selfies for face verification on time-in/out.' },
@@ -17,6 +20,8 @@ const CONSENT_TYPES = [
 ] as const;
 
 export function ConsentScreen() {
+  const colors = useThemeColors();
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
   const { api, token } = useAuth();
 
   const [consents, setConsents] = useState<Consent[]>([]);
@@ -115,22 +120,32 @@ export function ConsentScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Consent & data</Text>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Back to More"
+      >
+        <Ionicons name="chevron-back" size={20} color={colors.band} />
+        <Text style={[styles.backLabel, { color: colors.band }]}>More</Text>
+      </TouchableOpacity>
+
+      <Text style={[styles.title, { color: colors.ink }]}>Consent & data</Text>
 
       {error ? <Banner kind="error" title="Failed to load" detail={error} /> : null}
       {notice ? <Banner kind="success" title={notice} /> : null}
 
       <SectionCard title="Consents">
-        {loading ? <Text style={styles.muted}>Loading…</Text> : null}
+        {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Loading…</Text> : null}
         {CONSENT_TYPES.map(({ key, label, description }) => {
           const entry = consents.find((c) => c.type === key);
           return (
-            <View key={key} style={styles.consentRow}>
+            <View key={key} style={[styles.consentRow, { borderBottomColor: colors.border }]}>
               <View style={styles.consentText}>
-                <Text style={styles.consentLabel}>{label}</Text>
-                <Text style={styles.muted}>{description}</Text>
+                <Text style={[styles.consentLabel, { color: colors.ink }]}>{label}</Text>
+                <Text style={[styles.muted, { color: colors.muted }]}>{description}</Text>
                 {entry ? (
-                  <Text style={styles.consentMeta}>
+                  <Text style={[styles.consentMeta, { color: colors.muted }]}>
                     {entry.granted
                       ? `Granted ${formatDateTime(entry.granted_at)}`
                       : entry.revoked_at
@@ -143,6 +158,7 @@ export function ConsentScreen() {
                 value={grantedFor(key)}
                 onValueChange={(value) => toggleConsent(key, value)}
                 disabled={saving === key}
+                accessibilityLabel={label}
                 trackColor={{ true: colors.success, false: colors.border }}
               />
             </View>
@@ -151,7 +167,7 @@ export function ConsentScreen() {
       </SectionCard>
 
       <SectionCard title="Data requests">
-        <Text style={styles.muted}>
+        <Text style={[styles.muted, { color: colors.muted }]}>
           Request a copy of your personal data (immediate) or request deletion of your account and data (requires HR
           approval).
         </Text>
@@ -161,7 +177,7 @@ export function ConsentScreen() {
         </View>
 
         {requests.length > 0 ? (
-          <View style={styles.requestsList}>
+          <View style={[styles.requestsList, { borderTopColor: colors.border }]}>
             {requests.map((r) => (
               <Row
                 key={r.id}
@@ -169,10 +185,10 @@ export function ConsentScreen() {
                 value={r.status}
                 valueColor={
                   r.status === 'completed' || r.status === 'approved'
-                    ? colors.success
+                    ? colors.successText
                     : r.status === 'rejected'
-                      ? colors.danger
-                      : colors.warning
+                      ? colors.dangerText
+                      : colors.warningText
                 }
               />
             ))}
@@ -184,15 +200,24 @@ export function ConsentScreen() {
 }
 
 const styles = StyleSheet.create({
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    alignSelf: 'flex-start',
+  },
+  backLabel: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
   title: {
     fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.text,
     marginBottom: spacing.md,
   },
   muted: {
     fontSize: fontSize.sm,
-    color: colors.muted,
   },
   consentRow: {
     flexDirection: 'row',
@@ -200,7 +225,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
   },
   consentText: {
     flex: 1,
@@ -209,11 +233,9 @@ const styles = StyleSheet.create({
   consentLabel: {
     fontSize: fontSize.md,
     fontWeight: '700',
-    color: colors.text,
   },
   consentMeta: {
     fontSize: fontSize.sm,
-    color: colors.muted,
     marginTop: spacing.xs,
   },
   requestButtons: {
@@ -227,7 +249,6 @@ const styles = StyleSheet.create({
   requestsList: {
     marginTop: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },
 });

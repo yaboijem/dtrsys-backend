@@ -8,15 +8,18 @@ import { Button } from '../components/Button';
 import { Banner } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
+import { DEV_OTP_ENABLED } from '../config';
 import { errorMessage } from '../lib/format';
 import { AuthStackParamList } from '../navigation/RootNavigator';
-import { colors, fontSize, spacing } from '../theme';
+import { cardShadow, fontSize, microLabel, radius, spacing, useIsDark, useThemeColors } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
+  const colors = useThemeColors();
+  const isDark = useIsDark();
   const { login, deviceId, serverUrl } = useAuth();
-  const [employeeId, setEmployeeId] = useState('EMP001');
+  const [employeeId, setEmployeeId] = useState(DEV_OTP_ENABLED ? 'EMP001' : '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +47,15 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <Text style={styles.title}>DTR</Text>
-        <Text style={styles.subtitle}>Daily Time Record</Text>
+    <Screen contentContainerStyle={styles.page}>
+      <View style={[styles.brand, cardShadow(isDark), { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.band, { backgroundColor: colors.band }]}>
+          <Text style={[styles.bandName, { color: colors.bandText }]}>DTR</Text>
+          <Text style={[microLabel, { color: colors.bandText, opacity: 0.8 }]}>Daily Time Record</Text>
+        </View>
+        <View style={styles.bandBody}>
+          <Text style={[styles.signInLabel, { color: colors.muted }]}>Employee sign-in</Text>
+        </View>
       </View>
 
       {error ? <Banner kind="error" title="Login failed" detail={error} /> : null}
@@ -58,47 +66,62 @@ export function LoginScreen({ navigation }: Props) {
         onChangeText={setEmployeeId}
         autoCapitalize="characters"
         autoCorrect={false}
-        placeholder="e.g. EMP001"
+        placeholder="Enter your employee ID"
       />
       <LabeledInput
         label="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        placeholder="••••••••"
+        placeholder="Enter your password"
       />
 
       <Button title="Login" onPress={handleLogin} loading={loading} />
 
-      <Text style={styles.hint}>
-        Device: {deviceId} · Server: {serverUrl}
-      </Text>
-      <Text style={styles.hint}>Device ID and server URL can be changed after login, or via app config.</Text>
+      {DEV_OTP_ENABLED ? (
+        <View>
+          <Text style={[styles.hint, { color: colors.muted }]}>Device: {deviceId} · Server: {serverUrl}</Text>
+          <Text style={[styles.hint, { color: colors.muted }]}>Device ID and server URL can be changed after login, or via app config.</Text>
+        </View>
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    alignItems: 'center',
+  page: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  brand: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
     marginBottom: spacing.xl,
-    marginTop: spacing.xl,
   },
-  title: {
-    fontSize: fontSize.xxl,
+  band: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  bandName: {
+    fontSize: fontSize.xl,
     fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
-  subtitle: {
+  bandBody: {
+    padding: spacing.lg,
+  },
+  signInLabel: {
     fontSize: fontSize.md,
-    color: colors.muted,
-    marginTop: 4,
+    fontWeight: '700',
   },
   hint: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     textAlign: 'center',
     fontSize: fontSize.sm,
-    color: colors.muted,
   },
 });
