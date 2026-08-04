@@ -34,13 +34,13 @@ class SharedDeviceLoginTest extends TestCase
         return $employee;
     }
 
-    public function test_shared_device_allows_other_employee_to_log_in(): void
+    public function test_any_employee_can_log_in_on_another_employees_device(): void
     {
         $owner = $this->makeEmployee('EMP-OWNER');
         Device::factory()->create([
             'employee_id' => $owner->id,
             'device_id' => 'shared-phone',
-            'is_shared' => true,
+            'is_shared' => false,
         ]);
         $other = $this->makeEmployee('EMP-OTHER');
 
@@ -50,23 +50,28 @@ class SharedDeviceLoginTest extends TestCase
             'device_id' => 'shared-phone',
         ])->assertOk()
             ->assertJsonPath('user.employee_id', 'EMP-OTHER');
+
+        $this->assertDatabaseHas('devices', [
+            'device_id' => 'shared-phone',
+            'employee_id' => $other->id,
+        ]);
     }
 
-    public function test_non_shared_device_blocks_other_employee(): void
+    public function test_shared_flag_device_also_allows_login(): void
     {
         $owner = $this->makeEmployee('EMP-OWNER');
         Device::factory()->create([
             'employee_id' => $owner->id,
-            'device_id' => 'owner-phone',
-            'is_shared' => false,
+            'device_id' => 'kiosk-phone',
+            'is_shared' => true,
         ]);
         $this->makeEmployee('EMP-OTHER');
 
         $this->postJson('/api/auth/login', [
             'employee_id' => 'EMP-OTHER',
             'password' => 'password',
-            'device_id' => 'owner-phone',
-        ])->assertForbidden()
-            ->assertJsonPath('code', 'device_not_registered');
+            'device_id' => 'kiosk-phone',
+        ])->assertOk()
+            ->assertJsonPath('user.employee_id', 'EMP-OTHER');
     }
 }

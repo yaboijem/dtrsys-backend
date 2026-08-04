@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Device;
-use App\Models\DeviceChangeRequest;
 use App\Models\Employee;
 
 class DeviceService
@@ -12,6 +11,10 @@ class DeviceService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    /**
+     * Resolve or register a device for login. Never blocks — any employee may use any device_id.
+     * If the device row exists under another employee, ownership is reassigned to the logging-in employee.
+     */
     public function resolveForLogin(Employee $employee, ?string $deviceId, array $metadata = []): array
     {
         if (blank($deviceId)) {
@@ -20,72 +23,20 @@ class DeviceService
 
         $existing = Device::where('device_id', $deviceId)->first();
 
-        if ($existing && $existing->employee_id !== $employee->id) {
-            if ($existing->is_shared) {
-                $existing->update([
-                    'last_seen_at' => now(),
-                    'is_active' => true,
-                    ...$metadata,
-                ]);
-
-                return ['status' => self::STATUS_REGISTERED, 'device' => $existing];
-            }
-
-            return [
-                'status' => self::STATUS_BLOCKED,
-                'device' => $existing,
-                'reason' => 'This device is registered to another employee.',
-                'pending_request' => false,
-            ];
-        }
-
         if ($existing) {
             $existing->update([
+                'employee_id' => $employee->id,
                 'last_seen_at' => now(),
                 'is_active' => true,
-                ...$metadata,
+                ...$this->deviceMetadata($metadata),
             ]);
 
-            return ['status' => self::STATUS_REGISTERED, 'device' => $existing];
+            return ['status' => self::STATUS_REGISTERED, 'device' => $existing->fresh()];
         }
-
-        $hasActiveDevice = $employee->devices()->where('is_active', true)->exists();
-
-        if (! $hasActiveDevice) {
-            return [
-                'status' => self::STATUS_REGISTERED,
-                'device' => $this->registerDevice($employee, $deviceId, $metadata),
-            ];
-        }
-
-        $approved = DeviceChangeRequest::where('new_device_id', $deviceId)
-            ->where('status', 'approved')
-            ->exists();
-
-        if ($approved) {
-            $device = $this->registerDevice($employee, $deviceId, $metadata);
-            $employee->devices()->where('id', '!=', $device->id)->update(['is_active' => false]);
-
-            return ['status' => self::STATUS_REGISTERED, 'device' => $device];
-        }
-
-        $pending = DeviceChangeRequest::firstOrCreate(
-            [
-                'employee_id' => $employee->id,
-                'new_device_id' => $deviceId,
-                'status' => 'pending',
-            ],
-            [
-                'current_device_id' => $employee->devices()->where('is_active', true)->value('id'),
-                'reason' => 'Automatic request created on login from a new device.',
-            ],
-        );
 
         return [
-            'status' => self::STATUS_BLOCKED,
-            'device' => null,
-            'reason' => 'This device is not registered to your account. A change request has been submitted for HR approval.',
-            'pending_request' => $pending,
+            'status' => self::STATUS_REGISTERED,
+            'device' => $this->registerDevice($employee, $deviceId, $metadata),
         ];
     }
 
@@ -101,5 +52,18 @@ class DeviceService
             'last_seen_at' => now(),
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array{platform?: mixed, model?: mixed, app_version?: mixed}
+     */
+    private function deviceMetadata(array $metadata): array
+    {
+        return array_filter([
+            'platform' => $metadata['platform'] ?? null,
+            'model' => $metadata['model'] ?? null,
+            'app_version' => $metadata['app_version'] ?? null,
+        ], fn ($value) => $value !== null);
     }
 }

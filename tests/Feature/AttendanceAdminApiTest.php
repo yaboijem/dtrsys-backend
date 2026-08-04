@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
 use App\Models\Branch;
-use App\Models\DeviceChangeRequest;
+
 use App\Models\Employee;
 use App\Models\FraudFlag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -222,8 +222,7 @@ class AttendanceAdminApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('time_ins_today', 1)
             ->assertJsonPath('late_ins_today', 1)
-            ->assertJsonPath('open_fraud_flags', 1)
-            ->assertJsonPath('pending_device_change_requests', 0);
+            ->assertJsonPath('open_fraud_flags', 1);
     }
 
     #[Test]
@@ -264,21 +263,20 @@ class AttendanceAdminApiTest extends TestCase
     }
 
     #[Test]
-    public function dashboard_counts_pending_device_requests(): void
+    public function dashboard_includes_trends_and_fraud_severity(): void
     {
         $branch = Branch::factory()->create();
         $hr = $this->makeUser('HR', $branch);
 
-        $employee = Employee::factory()->create(['branch_id' => $branch->id]);
-        DeviceChangeRequest::create([
-            'employee_id' => $employee->id,
-            'new_device_id' => 'device-new-001',
-            'reason' => 'Lost phone',
-            'status' => 'pending',
-        ]);
+        $this->makePunch($branch, 'IT', ['type' => 'time_in', 'timestamp' => now()]);
+        $this->makePunch($branch, 'IT', ['type' => 'time_in', 'timestamp' => now()->subDay()]);
 
         $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
             ->assertOk()
-            ->assertJsonPath('pending_device_change_requests', 1);
+            ->assertJsonPath('time_ins_today', 1)
+            ->assertJsonPath('time_ins_yesterday', 1)
+            ->assertJsonStructure([
+                'open_fraud_by_severity' => ['high', 'medium', 'low'],
+            ]);
     }
 }

@@ -45,8 +45,8 @@ export function Drawer({
         )}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className={cn('flex items-center justify-between border-b px-5 py-3.5', dark ? 'border-deep-border' : 'border-border')}>
-          <h2 id={titleId} className={cn('text-sm font-semibold', dark ? 'text-slate-100' : 'text-text')}>
+        <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-5', dark ? 'border-deep-border' : 'border-border')}>
+          <h2 id={titleId} className={cn('min-w-0 truncate text-sm font-semibold', dark ? 'text-slate-100' : 'text-text')}>
             {title}
           </h2>
           <button
@@ -54,14 +54,14 @@ export function Drawer({
             onClick={onClose}
             aria-label="Close panel"
             className={cn(
-              'rounded p-1 cursor-pointer',
+              'flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md',
               dark ? 'text-slate-400 hover:bg-white/10 hover:text-slate-100' : 'text-muted hover:bg-bg hover:text-text',
             )}
           >
             <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
       </div>
     </div>
   );

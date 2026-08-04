@@ -5,7 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "dev:portal": "npm run dev --prefix portal"
+        "dev:portal": "npm run dev --prefix portal",
+        "build:portal": "node scripts/deploy-portal.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

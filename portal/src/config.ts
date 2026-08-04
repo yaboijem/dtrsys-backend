@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   serverUrl: 'dtr_server_url',
   deviceId: 'dtr_device_id',
   offlineQueue: 'dtr_offline_queue',
+  theme: 'dtr_theme',
 } as const;
 
 export const DEV_OTP_ENABLED = import.meta.env.DEV;

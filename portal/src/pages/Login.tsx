@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Banner } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { DEV_OTP_ENABLED } from '../config';
 import { errorMessage } from '../lib/format';
 import { cardShadow, fontSize, microLabel, radius, spacing, useIsDark, useThemeColors } from '../theme';
@@ -32,9 +33,7 @@ export function Login() {
         navigate('/home');
       }
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'device_not_registered') {
-        setError('This device is not registered for this account. Use the device ID linked to the account, or contact HR.');
-      } else if (err instanceof ApiError && err.errors) {
+      if (err instanceof ApiError && err.errors) {
         const messages = Object.values(err.errors).flat();
         setError(messages[0] ?? err.message);
       } else {
@@ -51,11 +50,15 @@ export function Login() {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        minHeight: '100vh',
-        paddingTop: spacing.xxl,
-        paddingBottom: spacing.xxl,
+        minHeight: '100dvh',
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.xl,
+        position: 'relative',
       }}
     >
+      <div style={{ position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 2 }}>
+        <ThemeToggle compact />
+      </div>
       <div
         style={{
           borderRadius: radius.lg,
@@ -73,18 +76,24 @@ export function Login() {
       >
         <div
           style={{
-            alignSelf: 'center',
-            borderRadius: radius.md,
-            paddingLeft: spacing.lg,
-            paddingRight: spacing.lg,
-            paddingTop: spacing.sm,
-            paddingBottom: spacing.sm,
-            backgroundColor: colors.band,
+            display: 'flex',
+            justifyContent: 'center',
           }}
         >
-          <span style={{ fontSize: fontSize.xl, fontWeight: '800', letterSpacing: 3, color: colors.bandText }}>
-            DTR
-          </span>
+          <div
+            style={{
+              borderRadius: radius.md,
+              paddingLeft: spacing.lg,
+              paddingRight: spacing.lg,
+              paddingTop: spacing.sm,
+              paddingBottom: spacing.sm,
+              backgroundColor: colors.primary,
+            }}
+          >
+            <span style={{ fontSize: fontSize.xl, fontWeight: 800, letterSpacing: 3, color: colors.bandText }}>
+              DTR
+            </span>
+          </div>
         </div>
         <div style={{ fontSize: fontSize.xxl, fontWeight: '800', marginTop: spacing.lg, textAlign: 'center', color: colors.ink }}>
           Daily Time Record

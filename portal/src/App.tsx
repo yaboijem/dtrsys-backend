@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { UnreadProvider } from './notifications/UnreadContext';
+import { PwaChrome } from './components/PwaChrome';
 import { TabBar } from './components/TabBar';
+import { ThemeProvider } from './theme/ThemeContext';
 import { useThemeColors } from './theme';
 
 // ── Pages ──────────────────────────────────────────────────────────────────────
@@ -49,7 +51,7 @@ function AuthGuard() {
 // ── Tab layout (bottom bar + nested outlet) ────────────────────────────────────
 function TabLayout() {
   return (
-    <div style={{ paddingBottom: 56 }}>
+    <div className="portal-tabshell">
       <Outlet />
       <TabBar />
     </div>
@@ -59,30 +61,33 @@ function TabLayout() {
 // ── App ────────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <UnreadProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/mfa" element={<Mfa />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <UnreadProvider>
+            <PwaChrome />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/mfa" element={<Mfa />} />
 
-            {/* Protected routes */}
-            <Route element={<AuthGuard />}>
-              <Route element={<TabLayout />}>
-                <Route path="/home" element={<Home />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/alerts" element={<Notifications />} />
-                <Route path="/more" element={<More />} />
-                <Route path="/more/consent" element={<Consent />} />
+              {/* Protected routes */}
+              <Route element={<AuthGuard />}>
+                <Route element={<TabLayout />}>
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/alerts" element={<Notifications />} />
+                  <Route path="/more" element={<More />} />
+                  <Route path="/more/consent" element={<Consent />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/home" replace />} />
-          </Routes>
-        </UnreadProvider>
-      </AuthProvider>
-    </BrowserRouter>
+              {/* Catch-all */}
+              <Route path="*" element={<Navigate to="/home" replace />} />
+            </Routes>
+          </UnreadProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

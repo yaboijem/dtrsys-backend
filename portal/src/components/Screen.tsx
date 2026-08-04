@@ -1,26 +1,29 @@
-import { ReactNode } from 'react';
+import { ReactNode, type CSSProperties } from 'react';
 
 interface ScreenProps {
   children: ReactNode;
   scroll?: boolean;
-  contentContainerStyle?: React.CSSProperties;
-  style?: React.CSSProperties;
+  contentContainerStyle?: CSSProperties;
+  style?: CSSProperties;
 }
 
 export function Screen({ children, scroll = true, contentContainerStyle, style }: ScreenProps) {
   return (
     <div
-      className="min-h-screen"
+      className="portal-screen"
       style={{
-        background: 'var(--ground)',
-        ...(scroll ? {} : { height: '100vh', overflow: 'hidden' }),
+        minHeight: scroll ? undefined : '100%',
+        flex: scroll ? undefined : 1,
+        display: scroll ? undefined : 'flex',
+        flexDirection: scroll ? undefined : 'column',
         ...style,
       }}
     >
       <div
-        className="mx-auto max-w-lg p-4 pb-8"
+        className="portal-screen__inner"
         style={{
-          height: scroll ? undefined : '100%',
+          flex: scroll ? undefined : 1,
+          minHeight: 0,
           overflowY: scroll ? undefined : 'auto',
           ...contentContainerStyle,
         }}

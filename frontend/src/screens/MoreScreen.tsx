@@ -4,16 +4,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { ApiError } from '../api/client';
 import { MfaStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
-import { errorMessage } from '../lib/format';
 import { MoreStackParamList } from '../navigation/RootNavigator';
-import { fontSize, microLabel, spacing, useThemeColors } from '../theme';
+import { fontSize, spacing, useThemeColors } from '../theme';
 
 export function MoreScreen() {
   const colors = useThemeColors();
@@ -26,10 +24,6 @@ export function MoreScreen() {
   const [savingDevice, setSavingDevice] = useState(false);
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  const [newDeviceId, setNewDeviceId] = useState('');
-  const [reason, setReason] = useState('');
-  const [requestingDeviceChange, setRequestingDeviceChange] = useState(false);
 
   const loadMfaStatus = useCallback(async () => {
     if (!token) {
@@ -67,40 +61,9 @@ export function MoreScreen() {
     setNotice(null);
     try {
       await setDeviceId(deviceIdInput);
-      setNotice(
-        `Device ID updated to ${deviceIdInput.trim()}. If it is not registered for your account, punches will be blocked until HR approves a device change request.`,
-      );
+      setNotice(`Device ID updated to ${deviceIdInput.trim()}. It will be used on the next login and punch.`);
     } finally {
       setSavingDevice(false);
-    }
-  };
-
-  const requestDeviceChange = async () => {
-    if (!token) {
-      return;
-    }
-    setRequestingDeviceChange(true);
-    setNotice(null);
-    try {
-      await api.post<{ message: string }>(
-        '/api/device/change-requests',
-        {
-          new_device_id: newDeviceId.trim(),
-          reason: reason.trim(),
-        },
-        token,
-      );
-      setNotice('Device change request submitted. HR will review it.');
-      setNewDeviceId('');
-      setReason('');
-    } catch (err) {
-      if (err instanceof ApiError && err.errors) {
-        Alert.alert('Request failed', Object.values(err.errors).flat()[0] ?? err.message);
-      } else {
-        Alert.alert('Request failed', errorMessage(err));
-      }
-    } finally {
-      setRequestingDeviceChange(false);
     }
   };
 
@@ -134,9 +97,9 @@ export function MoreScreen() {
           accessibilityLabel="Consent and data"
         >
           <View style={styles.navText}>
-            <Text style={[styles.navTitle, { color: colors.ink }]}>Consent & data</Text>
+            <Text style={[styles.navTitle, { color: colors.ink }]}>Consent</Text>
             <Text style={[styles.navSub, { color: colors.muted }]}>
-              Manage consent, export a copy of your data, or request deletion.
+              Manage biometric and GPS consent preferences.
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.muted} />
@@ -167,22 +130,11 @@ export function MoreScreen() {
       </SectionCard>
 
       <SectionCard title="Device">
+        <Text style={[styles.sectionNote, { color: colors.muted }]}>
+          Optional label sent with login and punches. You can use multiple devices freely.
+        </Text>
         <LabeledInput label="Device ID" value={deviceIdInput} onChangeText={setDeviceIdInput} autoCapitalize="none" autoCorrect={false} placeholder="device-id" />
         <Button title="Save device ID" onPress={saveDeviceId} loading={savingDevice} variant="secondary" />
-
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <Text style={[styles.sectionNote, { color: colors.muted }]}>
-          Registered a new phone? Request approval so punches are accepted on it.
-        </Text>
-        <LabeledInput label="New device ID" value={newDeviceId} onChangeText={setNewDeviceId} autoCapitalize="none" autoCorrect={false} placeholder="new-device-id" />
-        <LabeledInput label="Reason" value={reason} onChangeText={setReason} multiline placeholder="e.g. Replaced old phone" />
-        <Button
-          title="Submit device change request"
-          onPress={requestDeviceChange}
-          loading={requestingDeviceChange}
-          variant="secondary"
-          disabled={!newDeviceId.trim() || !reason.trim()}
-        />
       </SectionCard>
 
       <Button title="Log out" variant="danger" onPress={confirmLogout} />
@@ -195,10 +147,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     fontWeight: '800',
     marginBottom: spacing.md,
-  },
-  divider: {
-    height: 1,
-    marginVertical: spacing.lg,
   },
   sectionNote: {
     fontSize: fontSize.sm,

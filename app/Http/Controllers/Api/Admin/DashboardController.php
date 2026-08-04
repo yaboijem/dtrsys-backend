@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
-use App\Models\DeviceChangeRequest;
 use App\Models\Employee;
 use App\Models\FraudFlag;
 use App\Support\ScopesByRole;
@@ -18,17 +17,49 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         $today = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
 
-        $timeIns = Attendance::query()->where('type', 'time_in')->whereDate('timestamp', $today);
-        $this->applyRoleScope($timeIns, $user, 'branch_id');
+        return [
+            'date' => $today,
+            'time_ins_today' => $this->countTimeIns($user, $today),
+            'time_ins_yesterday' => $this->countTimeIns($user, $yesterday),
+            'late_ins_today' => $this->countLateIns($user, $today),
+            'late_ins_yesterday' => $this->countLateIns($user, $yesterday),
+            'early_time_outs_today' => $this->countEarlyTimeOuts($user, $today),
+            'early_time_outs_yesterday' => $this->countEarlyTimeOuts($user, $yesterday),
+            'absent_today' => $this->countAbsent($user, $today),
+            'absent_yesterday' => $this->countAbsent($user, $yesterday),
+            'open_fraud_flags' => $this->countOpenFlags($user),
+            'open_fraud_by_severity' => $this->openFlagsBySeverity($user),
+        ];
+    }
 
-        $lateIns = (clone $timeIns)->where('is_late', true);
+    private function countTimeIns($user, string $date): int
+    {
+        $q = Attendance::query()->where('type', 'time_in')->whereDate('timestamp', $date);
+        $this->applyRoleScope($q, $user, 'branch_id');
 
-        $timeOuts = Attendance::query()->where('type', 'time_out')->whereDate('timestamp', $today);
-        $this->applyRoleScope($timeOuts, $user, 'branch_id');
+        return $q->count();
+    }
 
-        $earlyTimeOuts = (clone $timeOuts)->where('is_early_timeout', true);
+    private function countLateIns($user, string $date): int
+    {
+        $q = Attendance::query()->where('type', 'time_in')->whereDate('timestamp', $date)->where('is_late', true);
+        $this->applyRoleScope($q, $user, 'branch_id');
 
+        return $q->count();
+    }
+
+    private function countEarlyTimeOuts($user, string $date): int
+    {
+        $q = Attendance::query()->where('type', 'time_out')->whereDate('timestamp', $date)->where('is_early_timeout', true);
+        $this->applyRoleScope($q, $user, 'branch_id');
+
+        return $q->count();
+    }
+
+    private function countAbsent($user, string $date): int
+    {
         $employees = Employee::query()->whereHas('user', fn ($q) => $q->where('is_active', true));
 
         if ($user->hasRole('Branch Manager')) {
@@ -37,22 +68,37 @@ class DashboardController extends Controller
             $employees->where('department', $user->employee?->department);
         }
 
-        $absent = (clone $employees)->whereDoesntHave('attendanceRecords', fn ($q) => $q->where('type', 'time_in')->whereDate('timestamp', $today))->count();
+        return (clone $employees)->whereDoesntHave(
+            'attendanceRecords',
+            fn ($q) => $q->where('type', 'time_in')->whereDate('timestamp', $date)
+        )->count();
+    }
 
-        $openFlags = FraudFlag::query()->where('status', 'open');
-        $this->applyRoleScope($openFlags, $user, 'attendance.branch_id');
+    private function countOpenFlags($user): int
+    {
+        $q = FraudFlag::query()->where('status', 'open');
+        $this->applyRoleScope($q, $user, 'attendance.branch_id');
 
-        $pendingDeviceRequests = DeviceChangeRequest::query()->where('status', 'pending');
-        $this->applyRoleScope($pendingDeviceRequests, $user, 'employee.branch_id');
+        return $q->count();
+    }
+
+    /**
+     * @return array{high: int, medium: int, low: int}
+     */
+    private function openFlagsBySeverity($user): array
+    {
+        $base = FraudFlag::query()->where('status', 'open');
+        $this->applyRoleScope($base, $user, 'attendance.branch_id');
+
+        $rows = (clone $base)
+            ->selectRaw('severity, count(*) as aggregate')
+            ->groupBy('severity')
+            ->pluck('aggregate', 'severity');
 
         return [
-            'date' => $today,
-            'time_ins_today' => $timeIns->count(),
-            'late_ins_today' => $lateIns->count(),
-            'early_time_outs_today' => $earlyTimeOuts->count(),
-            'absent_today' => $absent,
-            'open_fraud_flags' => $openFlags->count(),
-            'pending_device_change_requests' => $pendingDeviceRequests->count(),
+            'high' => (int) ($rows['high'] ?? 0),
+            'medium' => (int) ($rows['medium'] ?? 0),
+            'low' => (int) ($rows['low'] ?? 0),
         ];
     }
 }

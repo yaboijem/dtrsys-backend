@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom';
 import { Home, Clock, Bell, Menu } from 'lucide-react';
-import { useThemeColors, fontSize } from '../theme';
 import { useUnread } from '../notifications/UnreadContext';
 
 const tabs = [
@@ -11,69 +10,47 @@ const tabs = [
 ];
 
 export function TabBar() {
-  const colors = useThemeColors();
   const { unreadCount } = useUnread();
 
   return (
-    <nav
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: colors.card,
-        borderTopWidth: 1,
-        borderTopStyle: 'solid',
-        borderTopColor: colors.border,
-        display: 'flex',
-        justifyContent: 'space-around',
-        paddingTop: 8,
-        paddingBottom: 8,
-        zIndex: 40,
-      }}
-    >
-      {tabs.map(({ path, label, Icon }) => (
-        <NavLink
-          key={path}
-          to={path}
-          style={({ isActive }) => ({
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            color: isActive ? colors.band : colors.muted,
-            textDecoration: 'none',
-            fontSize: fontSize.micro,
-            fontWeight: isActive ? '700' : '500',
-          })}
-        >
-          <div style={{ position: 'relative' }}>
-            <Icon size={22} />
-            {path === '/alerts' && unreadCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: -4,
-                  right: -8,
-                  backgroundColor: colors.danger,
-                  color: '#ffffff',
-                  fontSize: 10,
-                  fontWeight: '700',
-                  borderRadius: '50%',
-                  width: 16,
-                  height: 16,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </div>
-          <span>{label}</span>
-        </NavLink>
-      ))}
+    <nav className="portal-tabbar" aria-label="Main">
+      <div className="portal-tabbar__inner">
+        {tabs.map(({ path, label, Icon }) => (
+          <NavLink
+            key={path}
+            to={path}
+            className={({ isActive }) => `portal-tabbar__item${isActive ? ' is-active' : ''}`}
+          >
+            <div style={{ position: 'relative', display: 'flex' }}>
+              <Icon size={20} strokeWidth={2.25} aria-hidden />
+              {path === '/alerts' && unreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -5,
+                    right: -11,
+                    backgroundColor: 'var(--danger)',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    minWidth: 16,
+                    height: 16,
+                    paddingInline: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1,
+                  }}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </div>
     </nav>
   );
 }

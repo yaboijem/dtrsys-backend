@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, Flag, Timer, UserX, Clock4, LogOut, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, CalendarClock, Clock4, Flag, LogOut, UserX } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { dashboardSummary, listAuditLogs } from '../api/endpoints';
 import type { AuditLog, DashboardSummary } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Card, ErrorState, Spinner } from '../components/ui';
+import { PageHeader } from '../components/PageHeader';
+import { Avatar, Card, ErrorState, MetricCard, Spinner } from '../components/ui';
 import { activityDef } from '../lib/activities';
-import { formatDate, formatDateTime } from '../lib/format';
-
-interface StatDef {
-  key: keyof DashboardSummary;
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  tone: string;
-}
+import { deltaLabel, formatDate, formatRelative } from '../lib/format';
 
 export function DashboardPage() {
   const { token, hasRole } = useAuth();
+  const navigate = useNavigate();
   const canViewActivities = hasRole('Super Admin', 'HR');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [activities, setActivities] = useState<AuditLog[]>([]);
@@ -41,7 +36,7 @@ export function DashboardPage() {
   const loadActivities = useCallback(async () => {
     if (!token || !canViewActivities) return;
     try {
-      const result = await listAuditLogs({ per_page: 10 }, token);
+      const result = await listAuditLogs({ per_page: 12 }, token);
       setActivities(result.data);
     } catch {
       setActivitiesFailed(true);
@@ -56,55 +51,96 @@ export function DashboardPage() {
     void loadActivities();
   }, [loadActivities]);
 
-  if (loading) {
-    return <Spinner label="Loading dashboard…" />;
-  }
+  if (loading) return <Spinner label="Loading dashboard…" />;
+  if (error || !summary) return <ErrorState message={error ?? 'No data available.'} onRetry={load} />;
 
-  if (error || !summary) {
-    return <ErrorState message={error ?? 'No data available.'} onRetry={load} />;
-  }
-
-  const stats: StatDef[] = [
-    { key: 'time_ins_today', label: 'Time-ins today', value: summary.time_ins_today, icon: <CalendarClock size={18} />, tone: 'bg-cyan-50 text-primary' },
-    { key: 'late_ins_today', label: 'Late arrivals', value: summary.late_ins_today, icon: <Clock4 size={18} />, tone: 'bg-amber-50 text-warning' },
-    { key: 'early_time_outs_today', label: 'Early time outs', value: summary.early_time_outs_today, icon: <LogOut size={18} />, tone: 'bg-amber-50 text-warning' },
-    { key: 'absent_today', label: 'Absent today', value: summary.absent_today, icon: <UserX size={18} />, tone: 'bg-slate-100 text-muted' },
-    { key: 'open_fraud_flags', label: 'Open fraud flags', value: summary.open_fraud_flags, icon: <Flag size={18} />, tone: 'bg-red-50 text-danger' },
-    { key: 'pending_device_change_requests', label: 'Pending device requests', value: summary.pending_device_change_requests, icon: <Timer size={18} />, tone: 'bg-violet-50 text-violet-700' },
-  ];
+  const sev = summary.open_fraud_by_severity ?? { high: 0, medium: 0, low: 0 };
 
   return (
     <div>
-      <div className="mb-4 flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text">Dashboard</h1>
-          <p className="font-mono text-xs tnum text-muted">{formatDate(summary.date)}</p>
-        </div>
-      </div>
+      <PageHeader title="Dashboard" description={`Today · ${formatDate(summary.date)}`} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {stats.map((stat) => (
-          <Card key={stat.key} className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="font-mono text-2xl font-bold tnum text-text">{stat.value}</div>
-                <div className="mt-0.5 text-xs text-muted">{stat.label}</div>
-              </div>
-              <div className={`rounded-md p-2 ${stat.tone}`}>{stat.icon}</div>
+      <section className="mb-6">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Attendance</h2>
+        <div className="metric-grid">
+          <MetricCard
+            label="Time-ins today"
+            value={summary.time_ins_today}
+            icon={<CalendarClock size={18} />}
+            delta={deltaLabel(summary.time_ins_today, summary.time_ins_yesterday ?? 0)}
+            onClick={() => navigate('/attendance')}
+          />
+          <MetricCard
+            label="Late arrivals"
+            value={summary.late_ins_today}
+            icon={<Clock4 size={18} />}
+            tone="warning"
+            delta={deltaLabel(summary.late_ins_today, summary.late_ins_yesterday ?? 0)}
+            onClick={() => navigate('/attendance?is_late=1')}
+          />
+          <MetricCard
+            label="Early time outs"
+            value={summary.early_time_outs_today}
+            icon={<LogOut size={18} />}
+            tone="warning"
+            delta={deltaLabel(summary.early_time_outs_today, summary.early_time_outs_yesterday ?? 0)}
+            onClick={() => navigate('/attendance?is_early_timeout=1')}
+          />
+          <MetricCard
+            label="Absent today"
+            value={summary.absent_today}
+            icon={<UserX size={18} />}
+            delta={deltaLabel(summary.absent_today, summary.absent_yesterday ?? 0)}
+          />
+        </div>
+      </section>
+
+      <section className="mb-6">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Security & alerts</h2>
+        <div className="metric-grid--security">
+          <MetricCard
+            label="Open fraud flags"
+            value={summary.open_fraud_flags}
+            icon={<Flag size={18} />}
+            tone="danger"
+            onClick={() => navigate('/fraud-flags?status=open')}
+          />
+          <Card className="p-4 shadow-sm">
+            <div className="mb-2 text-xs font-medium text-muted">Open by severity</div>
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  { key: 'high', label: 'High', n: sev.high, className: 'bg-red-50 text-red-800 border-red-200' },
+                  { key: 'medium', label: 'Medium', n: sev.medium, className: 'bg-amber-50 text-amber-900 border-amber-200' },
+                  { key: 'low', label: 'Low', n: sev.low, className: 'bg-slate-50 text-slate-700 border-slate-200' },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => navigate(`/fraud-flags?status=open&severity=${s.key}`)}
+                  className={`rounded-lg border px-2 py-2.5 text-center cursor-pointer transition hover:shadow-sm ${s.className}`}
+                >
+                  <div className="font-mono text-lg font-bold tnum">{s.n}</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide opacity-80">{s.label}</div>
+                </button>
+              ))}
             </div>
           </Card>
-        ))}
-      </div>
+        </div>
+      </section>
 
-      <Card className="mt-4">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+      <Card className="shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3.5 sm:px-5">
           <Activity size={15} className="text-primary" />
-          <h2 className="text-sm font-semibold text-text">Recent activities</h2>
+          <h2 className="text-sm font-semibold text-text">Recent activity</h2>
         </div>
         {!canViewActivities ? (
-          <p className="px-4 py-6 text-center text-xs text-muted">Audit trail access is limited to Super Admin and HR.</p>
+          <p className="px-4 py-6 text-center text-xs text-muted sm:px-5">
+            Audit trail access is limited to Super Admin and HR.
+          </p>
         ) : activitiesFailed ? (
-          <p className="px-4 py-6 text-center text-xs text-muted">Couldn't load recent activity.</p>
+          <p className="px-4 py-6 text-center text-xs text-muted sm:px-5">Couldn't load recent activity.</p>
         ) : activities.length === 0 ? (
           <div className="flex flex-col items-center gap-1 py-12 text-center">
             <span className="text-sm font-medium text-text">No recent activity</span>
@@ -114,17 +150,20 @@ export function DashboardPage() {
           <ul className="divide-y divide-border">
             {activities.map((log) => {
               const def = activityDef(log.action);
+              const actor = log.actor?.name ?? 'System';
               return (
-                <li key={log.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${def.tone}`}>{def.icon}</div>
+                <li key={log.id} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+                  <Avatar name={actor} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-text">
-                      <span className="font-medium">{log.actor?.name ?? 'System'}</span>{' '}
+                    <div className="text-sm text-text">
+                      <span className="font-semibold">{actor}</span>{' '}
                       <span className="text-muted">{def.label}</span>
                     </div>
-                    <div className="text-xs text-muted">{log.action}</div>
+                    <div className="mt-0.5 font-mono text-[11px] tnum text-muted/80">{log.action}</div>
                   </div>
-                  <div className="shrink-0 font-mono tnum text-xs text-muted">{formatDateTime(log.created_at)}</div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-[11px] font-medium text-muted">{formatRelative(log.created_at)}</div>
+                  </div>
                 </li>
               );
             })}

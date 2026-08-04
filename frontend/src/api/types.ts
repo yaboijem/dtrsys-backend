@@ -100,13 +100,7 @@ export interface Consent {
   updated_at: string | null;
 }
 
-export interface DataRequest {
-  id: number;
-  type: 'access' | 'deletion';
-  status: 'pending' | 'approved' | 'completed' | 'rejected';
-  created_at: string;
-  processed_at: string | null;
-}
+
 
 export interface Paginated<T> {
   data: T[];

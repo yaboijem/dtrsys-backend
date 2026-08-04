@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Search, UserMinus } from 'lucide-react';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { createEmployee, deactivateEmployee, listBranches, listEmployees, updateEmployee, uploadReferencePhoto } from '../api/endpoints';
 import type { Branch, Employee, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Badge, Button, Card, ErrorState, Field, Input, Select, Toggle } from '../components/ui';
+import { PageHeader } from '../components/PageHeader';
+import { Avatar, Badge, Button, Card, ErrorState, Field, Input, Select, Toggle } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
+import { DropdownItem, DropdownMenu } from '../components/DropdownMenu';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { useToast } from '../components/Toast';
@@ -65,6 +68,7 @@ function composeFullName(firstName: string, middleName: string, lastName: string
 export function EmployeesPage() {
   const { token } = useAuth();
   const { notify } = useToast();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department: '' });
   const [applied, setApplied] = useState<Filters>({ search: '', branch_id: '', department: '' });
   const [page, setPage] = useState(1);
@@ -240,20 +244,20 @@ export function EmployeesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text">Employees</h1>
-          <p className="text-xs text-muted">Manage accounts, roles and reference photos</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus size={15} />
-          Add employee
-        </Button>
-      </div>
+      <PageHeader
+        title="Employees"
+        description="Manage accounts, roles and reference photos"
+        actions={
+          <Button onClick={openCreate}>
+            <Plus size={15} />
+            Add employee
+          </Button>
+        }
+      />
 
-      <Card className="mb-4 p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div className="relative md:col-span-2">
+      <Card className="mb-4 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <Input
               value={filters.search}
@@ -263,7 +267,7 @@ export function EmployeesPage() {
               className="pl-9"
             />
           </div>
-          <Select value={filters.branch_id} onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}>
+          <Select value={filters.branch_id} onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })} className="lg:w-44">
             <option value="">All branches</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
@@ -271,16 +275,19 @@ export function EmployeesPage() {
               </option>
             ))}
           </Select>
-          <div className="flex gap-2">
-            <Input value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} placeholder="Department" />
-            <Button onClick={applyFilters} disabled={!dirty}>
-              Apply
-            </Button>
-          </div>
+          <Input
+            value={filters.department}
+            onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+            placeholder="Department"
+            className="lg:w-40"
+          />
+          <Button onClick={applyFilters} disabled={!dirty}>
+            Apply
+          </Button>
         </div>
       </Card>
 
-      <Card>
+      <Card className="shadow-sm">
         {error ? (
           <ErrorState message={error} onRetry={load} />
         ) : (
@@ -296,26 +303,31 @@ export function EmployeesPage() {
                   key: 'employee',
                   header: 'Employee',
                   render: (r) => (
-                    <div>
-                      <div className="font-medium text-text">{r.full_name}</div>
-                      <div className="font-mono text-xs tnum text-muted">
-                        {r.employee_id} · {r.email}
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={r.full_name} />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-text">{r.full_name}</div>
+                        <div className="truncate text-xs text-muted">{r.position || '—'}</div>
+                        <div className="font-mono text-[11px] tnum text-muted">{r.employee_id}</div>
                       </div>
                     </div>
                   ),
                 },
                 {
-                  key: 'role',
-                  header: 'Role',
-                  render: (r) => <Badge tone={r.roles?.[0] === 'Super Admin' ? 'violet' : 'gray'}>{r.roles?.[0] ?? '—'}</Badge>,
+                  key: 'tags',
+                  header: 'Org',
+                  render: (r) => (
+                    <div className="flex flex-wrap gap-1">
+                      <Badge tone="teal">{branchName(r.branch?.id)}</Badge>
+                      {r.department ? <Badge tone="gray">{r.department}</Badge> : null}
+                      <Badge tone={r.roles?.[0] === 'Super Admin' ? 'violet' : 'blue'}>{r.roles?.[0] ?? '—'}</Badge>
+                    </div>
+                  ),
                 },
-                { key: 'branch', header: 'Branch', render: (r) => <span className="text-sm text-text">{branchName(r.branch?.id)}</span> },
-                { key: 'department', header: 'Department', render: (r) => <span className="text-xs text-muted">{r.department}</span> },
-                { key: 'position', header: 'Position', render: (r) => <span className="text-xs text-muted">{r.position}</span> },
                 {
                   key: 'hired',
                   header: 'Hired',
-                  render: (r) => <span className="text-xs text-muted">{formatDate(r.date_hired)}</span>,
+                  render: (r) => <span className="font-mono text-xs tnum text-muted">{formatDate(r.date_hired)}</span>,
                 },
                 {
                   key: 'status',
@@ -325,30 +337,27 @@ export function EmployeesPage() {
                 {
                   key: 'actions',
                   header: '',
-                  className: 'w-24',
+                  className: 'w-14',
                   render: (r) => (
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(r)}
-                        className="rounded p-1.5 text-muted hover:bg-bg hover:text-primary cursor-pointer"
-                        title="Edit"
-                        aria-label={`Edit ${r.full_name}`}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      {r.is_active && (
+                    <DropdownMenu
+                      trigger={
                         <button
                           type="button"
-                          onClick={() => setDeactivating(r)}
-                          className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer"
-                          title="Deactivate"
-                          aria-label={`Deactivate ${r.full_name}`}
+                          className="rounded-lg p-1.5 text-muted hover:bg-slate-100 hover:text-text cursor-pointer"
+                          aria-label={`Actions for ${r.full_name}`}
                         >
-                          <UserMinus size={14} />
+                          <MoreHorizontal size={16} />
                         </button>
-                      )}
-                    </div>
+                      }
+                    >
+                      <DropdownItem onSelect={() => openEdit(r)}>Edit details</DropdownItem>
+                      <DropdownItem onSelect={() => navigate(`/attendance?employee_id=${r.id}`)}>View attendance</DropdownItem>
+                      {r.is_active ? (
+                        <DropdownItem danger onSelect={() => setDeactivating(r)}>
+                          Deactivate
+                        </DropdownItem>
+                      ) : null}
+                    </DropdownMenu>
                   ),
                 },
               ]}

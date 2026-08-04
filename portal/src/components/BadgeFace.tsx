@@ -43,7 +43,7 @@ export function BadgeFace({ name, employeeId, position, branch, roles }: BadgeFa
         borderWidth: 1,
         borderStyle: 'solid',
         overflow: 'hidden',
-        marginBottom: spacing.lg,
+        marginBottom: spacing.xl,
         backgroundColor: colors.card,
         borderColor: colors.border,
         ...cardShadow(isDark),

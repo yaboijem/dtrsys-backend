@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ListFilter } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { listBranches, listFraudFlags, reviewFraudFlag } from '../api/endpoints';
+import { dashboardSummary, listBranches, listFraudFlags, reviewFraudFlag } from '../api/endpoints';
 import type { Branch, FraudFlag, FraudFlagStatus, FraudFlagType, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Badge, Button, Card, ErrorState, Field, Select, Textarea } from '../components/ui';
+import { PageHeader } from '../components/PageHeader';
+import { Avatar, Badge, Button, Card, ErrorState, Field, Select, Textarea } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
 import { Drawer } from '../components/Drawer';
 import { PhotoViewer } from '../components/PhotoViewer';
@@ -27,8 +29,17 @@ const FLAG_TYPES = Object.keys(FLAG_LABELS) as FraudFlagType[];
 export function FraudFlagsPage() {
   const { token } = useAuth();
   const { notify } = useToast();
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS);
+  const [searchParams] = useSearchParams();
+  const initialFilters = useMemo(
+    (): Filters => ({
+      ...EMPTY_FILTERS,
+      status: searchParams.get('status') ?? 'open',
+      severity: searchParams.get('severity') ?? '',
+    }),
+    [searchParams],
+  );
+  const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [applied, setApplied] = useState<Filters>(initialFilters);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<FraudFlag[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
@@ -36,7 +47,21 @@ export function FraudFlagsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<FraudFlag | null>(null);
-  const [pendingAction, setPendingAction] = useState<Exclude<FraudFlagStatus, 'open'> | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [severityCounts, setSeverityCounts] = useState({ high: 0, medium: 0, low: 0 });
+
+  useEffect(() => {
+    setFilters(initialFilters);
+    setApplied(initialFilters);
+    setPage(1);
+  }, [initialFilters]);
+
+  useEffect(() => {
+    if (!token) return;
+    void dashboardSummary(token)
+      .then((s) => setSeverityCounts(s.open_fraud_by_severity ?? { high: 0, medium: 0, low: 0 }))
+      .catch(() => undefined);
+  }, [token]);
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -98,11 +123,12 @@ export function FraudFlagsPage() {
 
   async function handleReview(flag: FraudFlag, status: Exclude<FraudFlagStatus, 'open'>, notes: string) {
     if (!token) return;
-    setPendingAction(status);
+    setPendingAction(`${flag.id}:${status}`);
     try {
       const updated = await reviewFraudFlag(flag.id, status, notes || undefined, token);
       refreshFlag(updated);
       notify('success', status === 'reviewed' ? 'Flag marked as reviewed.' : 'Flag dismissed.');
+      void load();
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Failed to update the flag.');
     } finally {
@@ -110,24 +136,55 @@ export function FraudFlagsPage() {
     }
   }
 
+  function setSeverityFilter(severity: string) {
+    const next = { ...filters, status: 'open', severity };
+    setFilters(next);
+    setApplied(next);
+    setPage(1);
+  }
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text">Fraud flags</h1>
-          <p className="text-xs text-muted">Review suspicious attendance records</p>
-        </div>
-        <Button variant="secondary" onClick={resetFilters} disabled={!dirty && !hasApplied}>
-          Reset filters
-        </Button>
+      <PageHeader
+        title="Fraud flags"
+        description="Triage suspicious attendance and verification issues"
+        actions={
+          <Button variant="secondary" onClick={resetFilters} disabled={!dirty && !hasApplied}>
+            Reset filters
+          </Button>
+        }
+      />
+
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+        {(
+          [
+            { key: 'high', label: 'High severity', n: severityCounts.high, cls: 'border-red-200 bg-red-50 text-red-900' },
+            { key: 'medium', label: 'Medium', n: severityCounts.medium, cls: 'border-amber-200 bg-amber-50 text-amber-950' },
+            { key: 'low', label: 'Low', n: severityCounts.low, cls: 'border-slate-200 bg-slate-50 text-slate-800' },
+          ] as const
+        ).map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setSeverityFilter(s.key)}
+            className={cn(
+              'rounded-xl border px-3 py-3 text-left shadow-sm transition hover:shadow-md cursor-pointer',
+              s.cls,
+              applied.severity === s.key && applied.status === 'open' && 'ring-2 ring-primary/40',
+            )}
+          >
+            <div className="font-mono text-xl font-bold tnum">{s.n}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{s.label}</div>
+          </button>
+        ))}
       </div>
 
-      <Card className="mb-4 p-4">
+      <Card className="mb-4 p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted">
           <ListFilter size={14} />
           Filters
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Field label="Status">
             <Select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
               <option value="">All statuses</option>
@@ -189,9 +246,12 @@ export function FraudFlagsPage() {
                   key: 'employee',
                   header: 'Employee',
                   render: (r) => (
-                    <div>
-                      <div className="font-medium text-text">{r.attendance.employee?.name ?? '—'}</div>
-                      <div className="text-xs text-muted">{r.attendance.employee?.employee_id ?? ''}</div>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={r.attendance.employee?.name} size="sm" />
+                      <div>
+                        <div className="font-medium text-text">{r.attendance.employee?.name ?? '—'}</div>
+                        <div className="font-mono text-[11px] tnum text-muted">{r.attendance.employee?.employee_id ?? ''}</div>
+                      </div>
                     </div>
                   ),
                 },
@@ -200,7 +260,15 @@ export function FraudFlagsPage() {
                   header: 'Type',
                   render: (r) => <Badge tone={FLAG_TONES[r.type]}>{FLAG_LABELS[r.type]}</Badge>,
                 },
-                { key: 'severity', header: 'Severity', render: (r) => <Badge tone={SEVERITY_TONES[r.severity]} className="capitalize">{r.severity}</Badge> },
+                {
+                  key: 'severity',
+                  header: 'Severity',
+                  render: (r) => (
+                    <Badge tone={SEVERITY_TONES[r.severity]} className="capitalize">
+                      {r.severity}
+                    </Badge>
+                  ),
+                },
                 { key: 'status', header: 'Status', render: (r) => <Badge tone={STATUS_TONES[r.status]} className="capitalize">{r.status}</Badge> },
                 {
                   key: 'timestamp',
@@ -211,6 +279,36 @@ export function FraudFlagsPage() {
                   key: 'branch',
                   header: 'Branch',
                   render: (r) => <span className="text-xs text-text">{r.attendance.branch ?? '—'}</span>,
+                },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  className: 'w-44',
+                  render: (r) =>
+                    r.status === 'open' ? (
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          variant="success"
+                          loading={pendingAction === `${r.id}:reviewed`}
+                          disabled={pendingAction !== null}
+                          onClick={() => void handleReview(r, 'reviewed', '')}
+                        >
+                          Resolve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={pendingAction === `${r.id}:dismissed`}
+                          disabled={pendingAction !== null}
+                          onClick={() => void handleReview(r, 'dismissed', '')}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    ),
                 },
                 {
                   key: 'created',
@@ -296,7 +394,7 @@ function FlagReview({
 }: {
   flag: FraudFlag;
   token: string;
-  pendingAction: Exclude<FraudFlagStatus, 'open'> | null;
+  pendingAction: string | null;
   onReview: (status: Exclude<FraudFlagStatus, 'open'>, notes: string) => void;
 }) {
   const [notes, setNotes] = useState(flag.notes ?? '');
@@ -428,10 +526,20 @@ function FlagReview({
               Dismiss
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" onDark loading={pendingAction === 'dismissed'} disabled={busy} onClick={() => onReview('dismissed', notes)}>
+              <Button
+                variant="secondary"
+                onDark
+                loading={pendingAction === `${flag.id}:dismissed`}
+                disabled={busy}
+                onClick={() => onReview('dismissed', notes)}
+              >
                 Dismiss flag
               </Button>
-              <Button loading={pendingAction === 'reviewed'} disabled={busy} onClick={() => onReview('reviewed', notes)}>
+              <Button
+                loading={pendingAction === `${flag.id}:reviewed`}
+                disabled={busy}
+                onClick={() => onReview('reviewed', notes)}
+              >
                 Confirm as fraud
               </Button>
             </div>

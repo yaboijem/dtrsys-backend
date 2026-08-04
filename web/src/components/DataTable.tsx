@@ -22,26 +22,14 @@ export function DataTable<T>({
 }) {
   if (loading) {
     return (
-      <div className="relative overflow-hidden">
+      <div className="overflow-hidden">
         <div className="divide-y divide-border">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3">
+            <div key={i} className="flex items-center gap-4 px-4 py-3.5">
               {columns.map((col) => (
-                <div key={col.key} className={cn('h-4 flex-1 animate-pulse rounded bg-slate-200/70', col.className)} />
+                <div key={col.key} className={cn('h-4 flex-1 animate-pulse rounded bg-slate-200/80', col.className)} />
               ))}
             </div>
-          ))}
-        </div>
-        <div aria-hidden className="pointer-events-none absolute inset-0 motion-reduce:hidden">
-          {Array.from({ length: 14 }).map((_, i) => (
-            <span
-              key={i}
-              className="absolute top-[-14px] h-1 w-1 rounded-full bg-cyan-600/40"
-              style={{
-                left: `${(i * 7.3 + 3) % 100}%`,
-                animation: `snowfall ${2.4 + ((i * 0.37) % 1.6)}s linear ${-((i * 0.61) % 3)}s infinite`,
-              }}
-            />
           ))}
         </div>
       </div>
@@ -60,8 +48,8 @@ export function DataTable<T>({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-border bg-bg/70 text-xs uppercase tracking-wide text-muted">
+        <thead className="sticky top-0 z-10">
+          <tr className="border-b border-border bg-slate-50 text-[11px] uppercase tracking-wide text-muted">
             {columns.map((col) => (
               <th key={col.key} className={cn('px-4 py-2.5 font-semibold', col.className)}>
                 {col.header}
@@ -83,7 +71,8 @@ export function DataTable<T>({
               }}
               className={cn(
                 'transition-colors',
-                onRowClick && 'cursor-pointer hover:bg-cyan-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40',
+                onRowClick &&
+                  'cursor-pointer hover:bg-teal-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40',
               )}
             >
               {columns.map((col) => (
@@ -121,7 +110,7 @@ export function PaginationBar({
           type="button"
           disabled={!paginated.prev_page_url}
           onClick={() => onPageChange(page - 1)}
-          className="rounded border border-border bg-white p-1.5 text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          className="rounded-lg border border-border bg-white p-1.5 text-text hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
           aria-label="Previous page"
         >
           <ChevronLeft size={14} />
@@ -133,7 +122,7 @@ export function PaginationBar({
           type="button"
           disabled={!paginated.next_page_url}
           onClick={() => onPageChange(page + 1)}
-          className="rounded border border-border bg-white p-1.5 text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          className="rounded-lg border border-border bg-white p-1.5 text-text hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
           aria-label="Next page"
         >
           <ChevronRight size={14} />

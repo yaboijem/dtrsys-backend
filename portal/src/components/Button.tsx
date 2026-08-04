@@ -1,14 +1,16 @@
+import type { CSSProperties, ReactNode } from 'react';
 import { useThemeColors, fontSize, radius, spacing } from '../theme';
 
 interface ButtonProps {
   title: string;
   onClick: () => void;
   type?: 'button' | 'submit' | 'reset';
-  variant?: 'primary' | 'secondary' | 'danger' | 'success';
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'outline-danger';
   size?: 'default' | 'large';
   disabled?: boolean;
   loading?: boolean;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
+  icon?: ReactNode;
 }
 
 export function Button({
@@ -20,17 +22,20 @@ export function Button({
   disabled,
   loading,
   style,
+  icon,
 }: ButtonProps) {
   const colors = useThemeColors();
   const palette = {
-    primary: { bg: colors.band, text: colors.bandText },
-    secondary: { bg: colors.card, text: colors.ink, border: colors.border },
-    danger: { bg: colors.danger, text: '#ffffff' },
-    success: { bg: colors.successFill, text: '#ffffff' },
+    primary: { bg: colors.primary, text: '#ffffff', border: 'none' },
+    secondary: { bg: colors.card, text: colors.ink, border: `1px solid ${colors.border}` },
+    danger: { bg: colors.danger, text: '#ffffff', border: 'none' },
+    success: { bg: colors.successFill, text: '#ffffff', border: 'none' },
+    'outline-danger': { bg: 'transparent', text: colors.dangerText, border: `1.5px solid ${colors.danger}` },
   }[variant];
 
-  const baseStyles: React.CSSProperties = {
-    minHeight: size === 'large' ? 60 : 48,
+  const baseStyles: CSSProperties = {
+    width: '100%',
+    minHeight: size === 'large' ? 56 : 48,
     paddingLeft: spacing.lg,
     paddingRight: spacing.lg,
     paddingTop: spacing.md,
@@ -39,25 +44,22 @@ export function Button({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     backgroundColor: palette.bg,
     color: palette.text,
-    border: palette.border ? `1px solid ${palette.border}` : 'none',
-    opacity: disabled || loading ? 0.45 : 1,
+    border: palette.border,
+    opacity: disabled || loading ? 0.5 : 1,
     cursor: disabled || loading ? 'not-allowed' : 'pointer',
     fontSize: fontSize.md,
-    fontWeight: '700',
+    fontWeight: 700,
+    boxShadow: variant === 'secondary' || variant === 'outline-danger' ? 'none' : '0 1px 2px rgba(15,23,42,0.08)',
     ...style,
   };
 
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled || loading}
-      aria-label={title}
-      style={baseStyles}
-    >
-      {loading ? '...' : title}
+    <button type={type} onClick={onClick} disabled={disabled || loading} aria-label={title} style={baseStyles}>
+      {loading ? '…' : icon}
+      {loading ? 'Please wait…' : title}
     </button>
   );
 }

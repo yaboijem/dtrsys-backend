@@ -33,9 +33,7 @@ export function LoginScreen({ navigation }: Props) {
         navigation.navigate('Mfa');
       }
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'device_not_registered') {
-        setError('This device is not registered for this account. Use the device ID linked to the account, or contact HR.');
-      } else if (err instanceof ApiError && err.errors) {
+      if (err instanceof ApiError && err.errors) {
         const messages = Object.values(err.errors).flat();
         setError(messages[0] ?? err.message);
       } else {

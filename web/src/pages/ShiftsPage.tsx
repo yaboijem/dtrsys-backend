@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Coffee, Clock, Pencil, Plus, Timer, Trash2 } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { createShift, deleteShift, listShifts, updateShift } from '../api/endpoints';
 import type { Paginated, Shift } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Badge, Button, Card, ErrorState, Field, Input, Toggle } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { PageHeader } from '../components/PageHeader';
+import { Badge, Button, Card, ErrorState, Field, Input, Spinner, Toggle } from '../components/ui';
+import { PaginationBar } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { formatClockTime } from '../lib/format';
@@ -151,81 +152,115 @@ export function ShiftsPage() {
     }
   }
 
+  async function toggleActive(shift: Shift) {
+    if (!token) return;
+    try {
+      await updateShift(shift.id, { is_active: !shift.is_active }, token);
+      notify('success', shift.is_active ? 'Shift deactivated.' : 'Shift activated.');
+      void load();
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'Failed to update shift.');
+    }
+  }
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text">Shifts</h1>
-          <p className="text-xs text-muted">Working hours, grace periods and breaks</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus size={15} />
-          Add shift
-        </Button>
-      </div>
+      <PageHeader
+        title="Shifts"
+        description="Working hours, grace periods and breaks"
+        actions={
+          <Button onClick={openCreate}>
+            <Plus size={15} />
+            Create new shift
+          </Button>
+        }
+      />
 
-      <Card>
-        {error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : (
-          <>
-            <DataTable<Shift>
-              loading={loading && !data}
-              rows={data ?? []}
-              keyOf={(r) => r.id}
-              emptyTitle="No shifts yet"
-              emptyDescription="Create a shift definition to use in schedules."
-              columns={[
-                { key: 'name', header: 'Shift', render: (r) => <span className="font-medium text-text">{r.name}</span> },
-                {
-                  key: 'hours',
-                  header: 'Hours',
-                  render: (r) => (
-                    <span className="whitespace-nowrap text-sm text-text">
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading && !data ? (
+        <Spinner label="Loading shifts…" />
+      ) : !data?.length ? (
+        <Card className="p-12 text-center shadow-sm">
+          <p className="text-sm font-medium text-text">No shifts yet</p>
+          <p className="mt-1 text-xs text-muted">Create a shift definition to use in schedules.</p>
+          <Button className="mt-4" onClick={openCreate}>
+            <Plus size={15} /> Create new shift
+          </Button>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {data.map((r) => (
+              <Card key={r.id} className="flex flex-col p-4 shadow-sm">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-base font-semibold text-text">{r.name}</div>
+                    <div className="mt-0.5 font-mono text-sm tnum text-muted">
+                      {formatClockTime(r.start_time)} – {formatClockTime(r.end_time)}
+                    </div>
+                  </div>
+                  <Badge tone={r.is_active ? 'green' : 'gray'}>{r.is_active ? 'Active' : 'Inactive'}</Badge>
+                </div>
+                <div className="mb-4 space-y-2 text-xs text-muted">
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} className="text-primary" />
+                    <span>Working hours</span>
+                    <span className="ml-auto font-mono tnum text-text">
                       {formatClockTime(r.start_time)} – {formatClockTime(r.end_time)}
                     </span>
-                  ),
-                },
-                {
-                  key: 'grace',
-                  header: 'Grace',
-                  render: (r) => <span className="text-xs text-muted">{r.grace_minutes !== null && r.grace_minutes !== undefined ? `${r.grace_minutes} min` : '—'}</span>,
-                },
-                {
-                  key: 'break',
-                  header: 'Break',
-                  render: (r) => (
-                    <span className="text-xs text-muted">
-                      {r.break_start && r.break_end ? `${formatClockTime(r.break_start)} – ${formatClockTime(r.break_end)}` : '—'}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Timer size={14} className="text-warning" />
+                    <span>Grace period</span>
+                    <span className="ml-auto font-mono tnum text-text">
+                      {r.grace_minutes != null ? `${r.grace_minutes} min` : '—'}
                     </span>
-                  ),
-                },
-                {
-                  key: 'status',
-                  header: 'Status',
-                  render: (r) => (r.is_active ? <Badge tone="green">Active</Badge> : <Badge tone="gray">Inactive</Badge>),
-                },
-                {
-                  key: 'actions',
-                  header: '',
-                  className: 'w-20',
-                  render: (r) => (
-                    <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => openEdit(r)} aria-label={`Edit ${r.name}`} className="rounded p-1.5 text-muted hover:bg-bg hover:text-primary cursor-pointer" title="Edit">
-                        <Pencil size={14} />
-                      </button>
-                      <button type="button" onClick={() => setDeleting(r)} aria-label={`Delete ${r.name}`} className="rounded p-1.5 text-muted hover:bg-bg hover:text-danger cursor-pointer" title="Delete">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ),
-                },
-              ]}
-            />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
-          </>
-        )}
-      </Card>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Coffee size={14} className="text-teal-700" />
+                    <span>Break</span>
+                    <span className="ml-auto font-mono tnum text-text">
+                      {r.break_start && r.break_end
+                        ? `${formatClockTime(r.break_start)} – ${formatClockTime(r.break_end)}`
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+                  <div className="flex items-center gap-2">
+                    <Toggle checked={r.is_active} onChange={() => void toggleActive(r)} label={`Toggle ${r.name}`} />
+                    <span className="text-xs text-muted">Active</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(r)}
+                      className="rounded-lg p-1.5 text-muted hover:bg-slate-100 hover:text-primary cursor-pointer"
+                      aria-label={`Edit ${r.name}`}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleting(r)}
+                      className="rounded-lg p-1.5 text-muted hover:bg-slate-100 hover:text-danger cursor-pointer"
+                      aria-label={`Delete ${r.name}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {paginated && (
+            <Card className="mt-4 shadow-sm">
+              <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />
+            </Card>
+          )}
+        </>
+      )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.name}` : 'Add shift'}>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">

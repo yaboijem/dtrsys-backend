@@ -18,10 +18,10 @@ export const FLAG_TONES: Record<FraudFlagType, 'red' | 'amber' | 'violet' | 'blu
   no_face: 'red',
 };
 
-export const SEVERITY_TONES: Record<FraudFlagSeverity, 'red' | 'amber' | 'gray'> = {
-  high: 'red',
-  medium: 'amber',
-  low: 'gray',
+export const SEVERITY_TONES: Record<FraudFlagSeverity, 'red' | 'amber' | 'gray' | 'solidRed' | 'solidAmber' | 'solidGray'> = {
+  high: 'solidRed',
+  medium: 'solidAmber',
+  low: 'solidGray',
 };
 
 export const STATUS_TONES: Record<FraudFlagStatus, 'amber' | 'green' | 'gray'> = {

@@ -8,7 +8,6 @@ import { MfaPage } from './pages/MfaPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { FraudFlagsPage } from './pages/FraudFlagsPage';
-import { PendingRequestsPage } from './pages/PendingRequestsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { ShiftsPage } from './pages/ShiftsPage';
@@ -75,18 +74,6 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR', 'Branch Manager']}>
                 <FraudFlagsPage />
-              </RequireRole>
-            </Layout>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/requests"
-        element={
-          <RequireAuth>
-            <Layout>
-              <RequireRole roles={['Super Admin', 'HR']}>
-                <PendingRequestsPage />
               </RequireRole>
             </Layout>
           </RequireAuth>

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Device;
-use App\Models\DeviceChangeRequest;
 use App\Models\Employee;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -89,40 +88,41 @@ class AuthTest extends TestCase
         ]);
     }
 
-    public function test_login_from_unknown_device_is_blocked_and_creates_request(): void
-    {
-        $this->makeEmployee();
-        Device::factory()->create([
-            'employee_id' => Employee::whereHas('user', fn ($q) => $q->where('employee_id', 'EMP-TEST'))->first()->id,
-            'device_id' => 'registered-device',
-        ]);
-
-        $response = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'new-phone-01'));
-
-        $response->assertForbidden()
-            ->assertJsonPath('code', 'device_not_registered')
-            ->assertJsonPath('pending_device_change_request', true);
-
-        $this->assertDatabaseHas('device_change_requests', [
-            'new_device_id' => 'new-phone-01',
-            'status' => 'pending',
-        ]);
-    }
-
-    public function test_login_from_approved_device_succeeds(): void
+    public function test_login_from_additional_device_registers_without_blocking(): void
     {
         $employee = $this->makeEmployee();
         Device::factory()->create([
             'employee_id' => $employee->id,
             'device_id' => 'registered-device',
+            'is_active' => true,
         ]);
 
-        DeviceChangeRequest::create([
+        $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'new-phone-01'))
+            ->assertOk()
+            ->assertJsonStructure(['token']);
+
+        $this->assertDatabaseHas('devices', [
             'employee_id' => $employee->id,
-            'current_device_id' => Device::where('device_id', 'registered-device')->value('id'),
-            'new_device_id' => 'new-phone-02',
-            'reason' => 'Replaced phone',
-            'status' => 'approved',
+            'device_id' => 'new-phone-01',
+            'is_active' => true,
+        ]);
+
+        $this->assertDatabaseHas('devices', [
+            'employee_id' => $employee->id,
+            'device_id' => 'registered-device',
+            'is_active' => true,
+        ]);
+
+        $this->assertDatabaseCount('device_change_requests', 0);
+    }
+
+    public function test_login_keeps_existing_devices_active_when_adding_another(): void
+    {
+        $employee = $this->makeEmployee();
+        Device::factory()->create([
+            'employee_id' => $employee->id,
+            'device_id' => 'registered-device',
+            'is_active' => true,
         ]);
 
         $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'new-phone-02'))
@@ -138,22 +138,28 @@ class AuthTest extends TestCase
         $this->assertDatabaseHas('devices', [
             'employee_id' => $employee->id,
             'device_id' => 'registered-device',
-            'is_active' => false,
+            'is_active' => true,
         ]);
     }
 
-    public function test_device_registered_to_another_employee_is_rejected(): void
+    public function test_device_registered_to_another_employee_is_reassigned_on_login(): void
     {
-        $this->makeEmployee();
+        $employee = $this->makeEmployee();
         $other = $this->makeEmployee(['employee_id' => 'EMP-OTHER']);
         Device::factory()->create([
             'employee_id' => $other->id,
-            'device_id' => 'stolen-device',
+            'device_id' => 'shared-device',
         ]);
 
-        $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'stolen-device'))
-            ->assertForbidden()
-            ->assertJsonPath('pending_device_change_request', false);
+        $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'shared-device'))
+            ->assertOk()
+            ->assertJsonStructure(['token']);
+
+        $this->assertDatabaseHas('devices', [
+            'device_id' => 'shared-device',
+            'employee_id' => $employee->id,
+            'is_active' => true,
+        ]);
     }
 
     public function test_logout_revokes_current_token(): void

@@ -52,14 +52,18 @@ export interface MfaRequiredResponse {
 export interface DashboardSummary {
   date: string;
   time_ins_today: number;
+  time_ins_yesterday: number;
   late_ins_today: number;
+  late_ins_yesterday: number;
   early_time_outs_today: number;
+  early_time_outs_yesterday: number;
   absent_today: number;
+  absent_yesterday: number;
   open_fraud_flags: number;
-  pending_device_change_requests: number;
+  open_fraud_by_severity: { high: number; medium: number; low: number };
 }
 
-export type AttendanceType = 'time_in' | 'time_out';
+export type AttendanceType = 'time_in' | 'time_out' | 'break_in' | 'break_out';
 export type AttendanceSource = 'online' | 'sync';
 export type FraudFlagType =
   | 'gps_spoof'
@@ -79,6 +83,8 @@ export interface AttendanceAdmin {
   is_late: boolean;
   is_early_timeout: boolean;
   work_minutes: number | null;
+  break_minutes: number | null;
+  is_overbreak: boolean;
   source: AttendanceSource;
   is_offline: boolean;
   notes: string | null;
@@ -192,35 +198,6 @@ export interface ScheduleAdmin {
   date: string;
   employee: { id: number; employee_id: string; name: string; department: string; branch_id: number };
   shift: { id: number; name: string; start_time: string; end_time: string; grace_minutes: number | null };
-}
-
-export type DeviceChangeRequestStatus = 'pending' | 'approved' | 'rejected';
-
-export interface DeviceChangeRequest {
-  id: number;
-  employee: { id: number; full_name: string; employee_id: string; branch: string | null } | null;
-  current_device_id: number | null;
-  current_device: string | null;
-  new_device_id: string;
-  reason: string | null;
-  status: DeviceChangeRequestStatus;
-  review_notes: string | null;
-  reviewed_at: string | null;
-  created_at: string;
-}
-
-export type DataRequestStatus = 'pending' | 'completed' | 'rejected';
-export type DataRequestType = 'access' | 'deletion';
-
-export interface DataRequest {
-  id: number;
-  type: DataRequestType;
-  status: DataRequestStatus;
-  notes: string | null;
-  processed_at: string | null;
-  processed_by: { id: number; name: string } | null;
-  user: { id: number; employee_id: string; name: string } | null;
-  created_at: string;
 }
 
 export interface AuditLog {

@@ -4,10 +4,6 @@ import type {
   AuditLog,
   Branch,
   DashboardSummary,
-  DataRequest,
-  DataRequestStatus,
-  DeviceChangeRequest,
-  DeviceChangeRequestStatus,
   Employee,
   FraudFlag,
   LoginResponse,
@@ -99,10 +95,6 @@ export function reviewFraudFlag(id: number, status: 'reviewed' | 'dismissed', no
 
 export function listEmployees(params: PaginationParams, token: string): Promise<Paginated<Employee>> {
   return api.get<RawPaginated<Employee>>('/api/admin/employees', params, token).then(toPaginated);
-}
-
-export function getEmployee(id: number, token: string): Promise<Employee> {
-  return api.get<Employee>(`/api/admin/employees/${id}`, undefined, token);
 }
 
 export interface EmployeePayload {
@@ -203,30 +195,6 @@ export function createSchedule(payload: { employee_id: number; shift_id: number;
 
 export function deleteSchedule(id: number, token: string): Promise<{ message: string }> {
   return api.delete<{ message: string }>(`/api/admin/schedules/${id}`, token);
-}
-
-export function listDeviceChangeRequests(params: PaginationParams, token: string): Promise<Paginated<DeviceChangeRequest>> {
-  return api.get<RawPaginated<DeviceChangeRequest>>('/api/admin/device-change-requests', params, token).then(toPaginated);
-}
-
-export function reviewDeviceChangeRequest(
-  id: number,
-  payload: { status: Exclude<DeviceChangeRequestStatus, 'pending'>; review_notes?: string },
-  token: string,
-): Promise<DeviceChangeRequest> {
-  return api.patch<DeviceChangeRequest>(`/api/admin/device-change-requests/${id}`, payload, token);
-}
-
-export function listDataRequests(params: PaginationParams, token: string): Promise<Paginated<DataRequest>> {
-  return api.get<RawPaginated<DataRequest>>('/api/admin/data-requests', params, token).then(toPaginated);
-}
-
-export function reviewDataRequest(
-  id: number,
-  payload: { status: Exclude<DataRequestStatus, 'pending'>; notes?: string },
-  token: string,
-): Promise<DataRequest> {
-  return api.patch<DataRequest>(`/api/admin/data-requests/${id}`, payload, token);
 }
 
 export function listAuditLogs(params: PaginationParams, token: string): Promise<Paginated<AuditLog>> {

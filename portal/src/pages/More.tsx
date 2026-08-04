@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight, ShieldAlert } from 'lucide-react';
 
-import { ApiError } from '../api/client';
 import { MfaStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
-import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
+import { Avatar, Banner, Row, SectionCard } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
-import { errorMessage } from '../lib/format';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
 export function More() {
@@ -23,17 +23,10 @@ export function More() {
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [newDeviceId, setNewDeviceId] = useState('');
-  const [reason, setReason] = useState('');
-  const [requestingDeviceChange, setRequestingDeviceChange] = useState(false);
-
   const loadMfaStatus = useCallback(async () => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
     try {
-      const res = await api.get<MfaStatus>('/api/auth/mfa/status', undefined, token);
-      setMfaStatus(res);
+      setMfaStatus(await api.get<MfaStatus>('/api/auth/mfa/status', undefined, token));
     } catch {
       // non-fatal
     }
@@ -49,8 +42,6 @@ export function More() {
     try {
       await setServerUrl(serverUrlInput);
       setNotice(`Server URL updated to ${serverUrlInput.trim()}.`);
-    } catch {
-      // storage errors are unlikely; ignore
     } finally {
       setSavingUrl(false);
     }
@@ -61,68 +52,101 @@ export function More() {
     setNotice(null);
     try {
       await setDeviceId(deviceIdInput);
-      setNotice(
-        `Device ID updated to ${deviceIdInput.trim()}. If it is not registered for your account, punches will be blocked until HR approves a device change request.`,
-      );
+      setNotice(`Device ID updated to ${deviceIdInput.trim()}.`);
     } finally {
       setSavingDevice(false);
     }
   };
 
-  const requestDeviceChange = async () => {
-    if (!token) {
-      return;
-    }
-    setRequestingDeviceChange(true);
-    setNotice(null);
-    try {
-      await api.post<{ message: string }>(
-        '/api/device/change-requests',
-        {
-          new_device_id: newDeviceId.trim(),
-          reason: reason.trim(),
-        },
-        token,
-      );
-      setNotice('Device change request submitted. HR will review it.');
-      setNewDeviceId('');
-      setReason('');
-    } catch (err) {
-      if (err instanceof ApiError && err.errors) {
-        window.alert('Request failed: ' + (Object.values(err.errors).flat()[0] ?? err.message));
-      } else {
-        window.alert('Request failed: ' + errorMessage(err));
-      }
-    } finally {
-      setRequestingDeviceChange(false);
-    }
-  };
-
-  const confirmLogout = () => {
-    if (window.confirm('Log out? You will need to log in again on this device.')) {
-      logout();
-    }
-  };
+  const displayName = user?.employee?.full_name ?? user?.name ?? '—';
 
   return (
     <Screen>
-      <div style={{ fontSize: fontSize.xl, fontWeight: '800', marginBottom: spacing.md, color: colors.ink }}>More</div>
+      <h1 className="portal-page-title">More</h1>
 
-      {notice ? <Banner kind="info" title={notice} /> : null}
+      {notice ? <Banner kind="success" title={notice} /> : null}
 
-      <SectionCard title="Account">
-        <Row label="Name" value={user?.employee?.full_name ?? user?.name ?? '—'} />
-        <Row label="Employee ID" value={user?.employee_id ?? '—'} />
-        <Row label="Roles" value={(user?.roles ?? []).join(', ') || '—'} />
-        <Row label="Branch" value={user?.employee?.branch?.name ?? '—'} />
-        <Row label="Department" value={user?.employee?.department ?? '—'} />
-        <Row label="Position" value={user?.employee?.position ?? '—'} />
+      <SectionCard title="User profile">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <Avatar name={displayName} size={52} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: fontSize.lg, fontWeight: 800, color: colors.ink }}>{displayName}</div>
+            <div className="tnum" style={{ fontSize: 13, color: colors.muted, fontWeight: 600 }}>
+              {user?.employee_id ?? '—'}
+            </div>
+          </div>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '4px 12px',
+            marginTop: 4,
+          }}
+        >
+          <Row label="Department" value={user?.employee?.department ?? '—'} />
+          <Row label="Branch" value={user?.employee?.branch?.name ?? '—'} />
+          <Row label="Position" value={user?.employee?.position ?? '—'} />
+          <Row label="Roles" value={(user?.roles ?? []).join(', ') || '—'} />
+        </div>
       </SectionCard>
 
-      <SectionCard title="Privacy">
+      <SectionCard title="Security & privacy">
+        {mfaStatus && !mfaStatus.mfa_enabled ? (
+          <Banner
+            kind="warning"
+            title="MFA not enabled"
+            detail={
+              mfaStatus.mfa_required_by_role
+                ? 'Your role requires two-factor authentication. Contact HR to finish setup.'
+                : 'Add an extra layer of protection for your account.'
+            }
+            action={
+              <button
+                type="button"
+                onClick={() => window.alert('MFA setup is managed by HR for privileged roles.')}
+                style={{
+                  flexShrink: 0,
+                  border: 'none',
+                  borderRadius: 10,
+                  minHeight: 36,
+                  padding: '0 12px',
+                  background: colors.warningFill,
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                Setup now
+              </button>
+            }
+          />
+        ) : mfaStatus?.mfa_enabled ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 12,
+              background: 'color-mix(in srgb, var(--success) 10%, transparent)',
+              color: colors.successText,
+              fontSize: 13,
+              fontWeight: 600,
+              marginBottom: 8,
+            }}
+          >
+            <ShieldAlert size={16} />
+            MFA enabled
+          </div>
+        ) : (
+          <div style={{ fontSize: fontSize.sm, color: colors.muted, marginBottom: 8 }}>Checking security…</div>
+        )}
+
         <button
+          type="button"
           onClick={() => navigate('/more/consent')}
-          aria-label="Consent and data"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -132,61 +156,55 @@ export function More() {
             border: 'none',
             cursor: 'pointer',
             textAlign: 'left',
+            padding: '8px 0',
           }}
         >
-          <div style={{ flex: 1, marginRight: spacing.md }}>
-            <div style={{ fontSize: fontSize.md, fontWeight: '700', color: colors.ink }}>Consent & data</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: fontSize.md, fontWeight: 700, color: colors.ink }}>Consent preferences</div>
             <div style={{ fontSize: fontSize.sm, marginTop: 2, color: colors.muted }}>
-              Manage consent, export a copy of your data, or request deletion.
+              Biometric photos and GPS location
             </div>
           </div>
-          <span style={{ color: colors.muted }}>›</span>
+          <ChevronRight size={18} color={colors.muted} />
         </button>
       </SectionCard>
 
-      <SectionCard title="Security">
-        {mfaStatus ? (
-          <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm }}>
-              <Tag label={mfaStatus.mfa_enabled ? 'MFA enabled' : 'MFA not enabled'} tone={mfaStatus.mfa_enabled ? 'success' : 'warning'} />
-              {mfaStatus.mfa_required_by_role ? <Tag label="Required by role" tone="neutral" /> : null}
-            </div>
-            <div style={{ fontSize: fontSize.sm, marginBottom: spacing.md, color: colors.muted }}>
-              {mfaStatus.mfa_required_by_role && !mfaStatus.mfa_enabled
-                ? 'Your role requires two-factor authentication. HR can help you set it up.'
-                : 'Two-factor authentication protects privileged accounts.'}
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: fontSize.sm, color: colors.muted }}>Checking security settings…</div>
-        )}
-      </SectionCard>
-
-      <SectionCard title="Server">
-        <LabeledInput label="API base URL" value={serverUrlInput} onChangeText={setServerUrlInput} placeholder="http://192.168.x.x:8000" />
-        <Button title="Save server URL" onClick={saveServerUrl} loading={savingUrl} variant="secondary" />
-      </SectionCard>
-
-      <SectionCard title="Device">
-        <LabeledInput label="Device ID" value={deviceIdInput} onChangeText={setDeviceIdInput} placeholder="device-id" />
-        <Button title="Save device ID" onClick={saveDeviceId} loading={savingDevice} variant="secondary" />
-
-        <div style={{ height: 1, marginTop: spacing.lg, marginBottom: spacing.lg, backgroundColor: colors.border }} />
-        <div style={{ fontSize: fontSize.sm, marginBottom: spacing.md, color: colors.muted }}>
-          Registered a new phone? Request approval so punches are accepted on it.
+      <SectionCard title="Appearance">
+        <div style={{ fontSize: fontSize.sm, color: colors.muted, marginBottom: spacing.md }}>
+          Choose light, dark, or match your device setting.
         </div>
-        <LabeledInput label="New device ID" value={newDeviceId} onChangeText={setNewDeviceId} placeholder="new-device-id" />
-        <LabeledInput label="Reason" value={reason} onChangeText={setReason} multiline placeholder="e.g. Replaced old phone" />
-        <Button
-          title="Submit device change request"
-          onClick={requestDeviceChange}
-          loading={requestingDeviceChange}
-          variant="secondary"
-          disabled={!newDeviceId.trim() || !reason.trim()}
-        />
+        <ThemeToggle />
       </SectionCard>
 
-      <Button title="Log out" variant="danger" onClick={confirmLogout} />
+      <SectionCard title="App configuration">
+        <LabeledInput
+          label="API base URL"
+          value={serverUrlInput}
+          onChangeText={setServerUrlInput}
+          placeholder="http://192.168.x.x:8000"
+        />
+        <div style={{ fontSize: 12, color: colors.muted, marginTop: -4, marginBottom: 10 }}>
+          Leave blank to use the same origin as this portal.
+        </div>
+        <Button title="Save server URL" onClick={saveServerUrl} loading={savingUrl} variant="secondary" />
+
+        <div style={{ height: 1, background: colors.border, margin: '16px 0' }} />
+
+        <LabeledInput label="Device ID" value={deviceIdInput} onChangeText={setDeviceIdInput} placeholder="device-id" />
+        <div style={{ fontSize: 12, color: colors.muted, marginTop: -4, marginBottom: 10 }}>
+          Optional label sent with login and punches. Multiple devices are allowed.
+        </div>
+        <Button title="Save device ID" onClick={saveDeviceId} loading={savingDevice} variant="secondary" />
+      </SectionCard>
+
+      <Button
+        title="Log out"
+        variant="outline-danger"
+        onClick={() => {
+          if (window.confirm('Log out? You will need to log in again on this device.')) logout();
+        }}
+        style={{ marginTop: spacing.sm }}
+      />
     </Screen>
   );
 }

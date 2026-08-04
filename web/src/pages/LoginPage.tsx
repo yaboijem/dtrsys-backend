@@ -50,18 +50,18 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6">
-        <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-deep ring-1 ring-deep-border">
-            <ShieldCheck size={22} className="text-cyan-300" />
+    <div className="flex min-h-full items-center justify-center bg-bg p-4 sm:p-6">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="mb-7 flex flex-col items-center gap-2.5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-deep shadow-sm ring-1 ring-deep-border">
+            <ShieldCheck size={22} className="text-teal-300" />
           </div>
-          <h1 className="text-lg font-bold text-text">DTR Admin</h1>
-          <p className="text-xs text-muted">Sign in with your employee account</p>
+          <h1 className="text-xl font-bold tracking-tight text-text">DTR Admin</h1>
+          <p className="text-sm text-muted">Sign in with your employee account</p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

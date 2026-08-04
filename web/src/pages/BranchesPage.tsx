@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { createBranch, deleteBranch, listBranches, updateBranch } from '../api/endpoints';
 import type { Branch, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { LocationPicker } from '../components/LocationPicker';
+import { PageHeader } from '../components/PageHeader';
 import { Badge, Button, Card, ErrorState, Field, Input, Toggle } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -134,18 +136,36 @@ export function BranchesPage() {
     }
   }
 
+  const parsedLat = form.latitude.trim() === '' ? null : Number(form.latitude);
+  const parsedLng = form.longitude.trim() === '' ? null : Number(form.longitude);
+  const parsedRadius = form.radius_meters.trim() === '' ? null : Number(form.radius_meters);
+  const mapLat =
+    parsedLat != null && !Number.isNaN(parsedLat) && parsedLat >= -90 && parsedLat <= 90 ? parsedLat : null;
+  const mapLng =
+    parsedLng != null && !Number.isNaN(parsedLng) && parsedLng >= -180 && parsedLng <= 180 ? parsedLng : null;
+
+  function handleMapPick(lat: number, lng: number) {
+    setForm((prev) => ({ ...prev, latitude: String(lat), longitude: String(lng) }));
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.latitude;
+      delete next.longitude;
+      return next;
+    });
+  }
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-text">Branches</h1>
-          <p className="text-xs text-muted">Locations and GPS geo-fencing settings</p>
-        </div>
-        <Button onClick={openCreate}>
-          <Plus size={15} />
-          Add branch
-        </Button>
-      </div>
+      <PageHeader
+        title="Branches"
+        description="Locations and GPS geo-fencing settings"
+        actions={
+          <Button onClick={openCreate}>
+            <Plus size={15} />
+            Add branch
+          </Button>
+        }
+      />
 
       <Card>
         {error ? (
@@ -172,11 +192,18 @@ export function BranchesPage() {
                 { key: 'address', header: 'Address', render: (r) => <span className="text-xs text-muted">{r.address ?? '—'}</span> },
                 {
                   key: 'coords',
-                  header: 'Coordinates',
+                  header: 'Location',
                   render: (r) => (
-                    <span className="font-mono text-xs tnum text-text">
-                      {r.latitude.toFixed(5)}, {r.longitude.toFixed(5)}
-                    </span>
+                    <a
+                      href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}&z=16`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on map
+                      <ExternalLink size={11} />
+                    </a>
                   ),
                 },
                 { key: 'radius', header: 'Radius', render: (r) => <span className="text-xs text-muted">{r.radius_meters} m</span> },
@@ -208,7 +235,7 @@ export function BranchesPage() {
         )}
       </Card>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.name}` : 'Add branch'}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.name}` : 'Add branch'} wide>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Name" required error={fieldErrors.name?.[0]}>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -221,19 +248,55 @@ export function BranchesPage() {
               <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
           </div>
+          <div className="sm:col-span-2">
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted">Branch location</span>
+              <span className="text-[11px] text-muted">Click map or drag pin · or type coordinates</span>
+            </div>
+            {modalOpen && (
+              <LocationPicker
+                key={editing ? `edit-${editing.id}` : 'create'}
+                latitude={mapLat}
+                longitude={mapLng}
+                radiusMeters={parsedRadius != null && !Number.isNaN(parsedRadius) ? parsedRadius : null}
+                onChange={handleMapPick}
+                className="h-72"
+              />
+            )}
+          </div>
+
           <Field label="Latitude" required error={fieldErrors.latitude?.[0]}>
-            <Input type="number" step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+            <Input
+              type="number"
+              step="any"
+              value={form.latitude}
+              onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+              placeholder="e.g. 14.554729"
+            />
           </Field>
           <Field label="Longitude" required error={fieldErrors.longitude?.[0]}>
-            <Input type="number" step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+            <Input
+              type="number"
+              step="any"
+              value={form.longitude}
+              onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+              placeholder="e.g. 121.024445"
+            />
           </Field>
           <Field label="Radius (meters)" required error={fieldErrors.radius_meters?.[0]}>
-            <Input type="number" min="1" max="10000" value={form.radius_meters} onChange={(e) => setForm({ ...form, radius_meters: e.target.value })} />
+            <Input
+              type="number"
+              min="1"
+              max="10000"
+              value={form.radius_meters}
+              onChange={(e) => setForm({ ...form, radius_meters: e.target.value })}
+            />
           </Field>
           <div className="flex items-center gap-2">
             <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Branch active" />
             <span className="text-sm text-text">Branch active</span>
           </div>
+
           <div className="mt-4 flex justify-end gap-2 sm:col-span-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel

@@ -18,6 +18,8 @@ class AttendanceResource extends JsonResource
             'is_late' => $this->is_late,
             'is_early_timeout' => $this->is_early_timeout,
             'work_minutes' => $this->work_minutes,
+            'break_minutes' => $this->break_minutes,
+            'is_overbreak' => (bool) $this->is_overbreak,
             'source' => $this->source,
             'notes' => $this->notes,
             'synced_at' => $this->synced_at?->toISOString(),

@@ -5,7 +5,6 @@ import {
   Building2,
   CalendarDays,
   Clock,
-  FileText,
   Flag,
   ShieldCheck,
   Smartphone,
@@ -23,14 +22,12 @@ interface ActivityDef {
 const FALLBACK: ActivityDef = { label: 'System activity', icon: <Activity size={15} />, tone: 'bg-slate-100 text-muted' };
 
 const ACTION_DEFS: Record<string, ActivityDef> = {
-  'attendance.created': { label: 'punched in', icon: <Clock size={15} />, tone: 'bg-cyan-50 text-primary' },
-  'attendance.updated': { label: 'updated attendance', icon: <Clock size={15} />, tone: 'bg-cyan-50 text-primary' },
+  'attendance.created': { label: 'recorded attendance', icon: <Clock size={15} />, tone: 'bg-teal-50 text-primary' },
+  'attendance.updated': { label: 'updated attendance', icon: <Clock size={15} />, tone: 'bg-teal-50 text-primary' },
   'attendance.deleted': { label: 'deleted an attendance record', icon: <XCircle size={15} />, tone: 'bg-red-50 text-danger' },
-  'attendance.restored': { label: 'restored an attendance record', icon: <Clock size={15} />, tone: 'bg-cyan-50 text-primary' },
+  'attendance.restored': { label: 'restored an attendance record', icon: <Clock size={15} />, tone: 'bg-teal-50 text-primary' },
   'device.updated': { label: 'updated a device', icon: <Smartphone size={15} />, tone: 'bg-violet-50 text-violet-700' },
   'device_change_request.reviewed': { label: 'reviewed a device change request', icon: <Smartphone size={15} />, tone: 'bg-violet-50 text-violet-700' },
-  'data_request.created': { label: 'submitted a data request', icon: <FileText size={15} />, tone: 'bg-violet-50 text-violet-700' },
-  'data_request.reviewed': { label: 'reviewed a data request', icon: <FileText size={15} />, tone: 'bg-violet-50 text-violet-700' },
   'employee.created': { label: 'created an employee', icon: <Users size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'employee.updated': { label: 'updated an employee', icon: <UserCog size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'employee.deactivated': { label: 'deactivated an employee', icon: <XCircle size={15} />, tone: 'bg-red-50 text-danger' },

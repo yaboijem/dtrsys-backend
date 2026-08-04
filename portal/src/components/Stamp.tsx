@@ -8,7 +8,6 @@ interface StampProps {
 
 export function Stamp({ kind, title, detail }: StampProps) {
   const colors = useThemeColors();
-
   const text = kind === 'success' ? colors.successText : colors.dangerText;
   const plate = kind === 'success' ? colors.plates.success : colors.plates.error;
 
@@ -17,30 +16,33 @@ export function Stamp({ kind, title, detail }: StampProps) {
       role="status"
       aria-live="polite"
       aria-label={detail ? `${title}. ${detail}` : title}
-      className="animate-stamp"
+      className="animate-stamp portal-card"
       style={{
-        borderWidth: 1,
-        borderStyle: 'solid',
-        borderRadius: radius.sm,
-        padding: spacing.lg,
-        marginTop: spacing.lg,
-        backgroundColor: plate.bg,
         borderColor: plate.border,
+        backgroundColor: plate.bg,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderRadius: radius.md,
       }}
     >
       <div
         style={{
-          fontSize: fontSize.lg,
-          fontWeight: '800',
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
+          fontSize: fontSize.sm,
+          fontWeight: 800,
+          letterSpacing: 0.4,
           color: text,
         }}
       >
         {title}
       </div>
       {detail ? (
-        <div style={{ fontSize: fontSize.sm, marginTop: spacing.sm, lineHeight: 19, color: colors.ink }}>
+        <div
+          style={{
+            fontSize: 12,
+            marginTop: 4,
+            lineHeight: 1.4,
+            color: colors.ink,
+          }}
+        >
           {detail}
         </div>
       ) : null}

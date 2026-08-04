@@ -98,3 +98,46 @@ export function errorMessage(error: unknown): string {
   }
   return 'Something went wrong.';
 }
+
+export function formatRelative(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const diffSec = Math.round((date.getTime() - Date.now()) / 1000);
+  const abs = Math.abs(diffSec);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  if (abs < 60) return rtf.format(diffSec, 'second');
+  if (abs < 3600) return rtf.format(Math.round(diffSec / 60), 'minute');
+  if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), 'hour');
+  if (abs < 86400 * 7) return rtf.format(Math.round(diffSec / 86400), 'day');
+  return formatDateTime(iso);
+}
+
+export function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function parseClockToToday(time: string | null | undefined): Date | null {
+  if (!time) return null;
+  const match = /^(\d{1,2}):(\d{2})/.exec(time);
+  if (!match) return null;
+  const now = new Date();
+  const out = new Date(now);
+  out.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return out;
+}
+
+export function shiftProgress(start: string | null | undefined, end: string | null | undefined): number {
+  const s = parseClockToToday(start);
+  const e = parseClockToToday(end);
+  if (!s || !e) return 0;
+  let endMs = e.getTime();
+  if (endMs <= s.getTime()) endMs += 86400000;
+  const now = Date.now();
+  if (now <= s.getTime()) return 0;
+  if (now >= endMs) return 100;
+  return Math.round(((now - s.getTime()) / (endMs - s.getTime())) * 100);
+}
+

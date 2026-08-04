@@ -147,13 +147,9 @@ try {
     elseif ($sync.synced -eq 0 -and $sync.failed -ge 1) { Report 'WARN' 'offline sync record rejected' "failed=$($sync.failed) (already clocked in)" }
     else { Report 'FAIL' 'offline sync' "synced=$($sync.synced) failed=$($sync.failed)" }
 
-    # --- 7. Consent + data access ---
+    # --- 7. Consent ---
     $consent = JsonPost "$BaseUrl/api/employee/consent" @{ type = 'gps_location'; granted = $true } @{ Authorization = "Bearer $empToken" }
     if ($consent.data.granted -eq $true) { Report 'PASS' 'consent grant' } else { Report 'FAIL' 'consent grant' }
-
-    $dataReq = JsonPost "$BaseUrl/api/employee/data-requests" @{ type = 'access' } @{ Authorization = "Bearer $empToken" }
-    if ($dataReq.data.status -eq 'completed' -and $dataReq.export.profile.employee_id -eq 'EMP001') { Report 'PASS' 'data access request' }
-    else { Report 'FAIL' 'data access request' }
 
     # --- 8. Notifications ---
     $unread = Invoke-RestMethod -Uri "$BaseUrl/api/notifications/unread-count" -Headers @{ Authorization = "Bearer $empToken" }
@@ -189,9 +185,6 @@ try {
 
     Invoke-RestMethod -Uri "$BaseUrl/api/admin/audit-logs?per_page=5" -Headers $hr | Out-Null
     Report 'PASS' 'audit logs list'
-
-    Invoke-RestMethod -Uri "$BaseUrl/api/admin/data-requests" -Headers $hr | Out-Null
-    Report 'PASS' 'admin data requests list'
 
     # --- 11. Reference photo upload (compression path) ---
     $ref = Send-Multipart "$BaseUrl/api/admin/employees/3/reference-photo" $hr $selfie 'photo' 'ref.png'

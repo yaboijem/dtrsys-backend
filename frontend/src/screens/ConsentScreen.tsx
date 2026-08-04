@@ -4,11 +4,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
-import { ApiError } from '../api/client';
-import { Consent, DataRequest, Paginated } from '../api/types';
+import { Consent, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Button } from '../components/Button';
-import { Banner, Row, SectionCard } from '../components/Feedback';
+import { Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { errorMessage, formatDateTime } from '../lib/format';
 import { MoreStackParamList } from '../navigation/RootNavigator';
@@ -25,12 +23,9 @@ export function ConsentScreen() {
   const { api, token } = useAuth();
 
   const [consents, setConsents] = useState<Consent[]>([]);
-  const [requests, setRequests] = useState<DataRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [requesting, setRequesting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -38,12 +33,8 @@ export function ConsentScreen() {
     }
     setError(null);
     try {
-      const [consentRes, requestRes] = await Promise.all([
-        api.get<Paginated<Consent>>('/api/employee/consent', undefined, token),
-        api.get<Paginated<DataRequest>>('/api/employee/data-requests', { per_page: 10 }, token),
-      ]);
+      const consentRes = await api.get<Paginated<Consent>>('/api/employee/consent', undefined, token);
       setConsents(consentRes.data ?? []);
-      setRequests(requestRes.data ?? []);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -67,7 +58,6 @@ export function ConsentScreen() {
       return;
     }
     setSaving(key);
-    setNotice(null);
     try {
       const updated = await api.post<{ data: Consent }>('/api/employee/consent', { type: key, granted }, token);
       setConsents((prev) => {
@@ -79,43 +69,6 @@ export function ConsentScreen() {
     } finally {
       setSaving(null);
     }
-  };
-
-  const requestData = async (type: 'access' | 'deletion') => {
-    if (!token) {
-      return;
-    }
-    setRequesting(true);
-    setNotice(null);
-    try {
-      const res = await api.post<{ data: DataRequest; export?: Record<string, unknown> }>(
-        '/api/employee/data-requests',
-        { type },
-        token,
-      );
-      const exportPayload = res.export;
-      setNotice(
-        type === 'access'
-          ? `Your data export is ready (${Object.keys(exportPayload ?? {}).length} sections). It is also saved as a completed request in your history.`
-          : 'Deletion request submitted. HR will review it.',
-      );
-      await load();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        Alert.alert('Request failed', err.message);
-      } else {
-        Alert.alert('Request failed', errorMessage(err));
-      }
-    } finally {
-      setRequesting(false);
-    }
-  };
-
-  const confirmDeletion = () => {
-    Alert.alert('Request account data deletion?', 'This cannot be undone and requires HR approval.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Request deletion', style: 'destructive', onPress: () => requestData('deletion') },
-    ]);
   };
 
   return (
@@ -130,10 +83,9 @@ export function ConsentScreen() {
         <Text style={[styles.backLabel, { color: colors.band }]}>More</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: colors.ink }]}>Consent & data</Text>
+      <Text style={[styles.title, { color: colors.ink }]}>Consent</Text>
 
       {error ? <Banner kind="error" title="Failed to load" detail={error} /> : null}
-      {notice ? <Banner kind="success" title={notice} /> : null}
 
       <SectionCard title="Consents">
         {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Loading…</Text> : null}
@@ -164,36 +116,6 @@ export function ConsentScreen() {
             </View>
           );
         })}
-      </SectionCard>
-
-      <SectionCard title="Data requests">
-        <Text style={[styles.muted, { color: colors.muted }]}>
-          Request a copy of your personal data (immediate) or request deletion of your account and data (requires HR
-          approval).
-        </Text>
-        <View style={styles.requestButtons}>
-          <Button title="Export my data" onPress={() => requestData('access')} disabled={requesting} style={styles.flexButton} />
-          <Button title="Request deletion" variant="danger" onPress={confirmDeletion} disabled={requesting} style={styles.flexButton} />
-        </View>
-
-        {requests.length > 0 ? (
-          <View style={[styles.requestsList, { borderTopColor: colors.border }]}>
-            {requests.map((r) => (
-              <Row
-                key={r.id}
-                label={`${r.type === 'access' ? 'Access' : 'Deletion'} · ${formatDateTime(r.created_at)}`}
-                value={r.status}
-                valueColor={
-                  r.status === 'completed' || r.status === 'approved'
-                    ? colors.successText
-                    : r.status === 'rejected'
-                      ? colors.dangerText
-                      : colors.warningText
-                }
-              />
-            ))}
-          </View>
-        ) : null}
       </SectionCard>
     </Screen>
   );
@@ -237,18 +159,5 @@ const styles = StyleSheet.create({
   consentMeta: {
     fontSize: fontSize.sm,
     marginTop: spacing.xs,
-  },
-  requestButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  flexButton: {
-    flex: 1,
-  },
-  requestsList: {
-    marginTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing.sm,
   },
 });
