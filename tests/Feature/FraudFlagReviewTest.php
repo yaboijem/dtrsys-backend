@@ -85,6 +85,23 @@ class FraudFlagReviewTest extends TestCase
     }
 
     #[Test]
+    public function hr_can_dismiss_fraud_flag(): void
+    {
+        $hr = $this->makeUser('HR');
+        $branch = Branch::factory()->create();
+        $flag = $this->makeFlag($branch);
+
+        $this->actingAs($hr->user, 'sanctum')->postJson("/api/admin/fraud-flags/{$flag->id}/review", [
+            'status' => 'dismissed',
+        ])->assertOk()
+            ->assertJsonPath('data.id', $flag->id)
+            ->assertJsonPath('data.status', 'dismissed')
+            ->assertJsonPath('data.attendance.id', $flag->attendance_id);
+
+        $this->assertSame('dismissed', $flag->fresh()->status);
+    }
+
+    #[Test]
     public function flags_can_be_filtered_by_status_and_type(): void
     {
         $hr = $this->makeUser('HR');

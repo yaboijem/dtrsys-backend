@@ -20,7 +20,6 @@ class EmployeeSeeder extends Seeder
 
         $this->createAccount('ADMIN001', 'System', 'Administrator', 'admin@dtr.test', $makati, 'Administration', 'Super Admin', 'Super Admin', $password);
         $this->createAccount('HR001', 'Maria', 'Santos', 'hr@dtr.test', $makati, 'Human Resources', 'HR Manager', 'HR', $password);
-        $this->createAccount('PAY001', 'Jose', 'Reyes', 'payroll@dtr.test', $makati, 'Finance', 'Payroll Officer', 'Payroll Officer', $password);
         $this->createAccount('MGR001', 'Ana', 'Cruz', 'manager.makati@dtr.test', $makati, 'Operations', 'Branch Manager', 'Branch Manager', $password);
         $this->createAccount('MGR002', 'Pedro', 'Diaz', 'manager.qc@dtr.test', $qc, 'Operations', 'Branch Manager', 'Branch Manager', $password);
         $this->createAccount('DH001', 'Liza', 'Garcia', 'depthead@dtr.test', $makati, 'IT', 'Department Head', 'Department Head', $password);

@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { listAttendance, listBranches, listEmployees } from '../api/endpoints';
 import type { AttendanceAdmin, AttendanceSource, AttendanceType, Branch, Employee, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EmployeePicker } from '../components/EmployeePicker';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, Input, Select } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
@@ -175,14 +176,13 @@ export function AttendancePage() {
               <Input type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} />
             </Field>
             <Field label="Employee">
-              <Select value={filters.employee_id} onChange={(e) => setFilters({ ...filters, employee_id: e.target.value })}>
-                <option value="">All employees</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name}
-                  </option>
-                ))}
-              </Select>
+              <EmployeePicker
+                employees={employees}
+                value={filters.employee_id}
+                onChange={(employee_id) => setFilters({ ...filters, employee_id })}
+                emptyLabel="All employees"
+                placeholder="Search employees…"
+              />
             </Field>
             <Field label="Type">
               <Select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>

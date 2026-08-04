@@ -10,7 +10,6 @@ class RoleSeeder extends Seeder
     public const ROLES = [
         'Super Admin',
         'HR',
-        'Payroll Officer',
         'Branch Manager',
         'Department Head',
         'Employee',

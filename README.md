@@ -1,16 +1,15 @@
 # DTR System — Backend API
 
-Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with selfie face verification, automated fraud detection, offline sync, role-scoped administration, payroll/report exports, MFA, and data-privacy compliance (consent, data access/deletion requests, retention purging).
+Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with selfie face verification, automated fraud detection, offline sync, role-scoped administration, MFA, and data-privacy compliance (consent, data access/deletion requests, retention purging).
 
 ## Feature Checklist
 
-- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional), TOTP MFA for privileged roles (Super Admin / HR / Payroll Officer / Branch Manager / Department Head)
+- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional), TOTP MFA for privileged roles (Super Admin / HR / Branch Manager / Department Head)
 - **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, automated face match against a reference photo, liveness/spoof detection, rapid clock-in and impossible location-jump fraud rules
 - **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
-- **Role-based access control** — Super Admin, HR, Payroll Officer, Branch Manager (own branch), Department Head (own department), Employee (own data)
+- **Role-based access control** — Super Admin, HR, Branch Manager (own branch), Department Head (own department), Employee (own data)
 - **Admin tools** — employee/branch/shift/schedule management, attendance review with selfie streaming, dashboard summary, fraud-flag review
-- **Reports & exports** — async daily/monthly report exports and payroll CSV exports with role-scoped visibility, delivered via in-app notifications
-- **Notifications** — per-user inbox with unread count and read/mark-all-read endpoints
+- **Notifications** — per-user inbox with unread count, read/mark-all-read, and delete endpoints
 - **Compliance** — biometric/GPS consent management, data access & deletion requests, `dtr:purge-old-data` retention command, audit logging of admin actions and attendance changes
 
 ## Stack & Prerequisites
@@ -61,7 +60,7 @@ php artisan db:seed
 php artisan serve
 ```
 
-> Background jobs (report generation, notifications) run synchronously in local dev. In production set `QUEUE_CONNECTION=redis` and run `php artisan queue:work`.
+> Background jobs (face verification, notifications) run synchronously in local dev. In production set `QUEUE_CONNECTION=redis` and run `php artisan queue:work`.
 
 ## Demo Accounts
 
@@ -71,7 +70,6 @@ All seeded accounts use password `password`.
 |---|---|---|---|
 | ADMIN001 | Super Admin | Makati HQ | |
 | HR001 | HR | Makati HQ | MFA enabled in dev DB |
-| PAY001 | Payroll Officer | Makati HQ | |
 | MGR001 | Branch Manager | Makati HQ | MFA enabled in dev DB |
 | MGR002 | Branch Manager | QC Branch | |
 | DH001 | Department Head | Makati HQ | |
@@ -158,23 +156,6 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | GET | `/admin/dashboard/summary` | `{ time_ins, late, absent, open_fraud_flags, pending_device_change_requests }` |
 | GET | `/admin/schedules` | Schedules scoped by role, date filters |
 
-### 6. Admin — Super Admin, HR, Payroll Officer
-
-| Method | Path | Description |
-|---|---|---|
-| GET/POST | `/admin/payroll-exports` | List / request `{ date_from, date_to, filters? }` — async, notifies when ready |
-| GET | `/admin/payroll-exports/{id}` | Export status |
-| GET | `/admin/payroll-exports/{id}/download` | CSV download (`409 export_not_ready` if pending) |
-
-### 7. Reports — Super Admin, HR, Payroll Officer, Branch Manager, Department Head
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/admin/reports` | Own exports (Super Admin/HR/Payroll Officer see all); filters `status`, `type` |
-| POST | `/admin/reports` | `{ type: "daily"|"monthly", date_from, date_to, filters?: { branch_id?, department? } }` (range ≤ 31 days) → 202, async |
-| GET | `/admin/reports/{id}` | Export status/details |
-| GET | `/admin/reports/{id}/download` | CSV download (`409 export_not_ready` if not ready) |
-
 ## Error Codes
 
 Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status:
@@ -187,7 +168,6 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 | 404 | `not_found` | Resource not found / not yours |
 | 404 | `no_employee_record` | Account has no employee record |
 | 409 | `attendance_conflict` | Already clocked in / no open punch |
-| 409 | `export_not_ready` | Export still pending |
 | 409 | `branch_has_employees` / `shift_in_use` | Referential delete blocked |
 | 422 | `gps_out_of_range` | Outside assigned branch radius (with `details`) |
 | 422 | `face_verification_failed` | Selfie did not match reference (with `details`) |
@@ -219,7 +199,7 @@ vendor/bin/pint --test  # style check
 
 All scalability options are env-driven and require no code changes:
 
-- **Queue**: set `QUEUE_CONNECTION=redis` (optionally add Laravel Horizon) for background exports and sync batches
+- **Queue**: set `QUEUE_CONNECTION=redis` (optionally add Laravel Horizon) for face verification and related jobs
 - **Cache**: `CACHE_STORE=redis`
 - **Media**: `ATTENDANCE_PHOTO_DISK=s3` with S3/R2-compatible credentials; selfies are pre-compressed (max 1024 px JPEG) and EXIF-stripped
 - **Security**: serve behind HTTPS, set `APP_DEBUG=false`, configure `APP_KEY`, and rate limits are active by default (`login`, `mfa`, `attendance`, `api`)

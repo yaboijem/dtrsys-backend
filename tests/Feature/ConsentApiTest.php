@@ -18,7 +18,7 @@ class ConsentApiTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['Super Admin', 'HR', 'Payroll Officer', 'Branch Manager', 'Department Head', 'Employee'] as $role) {
+        foreach (['Super Admin', 'HR', 'Branch Manager', 'Department Head', 'Employee'] as $role) {
             Role::findOrCreate($role, 'web');
         }
     }

@@ -7,8 +7,6 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
-use App\Http\Controllers\Api\Admin\PayrollExportController;
-use App\Http\Controllers\Api\Admin\ReportExportController;
 use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
@@ -57,6 +55,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+    Route::delete('/notifications', [NotificationController::class, 'destroyAll']);
 
     Route::get('/employee/consent', [ConsentController::class, 'index']);
     Route::post('/employee/consent', [ConsentController::class, 'update']);
@@ -88,19 +88,5 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager|Departmen
     Route::get('/attendance/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/schedules', [ScheduleAdminController::class, 'index']);
-});
-
-Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer'])->prefix('admin')->group(function () {
-    Route::get('/payroll-exports', [PayrollExportController::class, 'index']);
-    Route::post('/payroll-exports', [PayrollExportController::class, 'store']);
-    Route::get('/payroll-exports/{payrollExport}', [PayrollExportController::class, 'show']);
-    Route::get('/payroll-exports/{payrollExport}/download', [PayrollExportController::class, 'download']);
-});
-
-Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer|Branch Manager|Department Head'])->prefix('admin')->group(function () {
-    Route::get('/reports', [ReportExportController::class, 'index']);
-    Route::post('/reports', [ReportExportController::class, 'store']);
-    Route::get('/reports/{reportExport}', [ReportExportController::class, 'show']);
-    Route::get('/reports/{reportExport}/download', [ReportExportController::class, 'download']);
 });
 

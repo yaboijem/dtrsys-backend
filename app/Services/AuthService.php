@@ -47,15 +47,6 @@ class AuthService
             );
         }
 
-        if ($this->mfaService->isPrivileged($user)) {
-            return [
-                'user' => $user,
-                'mfa_required' => true,
-                'mfa_setup_required' => ! $user->hasConfiguredTwoFactor(),
-                'mfa_token' => $this->mfaService->issueToken($user, 'login', deviceData: $deviceData),
-            ];
-        }
-
         $token = $user->createToken('mobile')->plainTextToken;
 
         return ['user' => $user, 'token' => $token];

@@ -397,7 +397,6 @@ textarea::placeholder {
   border-radius: 0.9rem;
   background: var(--card);
   padding: 0.875rem;
-  cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
 

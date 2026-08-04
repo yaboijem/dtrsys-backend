@@ -21,7 +21,8 @@ class AuditLogResource extends JsonResource
             'actor' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,
                 'employee_id' => $this->user->employee_id,
-                'name' => $this->user->name,
+                // Employee name parts are source of truth; users.name can lag after renames.
+                'name' => $this->user->employee?->full_name ?: $this->user->name,
             ]),
             'created_at' => $this->created_at?->toISOString(),
         ];

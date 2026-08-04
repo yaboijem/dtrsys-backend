@@ -17,7 +17,7 @@ class NotificationApiTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['Super Admin', 'HR', 'Payroll Officer', 'Branch Manager', 'Department Head', 'Employee'] as $role) {
+        foreach (['Super Admin', 'HR', 'Branch Manager', 'Department Head', 'Employee'] as $role) {
             Role::findOrCreate($role, 'web');
         }
     }
@@ -131,5 +131,52 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('marked', 2);
 
         $this->assertSame(0, $employee->user->unreadNotifications()->count());
+    }
+
+    #[Test]
+    public function user_can_delete_a_notification(): void
+    {
+        $employee = $this->makeUser('Employee');
+        app(NotificationService::class)->send($employee->user, 'First', 'One');
+
+        $notification = $employee->user->notifications()->first();
+
+        $this->actingAs($employee->user, 'sanctum')->deleteJson("/api/notifications/{$notification->id}")
+            ->assertOk()
+            ->assertJsonPath('deleted', true);
+
+        $this->assertSame(0, $employee->user->notifications()->count());
+    }
+
+    #[Test]
+    public function user_cannot_delete_another_users_notification(): void
+    {
+        $owner = $this->makeUser('Employee');
+        $other = $this->makeUser('Employee');
+        app(NotificationService::class)->send($owner->user, 'Private', 'Secret');
+
+        $notification = $owner->user->notifications()->first();
+
+        $this->actingAs($other->user, 'sanctum')->deleteJson("/api/notifications/{$notification->id}")
+            ->assertNotFound()
+            ->assertJsonPath('code', 'not_found');
+
+        $this->assertSame(1, $owner->user->notifications()->count());
+    }
+
+    #[Test]
+    public function user_can_clear_all_notifications(): void
+    {
+        $employee = $this->makeUser('Employee');
+        $service = app(NotificationService::class);
+
+        $service->send($employee->user, 'First', 'One');
+        $service->send($employee->user, 'Second', 'Two');
+
+        $this->actingAs($employee->user, 'sanctum')->deleteJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('deleted', 2);
+
+        $this->assertSame(0, $employee->user->notifications()->count());
     }
 }

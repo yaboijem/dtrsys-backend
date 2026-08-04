@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { createSchedule, deleteSchedule, listBranches, listEmployees, listSchedules, listShifts } from '../api/endpoints';
 import type { Branch, Employee, Paginated, ScheduleAdmin, Shift } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EmployeePicker } from '../components/EmployeePicker';
 import { PageHeader } from '../components/PageHeader';
 import { Badge, Button, Card, ErrorState, Field, Input, Select } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
@@ -268,14 +269,13 @@ export function SchedulesPage() {
             </Field>
           )}
           <Field label="Employee">
-            <Select value={filters.employee_id} onChange={(e) => applyFilter({ employee_id: e.target.value })}>
-              <option value="">All employees</option>
-              {employees.map((e) => (
-                <option key={e.id} value={String(e.id)}>
-                  {e.full_name}
-                </option>
-              ))}
-            </Select>
+            <EmployeePicker
+              employees={employees}
+              value={filters.employee_id}
+              onChange={(employee_id) => applyFilter({ employee_id })}
+              emptyLabel="All employees"
+              placeholder="Search employees…"
+            />
           </Field>
           <Field label="Shift">
             <Select value={filters.shift_id} onChange={(e) => applyFilter({ shift_id: e.target.value })}>
@@ -433,15 +433,13 @@ export function SchedulesPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add schedule">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3">
           <Field label="Employee" required error={fieldErrors.employee_id?.[0]}>
-            <Select value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })}>
-              <option value="">Select employee</option>
-              {employees.map((e) => (
-                <option key={e.id} value={String(e.id)}>
-                  {e.full_name}
-                  {e.employee_id ? ` (${e.employee_id})` : ''}
-                </option>
-              ))}
-            </Select>
+            <EmployeePicker
+              employees={employees}
+              value={form.employee_id}
+              onChange={(employee_id) => setForm({ ...form, employee_id })}
+              emptyLabel="Select employee"
+              placeholder="Type to search employees…"
+            />
           </Field>
           <Field label="Shift" required error={fieldErrors.shift_id?.[0]}>
             <Select value={form.shift_id} onChange={(e) => setForm({ ...form, shift_id: e.target.value })}>
@@ -483,24 +481,14 @@ export function SchedulesPage() {
             <Input type="date" value={bulkForm.date} onChange={(e) => setBulkForm({ ...bulkForm, date: e.target.value })} />
           </Field>
           <Field label="Employees" required>
-            <select
+            <EmployeePicker
               multiple
+              employees={employees}
               value={bulkForm.employee_ids}
-              onChange={(e) =>
-                setBulkForm({
-                  ...bulkForm,
-                  employee_ids: Array.from(e.target.selectedOptions).map((o) => o.value),
-                })
-              }
-              className="min-h-40 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm"
-            >
-              {employees.map((e) => (
-                <option key={e.id} value={String(e.id)}>
-                  {e.full_name}
-                </option>
-              ))}
-            </select>
-            <span className="mt-1 block text-[11px] text-muted">Hold Ctrl/Cmd to select multiple.</span>
+              onChange={(employee_ids) => setBulkForm({ ...bulkForm, employee_ids })}
+              placeholder="Type to search and select employees…"
+            />
+            <span className="mt-1 block text-[11px] text-muted">Search and click to toggle employees.</span>
           </Field>
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setBulkOpen(false)} disabled={saving}>

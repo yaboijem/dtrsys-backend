@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Camera, Clock, Coffee, MapPin, Timer, WifiOff } from 'lucide-react';
+import { Camera, Clock, CloudSun, Coffee, MapPin, Moon, Sun, Timer, WifiOff } from 'lucide-react';
 
 import { ApiError } from '../api/client';
 import { Attendance, Paginated, PunchType, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
@@ -19,6 +19,8 @@ import {
   minutesToDuration,
   newUuid,
   shiftProgress,
+  shiftSkyKind,
+  shiftSkyStyle,
   toLocalDate,
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
@@ -616,12 +618,43 @@ export function Home() {
         ) : schedule ? (
           <>
             <div className="metric-grid-2">
+              {(() => {
+                const sky = shiftSkyKind(schedule.shift?.start_time, schedule.shift?.end_time);
+                const skyStyle = shiftSkyStyle(sky);
+                const SkyIcon = sky === 'sun' ? Sun : sky === 'mid' ? CloudSun : Moon;
+                return (
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      border: skyStyle.border,
+                      padding: '10px 12px',
+                      background: skyStyle.background,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: skyStyle.labelColor,
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <SkyIcon size={14} color={skyStyle.iconColor} />
+                      Shift
+                    </div>
+                    <div className="tnum" style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: skyStyle.valueColor }}>
+                      {schedule.shift?.name ?? '—'}
+                    </div>
+                  </div>
+                );
+              })()}
               {(
                 [
-                  { icon: <Clock size={14} />, label: 'Shift', value: schedule.shift?.name ?? '—' },
                   {
                     icon: <Timer size={14} />,
-                    label: 'Grace',
+                    label: 'Grace Period',
                     value: schedule.shift?.grace_minutes != null ? `${schedule.shift.grace_minutes} min` : '—',
                   },
                   { icon: <Clock size={14} />, label: 'Start', value: formatClockTime(schedule.shift?.start_time) },
@@ -674,47 +707,103 @@ export function Home() {
 
       {effectivePunches.length > 0 ? (
         <SectionCard title="Today's punches">
-          {effectivePunches.map((p, idx) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div
-              key={p.uuid ?? p.id}
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                paddingTop: spacing.sm,
-                paddingBottom: spacing.sm,
-                borderBottom: idx === effectivePunches.length - 1 ? 'none' : `1px solid ${colors.border}`,
+                gap: spacing.sm,
+                paddingBottom: 6,
+                borderBottom: `1px solid ${colors.border}`,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                color: colors.muted,
               }}
             >
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-                  {punchTypeLabel(p.type)}
-                </div>
-                <div className="tnum" style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: colors.ink }}>
-                  {formatTime(p.timestamp)}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                  {p.is_late ? <Tag label="Late" tone="warning" /> : null}
-                  {p.is_overbreak ? <Tag label="Overbreak" tone="danger" /> : null}
-                  {p.source === 'local_queue' ? <Tag label="Pending" tone="neutral" /> : null}
-                  {p.source !== 'local_queue' && p.is_offline ? <Tag label="Offline" tone="neutral" /> : null}
-                  {p.gps_location?.distance_from_branch_meters != null ? (
-                    <Tag label={distanceLabel(p.gps_location.distance_from_branch_meters)} tone="neutral" />
-                  ) : null}
-                </div>
-              </div>
-              {p.type === 'time_out' && p.work_minutes !== null ? (
-                <div className="tnum" style={{ fontSize: 16, fontWeight: 800, marginLeft: spacing.md, color: colors.ink }}>
-                  {minutesToDuration(p.work_minutes)}
-                </div>
-              ) : null}
-              {p.type === 'break_out' && p.break_minutes != null ? (
-                <div className="tnum" style={{ fontSize: 16, fontWeight: 800, marginLeft: spacing.md, color: colors.ink }}>
-                  {p.break_minutes}m
-                </div>
-              ) : null}
+              <div style={{ width: 6, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>Activity</div>
+              <div style={{ flexShrink: 0 }}>Time</div>
+              <div style={{ flexShrink: 0, minWidth: 48, textAlign: 'right' }}>Duration</div>
             </div>
-          ))}
+            {effectivePunches.map((p, idx) => {
+              const meta: string[] = [];
+              if (p.is_late) meta.push('Late');
+              if (p.is_overbreak) meta.push('Overbreak');
+              if (p.source === 'local_queue') meta.push('Pending');
+              else if (p.is_offline) meta.push('Offline');
+              const duration =
+                p.type === 'time_out' && p.work_minutes != null
+                  ? minutesToDuration(p.work_minutes)
+                  : p.type === 'break_out' && p.break_minutes != null
+                    ? `${p.break_minutes}m`
+                    : null;
+
+              return (
+                <div
+                  key={p.uuid ?? p.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    minHeight: 36,
+                    paddingTop: 4,
+                    paddingBottom: 4,
+                    borderBottom: idx === effectivePunches.length - 1 ? 'none' : `1px solid ${colors.border}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      flexShrink: 0,
+                      background:
+                        p.type === 'time_in'
+                          ? colors.success
+                          : p.type === 'time_out'
+                            ? colors.danger
+                            : colors.muted,
+                    }}
+                  />
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: colors.ink,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {punchTypeLabel(p.type)}
+                    {meta.length > 0 ? (
+                      <span style={{ fontWeight: 600, color: colors.muted }}> · {meta.join(' · ')}</span>
+                    ) : null}
+                  </div>
+                  <div className="tnum" style={{ fontSize: 13, fontWeight: 700, color: colors.ink, flexShrink: 0 }}>
+                    {formatTime(p.timestamp)}
+                  </div>
+                  <div
+                    className="tnum"
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: colors.muted,
+                      flexShrink: 0,
+                      minWidth: 48,
+                      textAlign: 'right',
+                    }}
+                  >
+                    {duration ?? '—'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </SectionCard>
       ) : null}
 

@@ -118,7 +118,7 @@ export function FraudFlagsPage() {
 
   function refreshFlag(updated: FraudFlag) {
     setData((prev) => (prev ? prev.map((f) => (f.id === updated.id ? updated : f)) : prev));
-    setSelected(updated);
+    setSelected((prev) => (prev && prev.id === updated.id ? updated : prev));
   }
 
   async function handleReview(flag: FraudFlag, status: Exclude<FraudFlagStatus, 'open'>, notes: string) {
@@ -417,6 +417,10 @@ function FlagReview({
 
   const attendance = flag.attendance;
   const busy = pendingAction !== null;
+
+  if (!attendance) {
+    return <div className="text-sm text-slate-400">Attendance details unavailable for this flag.</div>;
+  }
 
   return (
     <div className="space-y-4">

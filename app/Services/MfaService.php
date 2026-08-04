@@ -15,7 +15,7 @@ use PragmaRX\Google2FA\Google2FA;
 
 class MfaService
 {
-    public const PRIVILEGED_ROLES = ['Super Admin', 'HR', 'Payroll Officer', 'Branch Manager', 'Department Head'];
+    public const PRIVILEGED_ROLES = ['Super Admin', 'HR', 'Branch Manager', 'Department Head'];
 
     private const TOKEN_TTL_MINUTES = 10;
 

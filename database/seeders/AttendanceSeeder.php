@@ -14,7 +14,7 @@ class AttendanceSeeder extends Seeder
     public function run(): void
     {
         $devices = Device::all();
-        $employees = Employee::whereDoesntHave('user', fn ($q) => $q->role(['Super Admin', 'HR', 'Payroll Officer', 'Branch Manager', 'Department Head']))->get();
+        $employees = Employee::whereDoesntHave('user', fn ($q) => $q->role(['Super Admin', 'HR', 'Branch Manager', 'Department Head']))->get();
 
         $employees->each(function (Employee $employee) use ($devices) {
             $device = $devices->firstWhere('employee_id', $employee->id);

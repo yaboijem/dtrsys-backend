@@ -13,7 +13,7 @@ class AuditLogController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $logs = AuditLog::query()
-            ->with('user')
+            ->with(['user.employee'])
             ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->integer('user_id')))
             ->when($request->filled('action'), fn ($q) => $q->where('action', $request->input('action')))
             ->when($request->filled('model_type'), fn ($q) => $q->where('model_type', $request->input('model_type')))

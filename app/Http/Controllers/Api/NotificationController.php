@@ -48,4 +48,26 @@ class NotificationController extends Controller
 
         return response()->json(['marked' => $marked]);
     }
+
+    public function destroy(Request $request, DatabaseNotification $notification): JsonResponse
+    {
+        if ($notification->notifiable_id !== $request->user()->id
+            || $notification->notifiable_type !== $request->user()->getMorphClass()) {
+            return response()->json([
+                'message' => 'Notification not found.',
+                'code' => 'not_found',
+            ], 404);
+        }
+
+        $notification->delete();
+
+        return response()->json(['deleted' => true]);
+    }
+
+    public function destroyAll(Request $request): JsonResponse
+    {
+        $deleted = $request->user()->notifications()->delete();
+
+        return response()->json(['deleted' => $deleted]);
+    }
 }

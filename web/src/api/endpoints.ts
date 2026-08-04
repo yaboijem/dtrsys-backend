@@ -90,7 +90,9 @@ export function listFraudFlags(params: PaginationParams, token: string): Promise
 }
 
 export function reviewFraudFlag(id: number, status: 'reviewed' | 'dismissed', notes: string | undefined, token: string): Promise<FraudFlag> {
-  return api.post<FraudFlag>(`/api/admin/fraud-flags/${id}/review`, { status, notes }, token);
+  return api
+    .post<{ data: FraudFlag }>(`/api/admin/fraud-flags/${id}/review`, { status, notes }, token)
+    .then((r) => r.data);
 }
 
 export function listEmployees(params: PaginationParams, token: string): Promise<Paginated<Employee>> {

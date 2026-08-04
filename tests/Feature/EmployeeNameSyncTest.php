@@ -114,4 +114,28 @@ class EmployeeNameSyncTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.actor.name', 'Juan Santos');
     }
+
+    #[Test]
+    public function recent_activity_prefers_employee_full_name_over_stale_user_name(): void
+    {
+        Storage::fake('public');
+        config(['dtr.attendance.async_face_verification' => false]);
+        $hr = $this->makeHr();
+        $employee = $this->makeEmployee();
+
+        // Simulate a stale users.name while employee name parts are current.
+        $employee->update(['last_name' => 'Santos']);
+        $employee->user->update(['name' => 'Juan Dela Cruz']);
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
+            'latitude' => (float) $employee->branch->latitude + 0.0001,
+            'longitude' => (float) $employee->branch->longitude + 0.0001,
+            'accuracy_meters' => 8,
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertCreated();
+
+        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/audit-logs?action=attendance.created')
+            ->assertOk()
+            ->assertJsonPath('data.0.actor.name', 'Juan Santos');
+    }
 }

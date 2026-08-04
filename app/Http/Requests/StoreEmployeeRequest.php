@@ -10,7 +10,6 @@ class StoreEmployeeRequest extends FormRequest
     public const ROLES = [
         'Super Admin',
         'HR',
-        'Payroll Officer',
         'Branch Manager',
         'Department Head',
         'Employee',

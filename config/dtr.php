@@ -25,10 +25,6 @@ return [
         'max_records_with_photos' => (int) env('ATTENDANCE_SYNC_MAX_WITH_PHOTOS', 5),
     ],
 
-    'payroll' => [
-        'export_disk' => env('PAYROLL_EXPORT_DISK', 'local'),
-    ],
-
     'retention' => [
         'attendance_days' => (int) env('RETENTION_ATTENDANCE_DAYS', 730),
         'audit_days' => (int) env('RETENTION_AUDIT_DAYS', 730),

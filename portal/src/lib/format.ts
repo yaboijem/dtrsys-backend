@@ -141,3 +141,65 @@ export function shiftProgress(start: string | null | undefined, end: string | nu
   return Math.round(((now - s.getTime()) / (endMs - s.getTime())) * 100);
 }
 
+export type ShiftSkyKind = 'sun' | 'mid' | 'night';
+
+/** Classify shift sky from start/end clock times (overnight → night). */
+export function shiftSkyKind(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): ShiftSkyKind {
+  const match = start ? /^(\d{1,2}):(\d{2})/.exec(start) : null;
+  if (!match) {
+    return 'mid';
+  }
+  const startHour = Number(match[1]);
+  const endMatch = end ? /^(\d{1,2}):(\d{2})/.exec(end) : null;
+  const endHour = endMatch ? Number(endMatch[1]) : null;
+  // Overnight shift (e.g. 22:00–06:00)
+  if (endHour != null && endHour <= startHour) {
+    return 'night';
+  }
+  if (startHour >= 5 && startHour < 11) {
+    return 'sun';
+  }
+  if (startHour >= 11 && startHour < 17) {
+    return 'mid';
+  }
+  return 'night';
+}
+
+export function shiftSkyStyle(kind: ShiftSkyKind): {
+  background: string;
+  border: string;
+  labelColor: string;
+  valueColor: string;
+  iconColor: string;
+} {
+  switch (kind) {
+    case 'sun':
+      return {
+        background: 'linear-gradient(145deg, #7dd3fc 0%, #bae6fd 42%, #fde68a 100%)',
+        border: '1px solid rgba(14, 165, 233, 0.35)',
+        labelColor: '#0c4a6e',
+        valueColor: '#0f172a',
+        iconColor: '#ea580c',
+      };
+    case 'mid':
+      return {
+        background: 'linear-gradient(145deg, #fb923c 0%, #fdba74 40%, #fed7aa 72%, #ffedd5 100%)',
+        border: '1px solid rgba(234, 88, 12, 0.35)',
+        labelColor: '#9a3412',
+        valueColor: '#0f172a',
+        iconColor: '#ea580c',
+      };
+    case 'night':
+      return {
+        background: 'linear-gradient(145deg, #0f172a 0%, #1e3a5f 55%, #312e81 100%)',
+        border: '1px solid rgba(148, 163, 184, 0.25)',
+        labelColor: '#cbd5e1',
+        valueColor: '#f8fafc',
+        iconColor: '#fde68a',
+      };
+  }
+}
+

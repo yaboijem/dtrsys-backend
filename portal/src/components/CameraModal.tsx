@@ -27,7 +27,10 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
 
   const startStream = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'user' } },
+        audio: false,
+      });
       if (!mountedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
         return;
@@ -159,7 +162,12 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
             autoPlay
             playsInline
             muted
-            style={{ flex: 1, objectFit: 'cover' }}
+            style={{
+              flex: 1,
+              objectFit: 'cover',
+              // Mirror front-camera preview only; capture stays unmirrored for face match.
+              transform: 'scaleX(-1)',
+            }}
           />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
 
