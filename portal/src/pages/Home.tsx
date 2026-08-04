@@ -12,7 +12,7 @@ import { Screen } from '../components/Screen';
 import { Stamp } from '../components/Stamp';
 import { distanceLabel, errorMessage, formatClockTime, formatDateTime, formatTime, minutesToDuration, toLocalDate } from '../lib/format';
 import { resolveGpsPosition } from '../lib/location';
-import { enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
+import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, microLabel, spacing, useThemeColors } from '../theme';
 
@@ -195,10 +195,11 @@ export function Home() {
     setPunching(true);
     try {
       const form = new FormData();
-      // Convert blob URL to File for FormData
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      form.append('selfie', new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
+      // Convert base64 data URL to File for FormData
+      const selfieFile = dataUrlToFile(uri, 'selfie.jpg');
+      if (selfieFile) {
+        form.append('selfie', selfieFile);
+      }
       form.append('latitude', String(coords.latitude));
       form.append('longitude', String(coords.longitude));
       if (coords.accuracy !== null && Number.isFinite(coords.accuracy)) {

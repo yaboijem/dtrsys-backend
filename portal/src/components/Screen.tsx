@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { useThemeColors } from '../theme';
 
 interface ScreenProps {
   children: ReactNode;
@@ -9,13 +8,11 @@ interface ScreenProps {
 }
 
 export function Screen({ children, scroll = true, contentContainerStyle, style }: ScreenProps) {
-  const colors = useThemeColors();
-
   return (
     <div
       className="min-h-screen"
       style={{
-        background: colors.ground,
+        background: 'var(--ground)',
         ...(scroll ? {} : { height: '100vh', overflow: 'hidden' }),
         ...style,
       }}

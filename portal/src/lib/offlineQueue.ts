@@ -6,6 +6,22 @@ import { newUuid } from './format';
 const MAX_BATCH = 50;
 const MAX_BATCH_WITH_PHOTOS = 5;
 
+export function dataUrlToFile(dataUrl: string, filename: string): File | null {
+  const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
+  if (!match) {
+    return null;
+  }
+  const mime = match[1];
+  const base64 = match[2];
+  const byteChars = atob(base64);
+  const byteNumbers = new Array<number>(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+  const bytes = new Uint8Array(byteNumbers);
+  return new File([bytes], filename, { type: mime });
+}
+
 export async function getOfflineQueue(): Promise<OfflinePunch[]> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.offlineQueue);
@@ -74,9 +90,10 @@ async function flushBatchWithPhotos(
   await Promise.all(
     photoEntries.map(async ({ index, uri }) => {
       try {
-        const res = await fetch(uri);
-        const blob = await res.blob();
-        form.append(`photos[${index}]`, new File([blob], `selfie-${index}.jpg`, { type: 'image/jpeg' }));
+        const file = dataUrlToFile(uri, `selfie-${index}.jpg`);
+        if (file) {
+          form.append(`photos[${index}]`, file);
+        }
       } catch {
         // missing or unreadable photo — sync the record without it
       }

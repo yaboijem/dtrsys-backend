@@ -69,8 +69,10 @@ export function Mfa() {
         label="Verification code"
         value={code}
         onChangeText={setCode}
-        type="number"
-        maxLength={6}
+        type="text"
+        inputMode="numeric"
+        pattern="\d{6}"
+        autoComplete="one-time-code"
         placeholder="000000"
       />
 

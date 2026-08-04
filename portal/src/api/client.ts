@@ -38,7 +38,8 @@ function describeFetchError(error: unknown): string {
 }
 
 function buildUrl(baseUrl: string, path: string, params?: Record<string, string | number | boolean | undefined>): string {
-  const url = new URL(baseUrl + path);
+  const base = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const url = new URL(base + path);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== '') {

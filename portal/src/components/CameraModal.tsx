@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 import { Banner } from './Feedback';
 
@@ -13,41 +13,64 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
   const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Start camera when visible
+  const stopStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const startStream = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setCameraReady(true);
+        };
+      }
+      setError(null);
+    } catch (err) {
+      if (mountedRef.current) {
+        console.warn('Camera access failed', err);
+        setError('Camera permission denied or not available');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!visible) {
-      // Clean up camera when modal closes
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      stopStream();
       setCameraReady(false);
       setError(null);
       return;
     }
 
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            setCameraReady(true);
-          };
-        }
-      } catch (err) {
-        console.warn('Camera access failed', err);
-        setError('Camera permission denied or not available');
-      }
-    };
+    setCameraReady(false);
+    setError(null);
+    startStream();
 
-    startCamera();
-  }, [visible]);
+    return () => {
+      stopStream();
+    };
+  }, [visible, startStream, stopStream]);
 
   const handleCapture = async () => {
     if (!videoRef.current || !canvasRef.current || !cameraReady) {
@@ -63,11 +86,19 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0);
-        const blob = await new Promise<Blob>((resolve) => {
-          canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.6);
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.6);
         });
-        const url = URL.createObjectURL(blob);
-        onCapture(url);
+        if (!blob) {
+          return;
+        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        onCapture(dataUrl);
       }
     } catch (error) {
       console.warn('Camera capture failed', error);
@@ -98,20 +129,13 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
             <Banner kind="warning" title="Camera permission needed" detail="Time-in and time-out require a selfie photo for face verification." />
             <button
               onClick={() => {
-                navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-                  streamRef.current = stream;
-                  if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    videoRef.current.onloadedmetadata = () => setCameraReady(true);
-                  }
-                  setError(null);
-                }).catch(() => setError('Camera access denied'));
+                startStream();
               }}
               style={{
                 width: '100%',
                 borderRadius: radius.md,
                 paddingTop: 14,
-        paddingBottom: 14,
+                paddingBottom: 14,
                 backgroundColor: colors.band,
                 color: colors.bandText,
                 fontSize: fontSize.md,

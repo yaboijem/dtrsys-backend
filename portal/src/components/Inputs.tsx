@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
 
 interface LabeledInputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement> {
@@ -13,9 +13,12 @@ export function LabeledInput({
   onFocus,
   onBlur,
   multiline,
+  id,
   ...props
 }: LabeledInputProps) {
   const colors = useThemeColors();
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
   const [focused, setFocused] = useState(false);
 
   const inputStyles: React.CSSProperties = {
@@ -31,7 +34,7 @@ export function LabeledInput({
     borderColor: focused ? colors.band : colors.border,
     color: colors.ink,
     outline: 'none',
-    ...(multiline ? { minHeight: 80, textAlignVertical: 'top' as const } : {}),
+    ...(multiline ? { minHeight: 80 } : {}),
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -41,6 +44,7 @@ export function LabeledInput({
   return (
     <div style={{ marginBottom: spacing.md }}>
       <label
+        htmlFor={inputId}
         style={{
           ...microLabel,
           color: focused ? colors.ink : colors.muted,
@@ -52,11 +56,8 @@ export function LabeledInput({
       </label>
       {multiline ? (
         <textarea
-          style={{
-            ...inputStyles,
-            // @ts-ignore - placeholder color via CSS
-            '&::placeholder': { color: colors.muted },
-          }}
+          id={inputId}
+          style={inputStyles}
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);
@@ -70,11 +71,8 @@ export function LabeledInput({
         />
       ) : (
         <input
-          style={{
-            ...inputStyles,
-            // @ts-ignore - placeholder color via CSS
-            '&::placeholder': { color: colors.muted },
-          }}
+          id={inputId}
+          style={inputStyles}
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);

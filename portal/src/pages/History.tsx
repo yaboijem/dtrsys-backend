@@ -120,10 +120,10 @@ export function History() {
         </div>
         <div style={{ display: 'flex', gap: spacing.md }}>
           <div style={{ flex: 1 }}>
-            <LabeledInput label="From" value={from} onChangeText={setFrom} placeholder="YYYY-MM-DD" />
+            <LabeledInput label="From" value={from} onChangeText={setFrom} type="date" />
           </div>
           <div style={{ flex: 1 }}>
-            <LabeledInput label="To" value={to} onChangeText={setTo} placeholder="YYYY-MM-DD" />
+            <LabeledInput label="To" value={to} onChangeText={setTo} type="date" />
           </div>
         </div>
       </div>

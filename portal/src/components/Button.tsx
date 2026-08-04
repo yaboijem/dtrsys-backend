@@ -3,6 +3,7 @@ import { useThemeColors, fontSize, radius, spacing } from '../theme';
 interface ButtonProps {
   title: string;
   onClick: () => void;
+  type?: 'button' | 'submit' | 'reset';
   variant?: 'primary' | 'secondary' | 'danger' | 'success';
   size?: 'default' | 'large';
   disabled?: boolean;
@@ -13,6 +14,7 @@ interface ButtonProps {
 export function Button({
   title,
   onClick,
+  type = 'button',
   variant = 'primary',
   size = 'default',
   disabled,
@@ -49,6 +51,7 @@ export function Button({
 
   return (
     <button
+      type={type}
       onClick={onClick}
       disabled={disabled || loading}
       aria-label={title}
