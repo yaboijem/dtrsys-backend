@@ -35,6 +35,9 @@ class Attendance extends Model
         'is_late',
         'is_early_timeout',
         'work_minutes',
+        'break_minutes',
+        'is_overbreak',
+        'break_notify_stage',
         'source',
         'notes',
         'synced_at',
@@ -46,6 +49,8 @@ class Attendance extends Model
         'is_late' => 'boolean',
         'is_early_timeout' => 'boolean',
         'work_minutes' => 'integer',
+        'break_minutes' => 'integer',
+        'is_overbreak' => 'boolean',
         'synced_at' => 'datetime',
     ];
 

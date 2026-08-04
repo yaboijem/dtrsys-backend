@@ -50,6 +50,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         ->middleware('throttle:attendance-sync');
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
 
+    Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/today', [ScheduleController::class, 'today']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);

@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('employee_id')->constrained();
             $table->foreignId('branch_id')->constrained();
             $table->foreignId('device_id')->nullable()->constrained();
-            $table->enum('type', ['time_in', 'time_out']);
+            $table->enum('type', ['time_in', 'time_out', 'break_in', 'break_out']);
             $table->dateTime('timestamp');
             $table->decimal('latitude', 10, 7)->nullable();
             $table->decimal('longitude', 10, 7)->nullable();
