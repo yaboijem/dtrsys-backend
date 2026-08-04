@@ -197,9 +197,16 @@ export function Home() {
       const form = new FormData();
       // Convert base64 data URL to File for FormData
       const selfieFile = dataUrlToFile(uri, 'selfie.jpg');
-      if (selfieFile) {
-        form.append('selfie', selfieFile);
+      if (!selfieFile) {
+        setResult({
+          kind: 'error',
+          title: 'Photo unavailable',
+          detail: 'The captured selfie could not be read. Tap the button again to retake it.',
+        });
+        setPunching(false);
+        return;
       }
+      form.append('selfie', selfieFile);
       form.append('latitude', String(coords.latitude));
       form.append('longitude', String(coords.longitude));
       if (coords.accuracy !== null && Number.isFinite(coords.accuracy)) {

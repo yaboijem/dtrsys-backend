@@ -7,19 +7,23 @@ const MAX_BATCH = 50;
 const MAX_BATCH_WITH_PHOTOS = 5;
 
 export function dataUrlToFile(dataUrl: string, filename: string): File | null {
-  const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
-  if (!match) {
+  try {
+    const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
+    if (!match) {
+      return null;
+    }
+    const mime = match[1];
+    const base64 = match[2];
+    const byteChars = atob(base64);
+    const byteNumbers = new Array<number>(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNumbers[i] = byteChars.charCodeAt(i);
+    }
+    const bytes = new Uint8Array(byteNumbers);
+    return new File([bytes], filename, { type: mime });
+  } catch {
     return null;
   }
-  const mime = match[1];
-  const base64 = match[2];
-  const byteChars = atob(base64);
-  const byteNumbers = new Array<number>(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) {
-    byteNumbers[i] = byteChars.charCodeAt(i);
-  }
-  const bytes = new Uint8Array(byteNumbers);
-  return new File([bytes], filename, { type: mime });
 }
 
 export async function getOfflineQueue(): Promise<OfflinePunch[]> {
