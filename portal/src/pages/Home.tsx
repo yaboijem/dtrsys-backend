@@ -22,6 +22,7 @@ import {
   toLocalDate,
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
+import { compressDataUrl } from '../lib/image';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { deriveAttendanceState } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
@@ -258,10 +259,12 @@ export function Home() {
     setResult(null);
     setPunching(true);
     const clientUuid = newUuid();
+    // Compress before live upload or offline enqueue to cut upload/CPU cost.
+    const compressedUri = await compressDataUrl(uri);
     try {
       const form = new FormData();
       // Convert base64 data URL to File for FormData
-      const selfieFile = dataUrlToFile(uri, 'selfie.jpg');
+      const selfieFile = dataUrlToFile(compressedUri, 'selfie.jpg');
       if (!selfieFile) {
         setResult({
           kind: 'error',
@@ -307,7 +310,7 @@ export function Home() {
       void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        const queued = await enqueueOfflinePunch(type, coords, uri, clientUuid);
+        const queued = await enqueueOfflinePunch(type, coords, compressedUri, clientUuid);
         setQueue(queued);
         setResult({
           kind: 'success',
