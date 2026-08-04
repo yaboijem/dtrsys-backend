@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\GpsLocation;
 use App\Models\Shift;
 use App\Models\User;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -157,7 +158,9 @@ class AttendanceService
             config('dtr.attendance.employee_lock_seconds', 15),
         );
 
-        if (! $lock->block(5)) {
+        try {
+            $lock->block(5);
+        } catch (LockTimeoutException) {
             throw new AttendanceConflictException('Attendance is busy. Please try again.');
         }
 
@@ -175,7 +178,7 @@ class AttendanceService
 
             return $callback($employee);
         } finally {
-            optional($lock)->release();
+            $lock->release();
         }
     }
 

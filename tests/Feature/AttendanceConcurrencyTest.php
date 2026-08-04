@@ -2,14 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\AttendanceConflictException;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Device;
 use App\Models\Employee;
+use App\Services\AttendanceService;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -90,5 +96,27 @@ class AttendanceConcurrencyTest extends TestCase
             ->assertJsonPath('code', 'attendance_conflict');
 
         $this->assertSame(1, Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count());
+    }
+
+    #[Test]
+    public function lock_timeout_maps_to_attendance_conflict(): void
+    {
+        $employee = $this->makeEmployee();
+
+        $lock = Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')->once()->with(5)->andThrow(new LockTimeoutException);
+        $lock->shouldNotReceive('release');
+
+        Cache::shouldReceive('lock')
+            ->once()
+            ->withArgs(fn (string $name, $seconds) => $name === 'attendance:employee:'.$employee->id)
+            ->andReturn($lock);
+
+        try {
+            app(AttendanceService::class)->timeIn($employee->user, $this->punchPayload($employee->branch));
+            $this->fail('Expected AttendanceConflictException was not thrown.');
+        } catch (AttendanceConflictException $e) {
+            $this->assertSame('Attendance is busy. Please try again.', $e->getMessage());
+        }
     }
 }
