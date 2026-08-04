@@ -210,7 +210,8 @@ export function Home() {
         setSyncedLocal([]);
       }
     } catch {
-      // still offline — queue retained
+      // still offline / HTTP error — reload queue so UI reflects retained items
+      setQueue(await getOfflineQueue());
     } finally {
       flushBusyRef.current = false;
       setFlushing(false);

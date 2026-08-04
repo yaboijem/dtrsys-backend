@@ -200,12 +200,15 @@ export async function flushOfflineQueue(
     let duplicates = 0;
     let faceIssues = 0;
     const syncedItems: OfflinePunch[] = [];
+    // Single pass: never re-prepend failures into the worklist (avoids infinite retry livelock).
+    const deferred: OfflinePunch[] = [];
+    let toProcess = remaining;
 
-    while (remaining.length > 0) {
-      const window = remaining.slice(0, MAX_BATCH);
+    while (toProcess.length > 0) {
+      const window = toProcess.slice(0, MAX_BATCH);
       const hasPhotos = window.some((p) => p.selfieUri);
       const batch = window.slice(0, hasPhotos ? MAX_BATCH_WITH_PHOTOS : MAX_BATCH);
-      const tail = remaining.slice(batch.length);
+      const tail = toProcess.slice(batch.length);
 
       let result: SyncResult;
       try {
@@ -220,9 +223,9 @@ export async function flushOfflineQueue(
               token,
             );
       } catch (err) {
-        // Leave remaining queue intact (including this batch). Persist any prior progress.
+        // Leave full remaining queue intact (deferred failures + current batch + tail).
         // Network/429/5xx and other HTTP errors must not clear the queue.
-        await setOfflineQueue(remaining);
+        await setOfflineQueue([...deferred, ...batch, ...tail]);
         throw err;
       }
 
@@ -230,7 +233,6 @@ export async function flushOfflineQueue(
       failed += result.failed;
       duplicates += result.duplicates;
 
-      const kept: OfflinePunch[] = [];
       for (let index = 0; index < batch.length; index++) {
         const punch = batch[index];
         const status = result.records?.[index];
@@ -241,16 +243,17 @@ export async function flushOfflineQueue(
           syncedItems.push(punch);
           continue;
         }
-        // failed or missing status — keep with attempt metadata
-        kept.push({
+        // failed or missing status — defer; do not re-queue in this flush
+        deferred.push({
           ...punch,
           attempts: (punch.attempts ?? 0) + 1,
           last_error: status?.message ?? (status ? 'Sync failed' : 'Missing sync status'),
         });
       }
 
-      remaining = [...kept, ...tail];
-      await setOfflineQueue(remaining);
+      // Advance worklist to unprocessed tail only (one pass through original queue).
+      toProcess = tail;
+      await setOfflineQueue([...deferred, ...toProcess]);
     }
 
     return {
@@ -258,7 +261,7 @@ export async function flushOfflineQueue(
       failed,
       duplicates,
       faceIssues,
-      remaining: remaining.length,
+      remaining: deferred.length,
       hadQueue: true,
       syncedItems,
     };
