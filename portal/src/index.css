@@ -1,1 +1,95 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --ground: #eef4f7;
+    --card: #ffffff;
+    --band: #0c1b2a;
+    --band-text: #f1f5f9;
+    --band-soft: #102840;
+    --ink: #0a1a26;
+    --muted: #45616f;
+    --border: #d7e3e9;
+    --barcode: #0a1a26;
+    --focus: #0e7490;
+    --success: #059669;
+    --success-fill: #047857;
+    --success-text: #047857;
+    --danger: #dc2626;
+    --danger-text: #b91c1c;
+    --warning-fill: #b45309;
+    --warning-text: #92400e;
+    --disabled: #aab3c0;
+    --overlay: rgba(12, 27, 42, 0.6);
+    --camera-chrome: #05070c;
+
+    --plate-error-bg: #fdf0ef;
+    --plate-error-border: #f5c6c4;
+    --plate-error-text: #b91c1c;
+    --plate-warning-bg: #fff7e6;
+    --plate-warning-border: #f2dcae;
+    --plate-warning-text: #92400e;
+    --plate-success-bg: #edf7ee;
+    --plate-success-border: #c4e5c9;
+    --plate-success-text: #047857;
+    --plate-info-bg: #eef4f7;
+    --plate-info-border: #d7e3e9;
+    --plate-info-text: #155e75;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0c1b2a;
+      --card: #102840;
+      --band: #0c1b2a;
+      --band-text: #f1f5f9;
+      --band-soft: #1d3a55;
+      --ink: #f1f5f9;
+      --muted: #94a3b8;
+      --border: #1d3a55;
+      --barcode: #f1f5f9;
+      --focus: #67e8f9;
+      --success: #059669;
+      --success-fill: #047857;
+      --success-text: #34d399;
+      --danger: #dc2626;
+      --danger-text: #fca5a5;
+      --warning-fill: #b45309;
+      --warning-text: #fbbf24;
+      --disabled: #46536a;
+      --overlay: rgba(3, 5, 10, 0.7);
+      --camera-chrome: #05070c;
+
+      --plate-error-bg: #2a1517;
+      --plate-error-border: #4a2428;
+      --plate-error-text: #fca5a5;
+      --plate-warning-bg: #2a2110;
+      --plate-warning-border: #4a3c1d;
+      --plate-warning-text: #fbbf24;
+      --plate-success-bg: #12241a;
+      --plate-success-border: #24442f;
+      --plate-success-text: #34d399;
+      --plate-info-bg: #102840;
+      --plate-info-border: #1d3a55;
+      --plate-info-text: #7dd3fc;
+    }
+  }
+}
+
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.06) rotate(-3deg);
+  }
+  40% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-stamp {
+  animation: stamp-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
