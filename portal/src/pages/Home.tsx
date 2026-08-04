@@ -23,6 +23,7 @@ import {
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
+import { deriveAttendanceState } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
@@ -99,21 +100,25 @@ export function Home() {
   const serverUuids = new Set(todayPunches.map((p) => p.uuid).filter(Boolean));
   const syncedUuids = new Set(syncedLocal.map((p) => p.client_uuid));
   const queueUuids = new Set(queue.map((p) => p.client_uuid));
-  const localPunches = [...queue.filter((p) => !syncedUuids.has(p.client_uuid)), ...syncedLocal]
-    .filter((p) => !serverUuids.has(p.client_uuid))
-    .map((p) => toLocalAttendance(p, queueUuids.has(p.client_uuid) ? 'local_queue' : 'local_queue_synced'));
+  const localOffline: OfflinePunch[] = [
+    ...queue.filter((p) => !syncedUuids.has(p.client_uuid)),
+    ...syncedLocal,
+  ].filter((p) => !serverUuids.has(p.client_uuid));
+  const localPunches = localOffline.map((p) =>
+    toLocalAttendance(p, queueUuids.has(p.client_uuid) ? 'local_queue' : 'local_queue_synced'),
+  );
   const effectivePunches: Attendance[] = [...todayPunches, ...localPunches].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
 
+  const { isOpen, onBreak, openBreakStartedAt } = deriveAttendanceState(todayPunches, localOffline);
+
   const workPunches = effectivePunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
   const lastWork = workPunches[workPunches.length - 1] ?? null;
-  const isOpen = lastWork?.type === 'time_in';
   const lastPunch = lastWork;
 
-  let onBreak = false;
+  // One completed break pair after the open time_in blocks another Break In.
   let breakUsed = false;
-  let openBreakStartedAt: string | null = null;
   if (isOpen && lastWork) {
     let openBreak: Attendance | null = null;
     for (const p of effectivePunches) {
@@ -123,10 +128,6 @@ export function Home() {
         breakUsed = true;
         openBreak = null;
       }
-    }
-    if (openBreak) {
-      onBreak = true;
-      openBreakStartedAt = openBreak.timestamp;
     }
   }
 
