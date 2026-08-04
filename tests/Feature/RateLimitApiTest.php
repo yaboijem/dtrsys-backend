@@ -45,6 +45,25 @@ class RateLimitApiTest extends TestCase
     }
 
     #[Test]
+    public function attendance_sync_is_rate_limited(): void
+    {
+        $employee = $this->makeEmployee();
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
+                'records' => [],
+            ]);
+        }
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
+            'records' => [],
+        ])
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'too_many_attempts')
+            ->assertJsonPath('message', 'Too many sync requests. Please wait.');
+    }
+
+    #[Test]
     public function unauthenticated_requests_get_json_401(): void
     {
         $this->getJson('/api/attendance/history')

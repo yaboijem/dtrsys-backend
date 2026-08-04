@@ -47,6 +47,15 @@ class AppServiceProvider extends ServiceProvider
             ], 429));
         });
 
+        RateLimiter::for('attendance-sync', function (Request $request) {
+            $key = $request->user()?->employee_id ?? $request->ip();
+
+            return Limit::perMinute(10)->by('attendance-sync:'.$key)->response(fn () => response()->json([
+                'message' => 'Too many sync requests. Please wait.',
+                'code' => 'too_many_attempts',
+            ], 429));
+        });
+
         RateLimiter::for('api', function (Request $request) {
             $key = $request->user()?->employee_id ?? $request->ip();
 

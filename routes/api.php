@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DashboardController;
-use App\Http\Controllers\Api\Admin\DataRequestAdminController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
@@ -15,11 +14,9 @@ use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsentController;
-use App\Http\Controllers\Api\DataRequestController;
 use App\Http\Controllers\Api\DeviceChangeRequestController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ScheduleController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
@@ -46,11 +43,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::middleware('throttle:attendance')->group(function () {
         Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn']);
         Route::post('/attendance/time-out', [AttendanceController::class, 'timeOut']);
-        Route::post('/attendance/sync', [AttendanceController::class, 'sync']);
+        Route::post('/attendance/break-in', [AttendanceController::class, 'breakIn']);
+        Route::post('/attendance/break-out', [AttendanceController::class, 'breakOut']);
     });
+    Route::post('/attendance/sync', [AttendanceController::class, 'sync'])
+        ->middleware('throttle:attendance-sync');
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
 
-    Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/today', [ScheduleController::class, 'today']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -60,9 +59,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     Route::get('/employee/consent', [ConsentController::class, 'index']);
     Route::post('/employee/consent', [ConsentController::class, 'update']);
-
-    Route::get('/employee/data-requests', [DataRequestController::class, 'index']);
-    Route::post('/employee/data-requests', [DataRequestController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->group(function () {
@@ -70,9 +66,6 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
 
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
-
-    Route::get('/data-requests', [DataRequestAdminController::class, 'index']);
-    Route::patch('/data-requests/{dataRequest}', [DataRequestAdminController::class, 'review']);
 
     Route::post('/schedules', [ScheduleAdminController::class, 'store']);
     Route::delete('/schedules/{schedule}', [ScheduleAdminController::class, 'destroy']);
@@ -110,6 +103,3 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Payroll Officer|Branch M
     Route::get('/reports/{reportExport}/download', [ReportExportController::class, 'download']);
 });
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
