@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError } from '../api/client';
 import { Attendance, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Banner, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { distanceLabel, errorMessage, formatDateTime, minutesToDuration, toLocalDate } from '../lib/format';
-import { fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
+import { fontSize, radius, spacing, useThemeColors } from '../theme';
 
 type TypeFilter = '' | 'time_in' | 'time_out';
 
@@ -25,7 +24,6 @@ export function History() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<TypeFilter>('');
@@ -53,7 +51,6 @@ export function History() {
         setError(errorMessage(err));
       } finally {
         setLoading(false);
-        setRefreshing(false);
         setLoadingMore(false);
       }
     },
@@ -64,11 +61,6 @@ export function History() {
     setLoading(true);
     fetchPage(1, true);
   }, [fetchPage]);
-
-  const refresh = () => {
-    setRefreshing(true);
-    fetchPage(1, true);
-  };
 
   const loadMore = () => {
     if (!loadingMore && page < lastPage) {

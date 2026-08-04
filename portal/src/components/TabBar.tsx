@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom';
 import { Home, Clock, Bell, Menu } from 'lucide-react';
 import { useThemeColors, fontSize } from '../theme';
 import { useUnread } from '../notifications/UnreadContext';
-import { spacing } from '../theme';
 
 const tabs = [
   { path: '/home', label: 'Home', Icon: Home },

@@ -15,7 +15,6 @@ export function Notifications() {
 
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -34,7 +33,6 @@ export function Notifications() {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [api, token]);
 

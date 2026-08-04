@@ -77,11 +77,11 @@ export function LabeledInput({
           }}
           onFocus={(e) => {
             setFocused(true);
-            onFocus?.(e as any);
+            onFocus?.(e);
           }}
           onBlur={(e) => {
             setFocused(false);
-            onBlur?.(e as any);
+            onBlur?.(e);
           }}
           onChange={handleChange}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)}

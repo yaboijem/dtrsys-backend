@@ -14,11 +14,19 @@ export function Screen({ children, scroll = true, contentContainerStyle, style }
   return (
     <div
       className="min-h-screen"
-      style={{ background: colors.ground, ...style }}
+      style={{
+        background: colors.ground,
+        ...(scroll ? {} : { height: '100vh', overflow: 'hidden' }),
+        ...style,
+      }}
     >
       <div
         className="mx-auto max-w-lg p-4 pb-8"
-        style={contentContainerStyle}
+        style={{
+          height: scroll ? undefined : '100%',
+          overflowY: scroll ? undefined : 'auto',
+          ...contentContainerStyle,
+        }}
       >
         {children}
       </div>

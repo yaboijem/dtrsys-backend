@@ -42,15 +42,6 @@ export async function enqueueOfflinePunch(
   return queue;
 }
 
-async function removeFromQueue(uuids: Set<string>): Promise<OfflinePunch[]> {
-  const queue = await getOfflineQueue();
-  const remaining = queue.filter((p) => !uuids.has(p.client_uuid));
-  if (remaining.length !== queue.length) {
-    localStorage.setItem(STORAGE_KEYS.offlineQueue, JSON.stringify(remaining));
-  }
-  return remaining;
-}
-
 export interface FlushResult {
   synced: number;
   failed: number;
@@ -75,21 +66,23 @@ async function flushBatchWithPhotos(
     'records',
     JSON.stringify(batch.map((p) => ({ ...p, selfieUri: undefined, queued_at: undefined }))),
   );
-  batch.forEach((p, index) => {
-    if (!p.selfieUri) {
-      return;
-    }
-    try {
-      // In web, selfieUri is a blob URL - fetch and convert to File
-      const response = fetch(p.selfieUri).then((res) => res.blob()).then((blob) => {
+
+  const photoEntries = batch
+    .map((p, index) => ({ index, uri: p.selfieUri }))
+    .filter((entry): entry is { index: number; uri: string } => entry.uri !== undefined);
+
+  await Promise.all(
+    photoEntries.map(async ({ index, uri }) => {
+      try {
+        const res = await fetch(uri);
+        const blob = await res.blob();
         form.append(`photos[${index}]`, new File([blob], `selfie-${index}.jpg`, { type: 'image/jpeg' }));
-      });
-      // Note: This is async but we're not awaiting it here for simplicity
-      // The form will still have the records even if photos fail
-    } catch {
-      // missing or unreadable photo — sync the record without it
-    }
-  });
+      } catch {
+        // missing or unreadable photo — sync the record without it
+      }
+    }),
+  );
+
   return api.postForm<SyncResult>('/api/attendance/sync', form, token);
 }
 
@@ -164,7 +157,7 @@ export async function flushOfflineQueue(
       failed += result.failed;
       duplicates += result.duplicates;
 
-      const done = batch.filter((p, index) => {
+      const done = batch.filter((_, index) => {
         const status = result.records?.[index];
         if (!status || status.status === 'failed') {
           return false;

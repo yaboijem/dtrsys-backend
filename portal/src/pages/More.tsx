@@ -9,7 +9,7 @@ import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { errorMessage } from '../lib/format';
-import { fontSize, microLabel, spacing, useThemeColors } from '../theme';
+import { fontSize, spacing, useThemeColors } from '../theme';
 
 export function More() {
   const colors = useThemeColors();
@@ -121,7 +121,7 @@ export function More() {
 
       <SectionCard title="Privacy">
         <button
-          onClick={() => navigate('/consent')}
+          onClick={() => navigate('/more/consent')}
           aria-label="Consent and data"
           style={{
             display: 'flex',
