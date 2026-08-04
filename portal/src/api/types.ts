@@ -51,12 +51,14 @@ export interface FraudFlag {
 export interface Attendance {
   id: number;
   uuid: string;
-  type: 'time_in' | 'time_out';
+  type: 'time_in' | 'time_out' | 'break_in' | 'break_out';
   timestamp: string;
   is_offline: boolean;
   is_late: boolean;
   is_early_timeout: boolean;
   work_minutes: number | null;
+  break_minutes?: number | null;
+  is_overbreak?: boolean;
   source: string | null;
   notes: string | null;
   synced_at: string | null;
@@ -98,14 +100,6 @@ export interface Consent {
   granted_at: string | null;
   revoked_at: string | null;
   updated_at: string | null;
-}
-
-export interface DataRequest {
-  id: number;
-  type: 'access' | 'deletion';
-  status: 'pending' | 'approved' | 'completed' | 'rejected';
-  created_at: string;
-  processed_at: string | null;
 }
 
 export interface Paginated<T> {
@@ -158,9 +152,11 @@ export interface SyncResult {
   records: SyncRecordResult[];
 }
 
+export type PunchType = 'time_in' | 'time_out' | 'break_in' | 'break_out';
+
 export interface OfflinePunch {
   client_uuid: string;
-  type: 'time_in' | 'time_out';
+  type: PunchType;
   timestamp: string;
   latitude: number;
   longitude: number;
@@ -168,6 +164,8 @@ export interface OfflinePunch {
   notes?: string;
   queued_at: string;
   selfieUri?: string;
+  attempts?: number;
+  last_error?: string;
 }
 
 export interface GpsOutOfRangeDetails {

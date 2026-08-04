@@ -1,10 +1,12 @@
 import { ApiClient } from '../api/client';
-import { OfflinePunch, SyncResult } from '../api/types';
+import { OfflinePunch, PunchType, SyncResult } from '../api/types';
 import { STORAGE_KEYS } from '../config';
 import { newUuid } from './format';
+import { idbGet, idbSet } from './idbQueue';
 
 const MAX_BATCH = 50;
 const MAX_BATCH_WITH_PHOTOS = 5;
+const IDB_QUEUE_KEY = 'offline_queue';
 
 export function dataUrlToFile(dataUrl: string, filename: string): File | null {
   try {
@@ -26,27 +28,71 @@ export function dataUrlToFile(dataUrl: string, filename: string): File | null {
   }
 }
 
-export async function getOfflineQueue(): Promise<OfflinePunch[]> {
+function sanitizeForSync(p: OfflinePunch): Record<string, unknown> {
+  return {
+    client_uuid: p.client_uuid,
+    type: p.type,
+    timestamp: p.timestamp,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    accuracy_meters: p.accuracy_meters,
+    ...(p.notes !== undefined ? { notes: p.notes } : {}),
+  };
+}
+
+function readLocalStorageQueue(): OfflinePunch[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.offlineQueue);
     if (!raw) {
-      return [];
+      return null;
     }
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OfflinePunch[]) : [];
+    return Array.isArray(parsed) ? (parsed as OfflinePunch[]) : null;
   } catch {
+    return null;
+  }
+}
+
+export async function setOfflineQueue(items: OfflinePunch[]): Promise<void> {
+  await idbSet(IDB_QUEUE_KEY, items);
+}
+
+export async function getOfflineQueue(): Promise<OfflinePunch[]> {
+  try {
+    const stored = await idbGet<OfflinePunch[]>(IDB_QUEUE_KEY);
+    if (Array.isArray(stored) && stored.length > 0) {
+      return stored;
+    }
+
+    // One-time migration from localStorage (selfies exceed 5MB quota there).
+    const legacy = readLocalStorageQueue();
+    if (legacy && legacy.length > 0) {
+      await setOfflineQueue(legacy);
+      localStorage.removeItem(STORAGE_KEYS.offlineQueue);
+      return legacy;
+    }
+
+    // Empty array in IDB still counts as initialized — avoid re-migrating wiped queues.
+    if (Array.isArray(stored)) {
+      return stored;
+    }
+
     return [];
+  } catch {
+    // Fall back to legacy localStorage if IndexedDB is unavailable.
+    return readLocalStorageQueue() ?? [];
   }
 }
 
 export async function enqueueOfflinePunch(
-  type: 'time_in' | 'time_out',
+  type: PunchType,
   coords: { latitude: number; longitude: number; accuracy: number | null },
   selfieUri?: string | null,
+  clientUuid?: string,
 ): Promise<OfflinePunch[]> {
   const queue = await getOfflineQueue();
   const entry: OfflinePunch = {
-    client_uuid: newUuid(),
+    client_uuid: clientUuid ?? newUuid(),
     type,
     timestamp: new Date().toISOString(),
     latitude: coords.latitude,
@@ -58,7 +104,7 @@ export async function enqueueOfflinePunch(
     entry.selfieUri = selfieUri;
   }
   queue.push(entry);
-  localStorage.setItem(STORAGE_KEYS.offlineQueue, JSON.stringify(queue));
+  await setOfflineQueue(queue);
   return queue;
 }
 
@@ -82,10 +128,7 @@ async function flushBatchWithPhotos(
   if (deviceId) {
     form.append('device_id', deviceId);
   }
-  form.append(
-    'records',
-    JSON.stringify(batch.map((p) => ({ ...p, selfieUri: undefined, queued_at: undefined }))),
-  );
+  form.append('records', JSON.stringify(batch.map(sanitizeForSync)));
 
   const photoEntries = batch
     .map((p, index) => ({ index, uri: p.selfieUri }))
@@ -128,8 +171,8 @@ export async function flushOfflineQueue(
 
   flushing = true;
   try {
-    const queue = await getOfflineQueue();
-    if (queue.length === 0) {
+    let remaining = await getOfflineQueue();
+    if (remaining.length === 0) {
       return {
         synced: 0,
         failed: 0,
@@ -146,7 +189,7 @@ export async function flushOfflineQueue(
         failed: 0,
         duplicates: 0,
         faceIssues: 0,
-        remaining: queue.length,
+        remaining: remaining.length,
         hadQueue: true,
         syncedItems: [],
       };
@@ -158,43 +201,67 @@ export async function flushOfflineQueue(
     let faceIssues = 0;
     const syncedItems: OfflinePunch[] = [];
 
-    for (let i = 0; i < queue.length; ) {
-      const window = queue.slice(i, i + MAX_BATCH);
+    while (remaining.length > 0) {
+      const window = remaining.slice(0, MAX_BATCH);
       const hasPhotos = window.some((p) => p.selfieUri);
       const batch = window.slice(0, hasPhotos ? MAX_BATCH_WITH_PHOTOS : MAX_BATCH);
+      const tail = remaining.slice(batch.length);
 
-      const result = hasPhotos
-        ? await flushBatchWithPhotos(api, batch, token, deviceId)
-        : await api.post<SyncResult>(
-            '/api/attendance/sync',
-            {
-              device_id: deviceId ?? undefined,
-              records: batch.map((p) => ({ ...p, selfieUri: undefined, queued_at: undefined })),
-            },
-            token,
-          );
+      let result: SyncResult;
+      try {
+        result = hasPhotos
+          ? await flushBatchWithPhotos(api, batch, token, deviceId)
+          : await api.post<SyncResult>(
+              '/api/attendance/sync',
+              {
+                device_id: deviceId ?? undefined,
+                records: batch.map(sanitizeForSync),
+              },
+              token,
+            );
+      } catch (err) {
+        // Leave remaining queue intact (including this batch). Persist any prior progress.
+        // Network/429/5xx and other HTTP errors must not clear the queue.
+        await setOfflineQueue(remaining);
+        throw err;
+      }
 
       synced += result.synced;
       failed += result.failed;
       duplicates += result.duplicates;
 
-      const done = batch.filter((_, index) => {
+      const kept: OfflinePunch[] = [];
+      for (let index = 0; index < batch.length; index++) {
+        const punch = batch[index];
         const status = result.records?.[index];
-        if (!status || status.status === 'failed') {
-          return false;
+        if (status?.status === 'created' || status?.status === 'duplicate') {
+          if (status.photo?.present && status.photo.face_detected === false) {
+            faceIssues++;
+          }
+          syncedItems.push(punch);
+          continue;
         }
-        if (status.photo?.present && status.photo.face_detected === false) {
-          faceIssues++;
-        }
-        return true;
-      });
-      syncedItems.push(...done);
-      queue.splice(i, batch.length, ...batch.filter((p) => !done.includes(p)));
-      i += batch.length;
+        // failed or missing status — keep with attempt metadata
+        kept.push({
+          ...punch,
+          attempts: (punch.attempts ?? 0) + 1,
+          last_error: status?.message ?? (status ? 'Sync failed' : 'Missing sync status'),
+        });
+      }
+
+      remaining = [...kept, ...tail];
+      await setOfflineQueue(remaining);
     }
 
-    localStorage.setItem(STORAGE_KEYS.offlineQueue, JSON.stringify(queue));
-    return { synced, failed, duplicates, faceIssues, remaining: queue.length, hadQueue: true, syncedItems };
+    return {
+      synced,
+      failed,
+      duplicates,
+      faceIssues,
+      remaining: remaining.length,
+      hadQueue: true,
+      syncedItems,
+    };
   } finally {
     flushing = false;
   }
