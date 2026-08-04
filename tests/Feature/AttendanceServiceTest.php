@@ -21,6 +21,14 @@ class AttendanceServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Service-level tests assert sync face verify + mismatch rollback behavior.
+        config(['dtr.attendance.async_face_verification' => false]);
+    }
+
     private function makeEmployeeWithBranch(): array
     {
         $employee = Employee::factory()->create();

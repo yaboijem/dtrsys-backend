@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
+use App\Jobs\VerifyAttendancePhotoJob;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
 use App\Models\Device;
@@ -278,29 +279,44 @@ class AttendanceService
         return $result;
     }
 
-    public function captureAndVerifyPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
+    public function storePhotoOnly(Employee $employee, Attendance $attendance, UploadedFile $selfie): AttendancePhoto
     {
-        if (! $selfie) {
-            return null;
-        }
-
         $path = $this->imageService->compressAndStore($selfie, 'attendance', config('dtr.attendance.photo_disk'));
 
-        $photo = AttendancePhoto::create([
+        return AttendancePhoto::create([
             'attendance_id' => $attendance->id,
             'path' => $path,
             'is_verified' => false,
             'liveness_status' => 'pending',
             'captured_at' => now(),
         ]);
+    }
 
-        $result = $this->faceVerificationService->verify($employee, $photo->path);
-
+    public function applyFaceResult(AttendancePhoto $photo, FaceVerificationResult $result): void
+    {
         $photo->update([
-            'is_verified' => $result->matched,
+            'is_verified' => $result->matched && $result->livenessPassed && $result->faceDetected,
             'verification_result' => $result->toArray(),
             'liveness_status' => $result->livenessPassed ? 'passed' : 'failed',
         ]);
+    }
+
+    public function captureAndVerifyPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
+    {
+        if (! $selfie) {
+            return null;
+        }
+
+        $photo = $this->storePhotoOnly($employee, $attendance, $selfie);
+
+        if (config('dtr.attendance.async_face_verification')) {
+            VerifyAttendancePhotoJob::dispatch($photo->id);
+
+            return $photo;
+        }
+
+        $result = $this->faceVerificationService->verify($employee, $photo->path);
+        $this->applyFaceResult($photo, $result);
 
         if (! $result->matched || ! $result->livenessPassed || ! $result->faceDetected) {
             throw new FaceVerificationFailedException(
@@ -331,7 +347,9 @@ class AttendanceService
         $flags = $this->fraudDetectionService->evaluate($attendance);
 
         foreach ($flags as $flag) {
-            $this->notificationService->fraudFlagCreated($flag);
+            if ($flag->wasRecentlyCreated) {
+                $this->notificationService->fraudFlagCreated($flag);
+            }
         }
     }
 

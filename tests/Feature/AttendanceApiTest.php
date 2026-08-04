@@ -24,6 +24,9 @@ class AttendanceApiTest extends TestCase
         parent::setUp();
 
         Role::findOrCreate('Employee', 'web');
+
+        // Classic API tests expect synchronous face verification (verified photo / mismatch rollback).
+        config(['dtr.attendance.async_face_verification' => false]);
     }
 
     private function makeEmployee(): Employee

@@ -62,25 +62,33 @@ class FraudDetectionService
 
     private function checkFaceMismatch(Attendance $attendance): ?FraudFlag
     {
-        if (! $attendance->photo || $attendance->photo->is_verified) {
+        $photo = $attendance->photo;
+
+        if (! $photo || $photo->is_verified || $photo->liveness_status === 'pending') {
             return null;
         }
 
         return $this->flag($attendance, 'face_mismatch', 'high', [
-            'confidence' => data_get($attendance->photo->verification_result, 'confidence'),
-            'liveness_passed' => data_get($attendance->photo->verification_result, 'liveness_passed'),
+            'confidence' => data_get($photo->verification_result, 'confidence'),
+            'liveness_passed' => data_get($photo->verification_result, 'liveness_passed'),
         ]);
     }
 
     private function checkNoFace(Attendance $attendance): ?FraudFlag
     {
-        if (! $attendance->photo || data_get($attendance->photo->verification_result, 'face_detected') !== false) {
+        $photo = $attendance->photo;
+
+        if (! $photo || $photo->liveness_status === 'pending') {
+            return null;
+        }
+
+        if (data_get($photo->verification_result, 'face_detected') !== false) {
             return null;
         }
 
         return $this->flag($attendance, 'no_face', 'high', [
-            'confidence' => data_get($attendance->photo->verification_result, 'confidence'),
-            'liveness_passed' => data_get($attendance->photo->verification_result, 'liveness_passed'),
+            'confidence' => data_get($photo->verification_result, 'confidence'),
+            'liveness_passed' => data_get($photo->verification_result, 'liveness_passed'),
         ]);
     }
 
@@ -175,6 +183,15 @@ class FraudDetectionService
 
     private function flag(Attendance $attendance, string $type, string $severity, array $details): FraudFlag
     {
+        $existing = FraudFlag::query()
+            ->where('attendance_id', $attendance->id)
+            ->where('type', $type)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
         return FraudFlag::create([
             'attendance_id' => $attendance->id,
             'type' => $type,

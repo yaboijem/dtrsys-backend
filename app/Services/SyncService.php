@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Exceptions\FaceVerificationFailedException;
+use App\Jobs\VerifyAttendancePhotoJob;
 use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\GpsLocation;
@@ -180,14 +180,12 @@ class SyncService
         ]);
 
         if ($selfie) {
-            try {
-                $this->attendanceService->captureAndVerifyPhoto($employee, $attendance, $selfie);
-            } catch (FaceVerificationFailedException) {
-                // Offline punches are kept as-is; the photo stays unverified and is fraud-flagged.
-            }
+            // Offline punches are always kept; face verification runs asynchronously.
+            $photo = $this->attendanceService->storePhotoOnly($employee, $attendance, $selfie);
+            VerifyAttendancePhotoJob::dispatch($photo->id);
         }
 
-        $this->fraudDetectionService->evaluate($attendance);
+        $this->fraudDetectionService->evaluate($attendance->load(['photo', 'gpsLocation']));
 
         return $attendance;
     }
