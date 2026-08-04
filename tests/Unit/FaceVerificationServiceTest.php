@@ -43,12 +43,13 @@ class FaceVerificationServiceTest extends TestCase
     #[Test]
     public function result_serializes_to_array(): void
     {
-        $result = new FaceVerificationResult(true, 0.96, true, ['provider' => 'mock']);
+        $result = new FaceVerificationResult(true, 0.96, true, true, ['provider' => 'mock']);
 
         $this->assertSame([
             'matched' => true,
             'confidence' => 0.96,
             'liveness_passed' => true,
+            'face_detected' => true,
             'raw' => ['provider' => 'mock'],
         ], $result->toArray());
     }
