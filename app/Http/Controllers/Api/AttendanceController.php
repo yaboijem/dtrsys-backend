@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BreakPunchRequest;
 use App\Http\Requests\SyncAttendanceRequest;
 use App\Http\Requests\TimePunchRequest;
 use App\Http\Resources\AttendanceResource;
@@ -38,6 +39,22 @@ class AttendanceController extends Controller
         return new AttendanceResource($attendance);
     }
 
+    public function breakIn(BreakPunchRequest $request): JsonResponse
+    {
+        $attendance = $this->attendanceService->breakIn($request->user(), $request->validated());
+
+        return (new AttendanceResource($attendance))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function breakOut(BreakPunchRequest $request): JsonResponse
+    {
+        $attendance = $this->attendanceService->breakOut($request->user(), $request->validated());
+
+        return (new AttendanceResource($attendance))->response();
+    }
+
     public function history(Request $request): AnonymousResourceCollection
     {
         $query = Attendance::with(['branch', 'photo', 'gpsLocation', 'fraudFlags'])
@@ -61,7 +78,7 @@ class AttendanceController extends Controller
         Validator::make(['records' => $records], [
             'records' => ['required', 'array', 'min:1', 'max:100'],
             'records.*.client_uuid' => ['required', 'string', 'max:64'],
-            'records.*.type' => ['required', 'string', 'in:time_in,time_out'],
+            'records.*.type' => ['required', 'string', 'in:time_in,time_out,break_in,break_out'],
             'records.*.timestamp' => ['required', 'date'],
             'records.*.latitude' => ['required', 'numeric', 'between:-90,90'],
             'records.*.longitude' => ['required', 'numeric', 'between:-180,180'],

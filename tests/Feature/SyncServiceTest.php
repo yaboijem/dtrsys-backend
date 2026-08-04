@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\Employee;
 use App\Models\FraudFlag;
@@ -130,5 +131,36 @@ class SyncServiceTest extends TestCase
 
         $this->assertSame(1, $result['failed']);
         $this->assertDatabaseMissing('attendance', ['uuid' => 'evil-1']);
+    }
+
+    #[Test]
+    public function offline_break_in_and_out_are_synced(): void
+    {
+        $employee = $this->makeEmployee();
+        // Pin midday so the full shift stays on the same calendar day as open* helpers.
+        $this->travelTo(now()->startOfDay()->addHours(17));
+        $t0 = now()->subHours(9);
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record(['client_uuid' => 'ti', 'type' => 'time_in', 'timestamp' => $t0->toDateTimeString()]),
+            $this->record(['client_uuid' => 'bi', 'type' => 'break_in', 'timestamp' => $t0->copy()->addHour()->toDateTimeString()]),
+            $this->record(['client_uuid' => 'bo', 'type' => 'break_out', 'timestamp' => $t0->copy()->addHour()->addMinutes(30)->toDateTimeString()]),
+            $this->record(['client_uuid' => 'to', 'type' => 'time_out', 'timestamp' => $t0->copy()->addHours(8)->toDateTimeString()]),
+        ], 'sync-phone');
+
+        $this->assertSame(4, $result['synced']);
+        $bo = Attendance::where('uuid', 'bo')->first();
+        $this->assertSame(30, $bo->break_minutes);
+        $this->assertFalse((bool) $bo->is_overbreak);
+    }
+
+    #[Test]
+    public function break_in_without_time_in_fails(): void
+    {
+        $employee = $this->makeEmployee();
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record(['client_uuid' => 'bi', 'type' => 'break_in']),
+        ], 'sync-phone');
+        $this->assertSame(0, $result['synced']);
+        $this->assertSame(1, $result['failed']);
     }
 }

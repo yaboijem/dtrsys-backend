@@ -353,7 +353,7 @@ class AttendanceService
         }
     }
 
-    private function openPunchFor(Employee $employee, string $type): ?Attendance
+    public function openPunchFor(Employee $employee, string $type): ?Attendance
     {
         return Attendance::where('employee_id', $employee->id)
             ->where('type', $type)
@@ -389,7 +389,7 @@ class AttendanceService
             ->first();
     }
 
-    private function hasCompletedBreakSince(Employee $employee, Attendance $timeIn): bool
+    public function hasCompletedBreakSince(Employee $employee, Attendance $timeIn): bool
     {
         return Attendance::where('employee_id', $employee->id)
             ->where('type', 'break_out')
