@@ -227,6 +227,11 @@ All scalability options are env-driven and require no code changes:
 - **Media**: `ATTENDANCE_PHOTO_DISK=s3` with S3/R2-compatible credentials; selfies are pre-compressed (max 1024 px JPEG) and EXIF-stripped
 - **Security**: serve behind HTTPS, set `APP_DEBUG=false`, configure `APP_KEY`, and rate limits are active by default (`login`, `mfa`, `attendance`, `api`)
 - **Read replicas**: set `DB_READ_HOST`/`DB_READ_DATABASE` per Laravel read/write connection config
+- Size PHP-FPM/Octane workers for burst: rough `concurrent ≈ workers × (window_sec / avg_latency_sec)`. Example: 1000 punches in 30s at 0.5s each needs ~17+ workers; use 50–100 for headroom + selfies.
+- Run `php artisan queue:work redis --queue=attendance,default` (or Horizon).
+- Redis required for locks + rate limiters under load (`CACHE_STORE=redis`).
+- MySQL `max_connections` > (app servers × workers) + queue workers.
+- Nginx `client_max_body_size 12m`; read/send timeouts ≥ 60s for selfie uploads.
 
 ## Repository Layout
 

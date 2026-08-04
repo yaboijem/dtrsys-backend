@@ -15,6 +15,14 @@ return [
 
     'attendance' => [
         'photo_disk' => env('ATTENDANCE_PHOTO_DISK', 'public'),
+        'async_face_verification' => env('ATTENDANCE_ASYNC_FACE', true),
+        'client_uuid_required_online' => env('ATTENDANCE_CLIENT_UUID_REQUIRED', false),
+        'employee_lock_seconds' => (int) env('ATTENDANCE_EMPLOYEE_LOCK_SECONDS', 15),
+    ],
+
+    'sync' => [
+        'max_records' => (int) env('ATTENDANCE_SYNC_MAX_RECORDS', 100),
+        'max_records_with_photos' => (int) env('ATTENDANCE_SYNC_MAX_WITH_PHOTOS', 5),
     ],
 
     'payroll' => [
