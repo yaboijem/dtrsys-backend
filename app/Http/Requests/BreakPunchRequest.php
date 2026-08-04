@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class TimePunchRequest extends FormRequest
+class BreakPunchRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,7 +14,6 @@ class TimePunchRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'selfie' => ['required', 'image', 'mimes:jpeg,jpg,png', 'max:10240'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0'],

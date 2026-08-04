@@ -14,6 +14,7 @@ use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AttendanceService
@@ -29,52 +30,153 @@ class AttendanceService
 
     public function timeIn(User $user, array $data): Attendance
     {
-        $employee = $user->employee;
-        $now = now();
+        return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $now = now();
 
-        if ($this->openPunchFor($employee, 'time_in')) {
-            throw new AttendanceConflictException('You already clocked in today.');
-        }
+            if ($this->openPunchFor($employee, 'time_in')) {
+                throw new AttendanceConflictException('You already clocked in today.');
+            }
 
-        return DB::transaction(function () use ($employee, $data, $now) {
-            $gps = $this->verifyGps($employee, $data);
-            $shift = $this->scheduleService->shiftFor($employee, $now);
+            return DB::transaction(function () use ($employee, $data, $now) {
+                $gps = $this->verifyGps($employee, $data);
+                $shift = $this->scheduleService->shiftFor($employee, $now);
 
-            $attendance = $this->createPunch($employee, 'time_in', $now, $data, $shift);
-            $this->storeGpsLocation($attendance, $employee, $gps);
-            $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
+                $attendance = $this->createPunch($employee, 'time_in', $now, $data, $shift);
+                $this->storeGpsLocation($attendance, $employee, $gps);
+                $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
 
-            $this->runFraudChecks($attendance);
+                $this->runFraudChecks($attendance);
 
-            return $attendance->load(['branch', 'photo', 'gpsLocation']);
+                return $attendance->load(['branch', 'photo', 'gpsLocation']);
+            });
         });
     }
 
     public function timeOut(User $user, array $data): Attendance
     {
+        return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $now = now();
+
+            $timeIn = $this->openPunchFor($employee, 'time_in');
+
+            if (! $timeIn) {
+                throw new AttendanceConflictException('You have not clocked in yet today.');
+            }
+
+            if ($this->openBreakFor($employee)) {
+                throw new AttendanceConflictException('End your break before clocking out.');
+            }
+
+            return DB::transaction(function () use ($employee, $timeIn, $data, $now) {
+                $gps = $this->verifyGps($employee, $data);
+                $shift = $this->scheduleService->shiftFor($employee, $now);
+
+                $attendance = $this->createPunch($employee, 'time_out', $now, $data, $shift, $timeIn->timestamp);
+                $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now, $shift)]);
+
+                $this->storeGpsLocation($attendance, $employee, $gps);
+                $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
+
+                $this->runFraudChecks($attendance);
+
+                return $attendance->load(['branch', 'photo', 'gpsLocation']);
+            });
+        });
+    }
+
+    public function breakIn(User $user, array $data): Attendance
+    {
+        return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $now = now();
+
+            $timeIn = $this->openPunchFor($employee, 'time_in');
+
+            if (! $timeIn) {
+                throw new AttendanceConflictException('You have not clocked in yet today.');
+            }
+
+            if ($this->openBreakFor($employee)) {
+                throw new AttendanceConflictException('You are already on break.');
+            }
+
+            if ($this->hasCompletedBreakSince($employee, $timeIn)) {
+                throw new AttendanceConflictException('You have already taken your break for this shift.');
+            }
+
+            return DB::transaction(function () use ($employee, $data, $now) {
+                $gps = $this->verifyGps($employee, $data);
+                $shift = $this->scheduleService->shiftFor($employee, $now);
+
+                $attendance = $this->createPunch($employee, 'break_in', $now, $data, $shift);
+                $this->storeGpsLocation($attendance, $employee, $gps);
+
+                return $attendance->load(['branch', 'gpsLocation']);
+            });
+        });
+    }
+
+    public function breakOut(User $user, array $data): Attendance
+    {
+        return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $now = now();
+
+            $breakIn = $this->openBreakFor($employee);
+
+            if (! $breakIn) {
+                throw new AttendanceConflictException('You are not on break.');
+            }
+
+            return DB::transaction(function () use ($employee, $breakIn, $data, $now) {
+                $gps = $this->verifyGps($employee, $data);
+                $shift = $this->scheduleService->shiftFor($employee, $now);
+
+                $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($now));
+                $attendance = $this->createPunch($employee, 'break_out', $now, $data, $shift);
+                $attendance->update([
+                    'break_minutes' => $breakMinutes,
+                    'is_overbreak' => $breakMinutes > 60,
+                ]);
+
+                $this->storeGpsLocation($attendance, $employee, $gps);
+
+                return $attendance->load(['branch', 'gpsLocation']);
+            });
+        });
+    }
+
+    /**
+     * Serialize punches per employee and short-circuit on matching client_uuid.
+     *
+     * @param  callable(Employee): Attendance  $callback
+     */
+    private function withEmployeeLock(User $user, array $data, callable $callback): Attendance
+    {
         $employee = $user->employee;
-        $now = now();
+        $lock = Cache::lock(
+            'attendance:employee:'.$employee->id,
+            config('dtr.attendance.employee_lock_seconds', 15),
+        );
 
-        $timeIn = $this->openPunchFor($employee, 'time_in');
-
-        if (! $timeIn) {
-            throw new AttendanceConflictException('You have not clocked in yet today.');
+        if (! $lock->block(5)) {
+            throw new AttendanceConflictException('Attendance is busy. Please try again.');
         }
 
-        return DB::transaction(function () use ($employee, $timeIn, $data, $now) {
-            $gps = $this->verifyGps($employee, $data);
-            $shift = $this->scheduleService->shiftFor($employee, $now);
+        try {
+            if (! empty($data['client_uuid'])) {
+                $existing = Attendance::query()
+                    ->where('uuid', $data['client_uuid'])
+                    ->where('employee_id', $employee->id)
+                    ->first();
 
-            $attendance = $this->createPunch($employee, 'time_out', $now, $data, $shift, $timeIn->timestamp);
-            $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now, $shift)]);
+                if ($existing) {
+                    return $existing->load(['branch', 'photo', 'gpsLocation']);
+                }
+            }
 
-            $this->storeGpsLocation($attendance, $employee, $gps);
-            $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
-
-            $this->runFraudChecks($attendance);
-
-            return $attendance->load(['branch', 'photo', 'gpsLocation']);
-        });
+            return $callback($employee);
+        } finally {
+            optional($lock)->release();
+        }
     }
 
     public function isLate(Carbon $now, ?Shift $shift): bool
@@ -107,6 +209,17 @@ class AttendanceService
     {
         $total = max(0, (int) $timeIn->timestamp->diffInMinutes($timeOut));
 
+        $actualBreakMinutes = (int) Attendance::query()
+            ->where('employee_id', $timeIn->employee_id)
+            ->where('type', 'break_out')
+            ->where('timestamp', '>', $timeIn->timestamp)
+            ->where('timestamp', '<=', $timeOut)
+            ->sum('break_minutes');
+
+        if ($actualBreakMinutes > 0) {
+            return max(0, $total - $actualBreakMinutes);
+        }
+
         if (! $shift || ! $shift->break_start || ! $shift->break_end) {
             return $total;
         }
@@ -124,6 +237,7 @@ class AttendanceService
     private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift, ?Carbon $shiftDate = null): Attendance
     {
         return Attendance::create([
+            'uuid' => $data['client_uuid'] ?? null,
             'employee_id' => $employee->id,
             'branch_id' => $employee->branch_id,
             'device_id' => $this->resolveDevice($employee, $data['device_id'] ?? null)?->id,
@@ -135,6 +249,7 @@ class AttendanceService
             'is_offline' => (bool) ($data['is_offline'] ?? false),
             'is_late' => $type === 'time_in' && $this->isLate($now, $shift),
             'is_early_timeout' => $type === 'time_out' && $this->isEarlyTimeout($now, $shift, $shiftDate),
+            'break_notify_stage' => $type === 'break_in' ? 'none' : 'none',
             'source' => $data['source'] ?? 'app',
             'notes' => $data['notes'] ?? null,
             'synced_at' => now(),
@@ -234,6 +349,32 @@ class AttendanceService
             })
             ->latest('timestamp')
             ->first();
+    }
+
+    public function openBreakFor(Employee $employee): ?Attendance
+    {
+        return Attendance::where('employee_id', $employee->id)
+            ->where('type', 'break_in')
+            ->whereDate('timestamp', now()->toDateString())
+            ->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')
+                    ->from('attendance as closed')
+                    ->whereColumn('closed.employee_id', 'attendance.employee_id')
+                    ->where('closed.type', 'break_out')
+                    ->whereNull('closed.deleted_at')
+                    ->whereColumn('closed.id', '>', 'attendance.id');
+            })
+            ->latest('timestamp')
+            ->first();
+    }
+
+    private function hasCompletedBreakSince(Employee $employee, Attendance $timeIn): bool
+    {
+        return Attendance::where('employee_id', $employee->id)
+            ->where('type', 'break_out')
+            ->where('id', '>', $timeIn->id)
+            ->where('timestamp', '>=', $timeIn->timestamp)
+            ->exists();
     }
 
     private function resolveDevice(Employee $employee, ?string $deviceId): ?Device
