@@ -4,11 +4,11 @@ Attendance and time-tracking backend for a multi-branch organization, built with
 
 ## Feature Checklist
 
-- **Authentication** — employee ID + password (Laravel Sanctum tokens), device registration on first login, device change request/approval flow, TOTP MFA for privileged roles (Super Admin / HR / Payroll Officer / Branch Manager / Department Head)
+- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional), TOTP MFA for privileged roles (Super Admin / HR / Payroll Officer / Branch Manager / Department Head)
 - **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, automated face match against a reference photo, liveness/spoof detection, rapid clock-in and impossible location-jump fraud rules
 - **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
 - **Role-based access control** — Super Admin, HR, Payroll Officer, Branch Manager (own branch), Department Head (own department), Employee (own data)
-- **Admin tools** — employee/branch/shift/schedule management, attendance review with selfie streaming, dashboard summary, fraud-flag review, device change request review
+- **Admin tools** — employee/branch/shift/schedule management, attendance review with selfie streaming, dashboard summary, fraud-flag review
 - **Reports & exports** — async daily/monthly report exports and payroll CSV exports with role-scoped visibility, delivered via in-app notifications
 - **Notifications** — per-user inbox with unread count and read/mark-all-read endpoints
 - **Compliance** — biometric/GPS consent management, data access & deletion requests, `dtr:purge-old-data` retention command, audit logging of admin actions and attendance changes
@@ -113,21 +113,20 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | Method | Path | Description |
 |---|---|---|
 | POST | `/attendance/time-in` | `{ selfie: file, latitude, longitude, accuracy_meters?, device_id?, is_offline? }` → 201. Runs GPS check, face match, fraud checks |
-| POST | `/attendance/time-out` | Same payload. Completes the open punch, computes `work_minutes` |
-| GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type`, `per_page` |
+| POST | `/attendance/time-out` | Same payload. Completes the open punch, computes `work_minutes` (excludes break minutes). Rejects if still on break. |
+| POST | `/attendance/break-in` | `{ latitude, longitude, accuracy_meters?, device_id? }` — GPS only (no selfie). One break per open shift. |
+| POST | `/attendance/break-out` | Same GPS payload. Sets `break_minutes`, `is_overbreak` if > 60 min. |
+| GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type` (`time_in`/`time_out`/`break_in`/`break_out`), `per_page` |
 | POST | `/attendance/sync` | `{ device_id?, records: [{ client_uuid, type, timestamp, latitude, longitude, ... }] }` (max 100). Deduplicates by `client_uuid`, validates each record, re-runs fraud rules |
-| GET | `/schedule` | Own schedules (paginated, date filters) |
 | GET | `/schedule/today` | Today's shift for the employee |
-| GET | `/device/change-requests` | Own device change requests |
-| POST | `/device/change-requests` | `{ device_id, platform?, model?, app_version? }` |
+| GET | `/device/change-requests` | Legacy list of own device change requests (unused by clients) |
+| POST | `/device/change-requests` | Legacy create (`new_device_id`, `reason`) — multi-device login no longer requires approval |
 | GET | `/notifications` | Inbox, `unread_only` + `per_page` filters |
 | GET | `/notifications/unread-count` | `{ count }` |
 | POST | `/notifications/{id}/read` | Marks one notification read (own only) |
 | POST | `/notifications/read-all` | `{ marked }` |
 | GET | `/employee/consent` | Current consents |
 | POST | `/employee/consent` | `{ type: "biometric_photos"|"gps_location", granted: bool }` — grants/revokes, audited |
-| GET | `/employee/data-requests` | Own data requests |
-| POST | `/employee/data-requests` | `{ type: "access"|"deletion" }` — access completes immediately and returns the full personal-data export inline; deletion stays `pending` for HR review |
 
 ### 3. Admin — Super Admin, HR
 
@@ -142,8 +141,6 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | GET | `/admin/device-change-requests` | All requests, status filter |
 | PATCH | `/admin/device-change-requests/{id}` | `{ status: "approved"|"rejected", notes? }` — approves and links the device |
 | GET | `/admin/audit-logs` | Audit trail, filters (`action`, `model_type`, `model_id`, `user_id`, `from`, `to`) |
-| GET | `/admin/data-requests` | All access/deletion requests, `status`/`type` filters |
-| PATCH | `/admin/data-requests/{id}` | `{ status: "completed"|"rejected", notes? }` — audited |
 
 ### 4. Admin — Super Admin, HR, Branch Manager
 
@@ -186,7 +183,7 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 |---|---|---|
 | 401 | `unauthenticated` | Missing/invalid bearer token |
 | 403 | `forbidden` | Role not permitted (`spatie` middleware) |
-| 403 | `device_not_registered` | Unregistered device; includes `pending_device_change_request` flag |
+
 | 404 | `not_found` | Resource not found / not yours |
 | 404 | `no_employee_record` | Account has no employee record |
 | 409 | `attendance_conflict` | Already clocked in / no open punch |
@@ -232,6 +229,38 @@ All scalability options are env-driven and require no code changes:
 - Redis required for locks + rate limiters under load (`CACHE_STORE=redis`).
 - MySQL `max_connections` > (app servers × workers) + queue workers.
 - Nginx `client_max_body_size 12m`; read/send timeouts ≥ 60s for selfie uploads.
+
+### Scale runbook (~1000 concurrent punches)
+
+Before a shift-start load test or production go-live at this scale:
+
+1. **Redis up** — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `SESSION_DRIVER=redis` (if sessions used). Locks and rate limiters depend on Redis under load.
+2. **Queue workers on `attendance`** — run enough workers, e.g. `php artisan queue:work redis --queue=attendance,default --tries=3` (or Horizon supervising the same queues). Face verify and fraud fan-out land here.
+3. **MySQL** — raise `max_connections` above `(app servers × PHP workers) + queue workers + admin headroom`. Prefer InnoDB; watch slow query log on `attendance` indexes.
+4. **Object storage** — production: `ATTENDANCE_PHOTO_DISK=s3` (or R2-compatible). Local/staging may use `public` disk; ensure disk I/O and permissions will not bottleneck selfie writes.
+5. **Async face on** — `ATTENDANCE_ASYNC_FACE=true` (or project env equivalent) so live punches return quickly and verification runs on the queue.
+6. **Telescope off** — `TELESCOPE_ENABLED=false` (do not run Telescope in production load paths; it amplifies DB/write cost).
+7. **App hardening** — `APP_DEBUG=false`, HTTPS only, adequate PHP-FPM/Octane workers (see sizing note above).
+
+### Load test (k6)
+
+Script: [`scripts/load/punch-storm.k6.js`](scripts/load/punch-storm.k6.js) — ramps to 1000 VUs posting multipart `POST /api/attendance/time-in` with a tiny JPEG + branch GPS. Thresholds: `<1%` failed requests, p95 `<3s`.
+
+```bash
+# Install k6: https://k6.io/docs/get-started/installation/
+# Prefer a pre-issued Sanctum token (one employee or a pool) so login is not part of the storm.
+
+k6 run \
+  -e BASE_URL=https://api.example.com \
+  -e TOKEN="<sanctum-token>" \
+  -e LAT=14.554729 \
+  -e LNG=121.0244452 \
+  scripts/load/punch-storm.k6.js
+```
+
+Optional env: `LOGIN_EMPLOYEE_ID` / `LOGIN_PASSWORD` if `TOKEN` is omitted (each VU logs in once — not ideal for pure punch load).
+
+**Reconnect storm:** the script documents a second scenario (`syncStorm`) — 1000 VUs each calling `POST /api/attendance/sync` with one offline record. Uncomment that scenario in the k6 file; reconnect storms are often harder than live punches (batch validation + photos + fraud re-checks).
 
 ## Repository Layout
 
