@@ -116,4 +116,11 @@ class AsyncFaceVerificationTest extends TestCase
             return $job->fraudFlagId === $flag->id;
         });
     }
+
+    #[Test]
+    public function attendance_jobs_run_after_db_commit(): void
+    {
+        $this->assertTrue((new VerifyAttendancePhotoJob(1))->afterCommit);
+        $this->assertTrue((new NotifyFraudFlagJob(1))->afterCommit);
+    }
 }

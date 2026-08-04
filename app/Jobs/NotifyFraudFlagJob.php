@@ -17,6 +17,7 @@ class NotifyFraudFlagJob implements ShouldQueue
     public function __construct(public int $fraudFlagId)
     {
         $this->onQueue('attendance');
+        $this->afterCommit = true;
     }
 
     public function handle(NotificationService $notificationService): void
@@ -24,6 +25,11 @@ class NotifyFraudFlagJob implements ShouldQueue
         $flag = FraudFlag::query()->find($this->fraudFlagId);
 
         if (! $flag) {
+            // Row may not be visible yet if a worker raced the commit; retry once.
+            if ($this->attempts() === 1) {
+                $this->release(2);
+            }
+
             return;
         }
 

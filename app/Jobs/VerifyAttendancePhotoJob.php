@@ -18,6 +18,7 @@ class VerifyAttendancePhotoJob implements ShouldQueue
     public function __construct(public int $attendancePhotoId)
     {
         $this->onQueue('attendance');
+        $this->afterCommit = true;
     }
 
     public function handle(
@@ -30,6 +31,11 @@ class VerifyAttendancePhotoJob implements ShouldQueue
             ->find($this->attendancePhotoId);
 
         if (! $photo || ! $photo->attendance) {
+            // Row may not be visible yet if a worker raced the commit; retry once.
+            if ($this->attempts() === 1) {
+                $this->release(2);
+            }
+
             return;
         }
 
