@@ -58,17 +58,16 @@ services:
         value: mock
 
   # Admin SPA — set VITE_API_URL to the API URL, then rebuild.
-  # On Render dashboard: either
-  #   Root Directory = (empty)  +  Publish Directory = web/dist
-  # or
-  #   Root Directory = web      +  Publish Directory = dist   (NOT web/dist)
+  # Dashboard settings (repo root, NOT rootDir=web):
+  #   Root Directory: (leave empty)
+  #   Build Command: cd web && npm ci && npm run build
+  #   Publish Directory: web/dist
   - type: web
     name: dtr-admin
     runtime: static
     plan: free
-    rootDir: web
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: web/dist
     envVars:
       - key: VITE_API_URL
         sync: false

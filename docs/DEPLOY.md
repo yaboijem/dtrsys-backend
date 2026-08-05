@@ -72,11 +72,13 @@ Logins: `EMP001` / `HR001` / `ADMIN001`, password `password`.
 
 ## 4. Admin Static Site
 
-1. **New → Static Site**, root `web`  
-2. Build `npm ci && npm run build`, publish `dist`  
-3. `VITE_API_URL=https://<api>.onrender.com`  
-4. Rewrite `/*` → `/index.html`  
-5. Set API `CORS_ALLOWED_ORIGINS` to admin origin → redeploy API  
+1. **New → Static Site** (repo root — leave **Root Directory empty**)  
+2. **Build Command:** `cd web && npm ci && npm run build`  
+3. **Publish Directory:** `web/dist` (not `dist`)  
+4. `VITE_API_URL=https://<api>.onrender.com` (no trailing slash)  
+5. Rewrite `/*` → `/index.html` if available  
+6. Set API `CORS_ALLOWED_ORIGINS` to admin origin → redeploy API  
+
 
 ## 5. Smoke test
 
