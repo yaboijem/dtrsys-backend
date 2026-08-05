@@ -161,4 +161,7 @@ export class ApiClient {
   }
 }
 
-export const api = new ApiClient('');
+/** Production static admin sets VITE_API_URL to the Laravel API origin. Dev leaves it empty (Vite proxy). */
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+
+export const api = new ApiClient(API_BASE);

@@ -197,18 +197,22 @@ vendor/bin/pint --test  # style check
 
 ## Deployment Notes
 
-All scalability options are env-driven and require no code changes:
+**Free-tier production (Render + Neon + R2):** see **[docs/DEPLOY.md](docs/DEPLOY.md)** on branch `Deploy-v1.0`.
 
-- **Queue**: set `QUEUE_CONNECTION=redis` (optionally add Laravel Horizon) for face verification and related jobs
-- **Cache**: `CACHE_STORE=redis`
-- **Media**: `ATTENDANCE_PHOTO_DISK=s3` with S3/R2-compatible credentials; selfies are pre-compressed (max 1024 px JPEG) and EXIF-stripped
-- **Security**: serve behind HTTPS, set `APP_DEBUG=false`, configure `APP_KEY`, and rate limits are active by default (`login`, `mfa`, `attendance`, `api`)
-- **Read replicas**: set `DB_READ_HOST`/`DB_READ_DATABASE` per Laravel read/write connection config
-- Size PHP-FPM/Octane workers for burst: rough `concurrent ≈ workers × (window_sec / avg_latency_sec)`. Example: 1000 punches in 30s at 0.5s each needs ~17+ workers; use 50–100 for headroom + selfies.
-- Run `php artisan queue:work redis --queue=attendance,default` (or Horizon).
-- Redis required for locks + rate limiters under load (`CACHE_STORE=redis`).
-- MySQL `max_connections` > (app servers × workers) + queue workers.
-- Nginx `client_max_body_size 12m`; read/send timeouts ≥ 60s for selfie uploads.
+Summary of free defaults:
+
+- Employee PWA + API: one Render **Docker** web service (`Dockerfile`)
+- Admin: Render **Static Site** with `VITE_API_URL` pointing at the API
+- DB: Neon PostgreSQL (`DB_URL`)
+- Photos: Cloudflare R2 (`ATTENDANCE_PHOTO_DISK=s3`)
+- No paid Redis/worker: `QUEUE_CONNECTION=sync`, `CACHE_STORE=database`, `ATTENDANCE_ASYNC_FACE=false`
+
+When scaling later:
+
+- **Queue / cache**: `QUEUE_CONNECTION=redis`, `CACHE_STORE=redis`, background `queue:work`
+- **Media**: keep R2/S3; selfies pre-compressed (max 1024 px JPEG), EXIF stripped
+- **Security**: HTTPS, `APP_DEBUG=false`, `APP_KEY`, rate limits (`login`, `mfa`, `attendance`, `api`)
+- **CORS**: `CORS_ALLOWED_ORIGINS` must include the admin static origin
 
 ### Scale runbook (~1000 concurrent punches)
 
