@@ -19,5 +19,7 @@ vendor
 tests
 .phpunit.result.cache
 docs/superpowers
+bootstrap/cache/*.php
 *.md
 !docs/DEPLOY.md
+!README.md

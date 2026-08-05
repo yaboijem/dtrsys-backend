@@ -23,10 +23,13 @@ RUN cd portal && npm ci
 
 COPY . .
 
-RUN composer dump-autoload --optimize --classmap-authoritative \
+# Drop host-generated provider caches (they reference require-dev packages like Telescope).
+RUN rm -f bootstrap/cache/*.php \
+    && composer dump-autoload --optimize --classmap-authoritative --no-scripts \
+    && php artisan package:discover --ansi \
     && cd portal && npm run build \
     && cd /var/www/html && node scripts/deploy-portal.mjs \
-    && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
+    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chmod -R ug+rwx storage bootstrap/cache
 
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
