@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\ImageService;
+use App\Services\PhotoStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
@@ -16,10 +17,11 @@ class ImageServiceTest extends TestCase
     public function large_selfie_is_downscaled_to_jpeg(): void
     {
         Storage::fake('local');
+        config(['dtr.attendance.photo_disk' => 'local']);
 
         $file = UploadedFile::fake()->image('selfie.png', 2000, 1500);
 
-        $service = new ImageService(new ImageManager(new Driver));
+        $service = new ImageService(new PhotoStorage(new ImageManager(new Driver)));
         $path = $service->compressAndStore($file, 'attendance', 'local');
 
         Storage::disk('local')->assertExists($path);
@@ -36,10 +38,11 @@ class ImageServiceTest extends TestCase
     public function small_image_is_kept_as_is(): void
     {
         Storage::fake('local');
+        config(['dtr.attendance.photo_disk' => 'local']);
 
         $file = UploadedFile::fake()->image('small.png', 200, 100);
 
-        $service = new ImageService(new ImageManager(new Driver));
+        $service = new ImageService(new PhotoStorage(new ImageManager(new Driver)));
         $path = $service->compressAndStore($file, 'attendance', 'local');
 
         $manager = new ImageManager(new Driver);

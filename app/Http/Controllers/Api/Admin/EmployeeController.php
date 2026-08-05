@@ -11,12 +11,12 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\ImageService;
+use App\Services\PhotoStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class EmployeeController extends Controller
 {
@@ -208,16 +208,16 @@ class EmployeeController extends Controller
         return new EmployeeResource($employee->load(['user.roles', 'branch']));
     }
 
-    public function referencePhotoStream(Request $request, Employee $employee): StreamedResponse
+    public function referencePhotoStream(Request $request, Employee $employee): Response
     {
         $path = $employee->reference_photo_path;
+        $storage = app(PhotoStorage::class);
 
-        if (! $path || ! Storage::disk(config('dtr.attendance.photo_disk'))->exists($path)) {
+        if (! $path || ! $storage->exists($path)) {
             abort(404, 'No reference photo found for this employee.');
         }
 
-        return Storage::disk(config('dtr.attendance.photo_disk'))
-            ->response($path, 'reference_'.$employee->id.'.jpg');
+        return $storage->response($path, 'reference_'.$employee->id.'.jpg');
     }
 
     private function composeName(string $firstName, ?string $middleName, string $lastName): string

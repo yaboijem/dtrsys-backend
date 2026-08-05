@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AttendanceAdminResource;
 use App\Models\Attendance;
 use App\Models\User;
+use App\Services\PhotoStorage;
 use App\Support\ScopesByRole;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class AttendanceAdminController extends Controller
 {
@@ -40,20 +40,20 @@ class AttendanceAdminController extends Controller
         return AttendanceAdminResource::collection($records);
     }
 
-    public function photo(Request $request, Attendance $attendance): StreamedResponse
+    public function photo(Request $request, Attendance $attendance): Response
     {
         if (! $this->canView($request->user(), $attendance)) {
             abort(403, 'You are not allowed to view this attendance record.');
         }
 
         $photo = $attendance->loadMissing('photo')->photo;
+        $storage = app(PhotoStorage::class);
 
-        if (! $photo || ! Storage::disk(config('dtr.attendance.photo_disk'))->exists($photo->path)) {
+        if (! $photo || ! $storage->exists($photo->path)) {
             abort(404, 'No photo found for this attendance record.');
         }
 
-        return Storage::disk(config('dtr.attendance.photo_disk'))
-            ->response($photo->path, 'selfie_'.$attendance->id.'.jpg');
+        return $storage->response($photo->path, 'selfie_'.$attendance->id.'.jpg');
     }
 
     private function canView(User $user, Attendance $attendance): bool

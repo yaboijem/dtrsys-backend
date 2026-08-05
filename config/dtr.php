@@ -14,6 +14,7 @@ return [
     ],
 
     'attendance' => [
+        // public | s3 | database (Neon/Postgres — free tier, no object storage)
         'photo_disk' => env('ATTENDANCE_PHOTO_DISK', 'public'),
         'async_face_verification' => env('ATTENDANCE_ASYNC_FACE', true),
         'client_uuid_required_online' => env('ATTENDANCE_CLIENT_UUID_REQUIRED', false),
