@@ -57,7 +57,11 @@ services:
       - key: FACE_VERIFICATION_PROVIDER
         value: mock
 
-  # Admin SPA — set VITE_API_URL to the dtr-api URL after first API deploy, then rebuild.
+  # Admin SPA — set VITE_API_URL to the API URL, then rebuild.
+  # On Render dashboard: either
+  #   Root Directory = (empty)  +  Publish Directory = web/dist
+  # or
+  #   Root Directory = web      +  Publish Directory = dist   (NOT web/dist)
   - type: web
     name: dtr-admin
     runtime: static
