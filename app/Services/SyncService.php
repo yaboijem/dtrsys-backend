@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Exceptions\AttendanceConflictException;
+use App\Exceptions\BreaksDisabledException;
 use App\Jobs\VerifyAttendancePhotoJob;
+use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\GpsLocation;
@@ -300,6 +302,10 @@ class SyncService
 
     private function assertBreakInAllowed($employee): void
     {
+        if (! AppSetting::current()->breaks_enabled) {
+            throw new BreaksDisabledException('Break in/out is currently disabled by an administrator.');
+        }
+
         $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in');
 
         if (! $timeIn) {

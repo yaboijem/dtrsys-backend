@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\Employee;
@@ -162,5 +163,53 @@ class SyncServiceTest extends TestCase
         ], 'sync-phone');
         $this->assertSame(0, $result['synced']);
         $this->assertSame(1, $result['failed']);
+    }
+
+    #[Test]
+    public function offline_break_in_fails_when_breaks_disabled(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->travelTo(now()->startOfDay()->addHours(17));
+        $t0 = now()->subHours(9);
+
+        AppSetting::current()->update(['breaks_enabled' => false]);
+
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record(['client_uuid' => 'ti', 'type' => 'time_in', 'timestamp' => $t0->toDateTimeString()]),
+            $this->record(['client_uuid' => 'bi', 'type' => 'break_in', 'timestamp' => $t0->copy()->addHour()->toDateTimeString()]),
+        ], 'sync-phone');
+
+        $this->assertSame(1, $result['synced']);
+        $this->assertSame(1, $result['failed']);
+        $this->assertDatabaseMissing('attendance', ['uuid' => 'bi']);
+        $failed = collect($result['records'])->firstWhere('status', 'failed');
+        $this->assertStringContainsString('disabled', strtolower($failed['message'] ?? ''));
+    }
+
+    #[Test]
+    public function offline_break_out_succeeds_when_breaks_disabled_after_open_break(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->travelTo(now()->startOfDay()->addHours(17));
+        $t0 = now()->subHours(9);
+
+        $resultOpen = app(SyncService::class)->sync($employee->user, [
+            $this->record(['client_uuid' => 'ti', 'type' => 'time_in', 'timestamp' => $t0->toDateTimeString()]),
+            $this->record(['client_uuid' => 'bi', 'type' => 'break_in', 'timestamp' => $t0->copy()->addHour()->toDateTimeString()]),
+        ], 'sync-phone');
+        $this->assertSame(2, $resultOpen['synced']);
+
+        AppSetting::current()->update(['breaks_enabled' => false]);
+
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record([
+                'client_uuid' => 'bo',
+                'type' => 'break_out',
+                'timestamp' => $t0->copy()->addHour()->addMinutes(30)->toDateTimeString(),
+            ]),
+        ], 'sync-phone');
+
+        $this->assertSame(1, $result['synced']);
+        $this->assertDatabaseHas('attendance', ['uuid' => 'bo', 'type' => 'break_out']);
     }
 }

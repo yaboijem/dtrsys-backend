@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\AttendanceConflictException;
+use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
@@ -69,6 +70,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'code' => 'face_verification_failed',
                 'details' => $e->details,
+            ], 422);
+        });
+
+        $exceptions->render(function (BreaksDisabledException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'breaks_disabled',
             ], 422);
         });
     })->create();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Employee;
@@ -224,5 +225,40 @@ class BreakAttendanceTest extends TestCase
 
         $count = Notification::sent($employee->user, GenericNotification::class)->count();
         $this->assertSame(2, $count);
+    }
+
+    #[Test]
+    public function break_in_rejected_when_breaks_disabled(): void
+    {
+        AppSetting::current()->update(['breaks_enabled' => false]);
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'breaks_disabled');
+    }
+
+    #[Test]
+    public function break_out_still_allowed_when_breaks_disabled(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->assertCreated();
+
+        AppSetting::current()->update(['breaks_enabled' => false]);
+
+        Carbon::setTestNow(now()->addMinutes(20));
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-out', $this->gps($employee->branch))
+            ->assertSuccessful()
+            ->assertJsonPath('data.type', 'break_out');
+
+        Carbon::setTestNow();
     }
 }

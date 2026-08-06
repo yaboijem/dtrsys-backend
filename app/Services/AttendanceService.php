@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Exceptions\AttendanceConflictException;
+use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Jobs\VerifyAttendancePhotoJob;
+use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
 use App\Models\Device;
@@ -89,6 +91,10 @@ class AttendanceService
     public function breakIn(User $user, array $data): Attendance
     {
         return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            if (! AppSetting::current()->breaks_enabled) {
+                throw new BreaksDisabledException('Break in/out is currently disabled by an administrator.');
+            }
+
             $now = now();
 
             $timeIn = $this->openPunchFor($employee, 'time_in');
