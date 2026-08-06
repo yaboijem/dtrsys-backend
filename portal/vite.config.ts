@@ -13,7 +13,9 @@ export default defineConfig({
     // Dev HTTPS so mobile browsers allow GPS / camera (secure context).
     basicSsl(),
     VitePWA({
-      registerType: "prompt",
+      // autoUpdate + clientsClaim so the SW controls the tab after first visit
+      // (prompt mode left pages uncontrolled → offline refresh = Chrome dino).
+      registerType: "autoUpdate",
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
       manifest: {
         name: "DTR Portal",
@@ -47,8 +49,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
+        cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api/, /^\/sanctum/, /^\/up/],
+        navigateFallbackDenylist: [/^\/api/, /^\/sanctum/, /^\/up/, /^\/admin/, /^\/build/],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,woff,woff2}"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/api"),
@@ -56,6 +62,7 @@ export default defineConfig({
           },
         ],
       },
+      // Offline shell only works for production builds (Laravel public/), not `vite dev`.
       devOptions: {
         enabled: false,
       },

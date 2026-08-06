@@ -26,6 +26,7 @@ export function onOfflineReady(handler: () => void): () => void {
 
 export function registerPortalSW(): void {
   if (!import.meta.env.PROD) {
+    // vite dev has no offline shell (devOptions.enabled: false).
     return;
   }
 
@@ -38,6 +39,11 @@ export function registerPortalSW(): void {
     },
     onOfflineReady() {
       offlineReadyHandler?.();
+    },
+    onRegisteredSW(_swUrl, registration) {
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
     },
   });
 }
