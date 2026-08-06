@@ -28,3 +28,5 @@ Homestead.yaml
 PRODUCT.md
 Thumbs.db
 docs/superpowers/plans/
+
+.worktrees/
