@@ -193,6 +193,10 @@ export interface Shift {
   is_active: boolean;
 }
 
+export interface AppSettings {
+  breaks_enabled: boolean;
+}
+
 export interface ScheduleAdmin {
   id: number;
   date: string;

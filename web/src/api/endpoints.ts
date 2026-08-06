@@ -1,5 +1,6 @@
 import { api } from './client';
 import type {
+  AppSettings,
   AttendanceAdmin,
   AuditLog,
   Branch,
@@ -201,4 +202,12 @@ export function deleteSchedule(id: number, token: string): Promise<{ message: st
 
 export function listAuditLogs(params: PaginationParams, token: string): Promise<Paginated<AuditLog>> {
   return api.get<RawPaginated<AuditLog>>('/api/admin/audit-logs', params, token).then(toPaginated);
+}
+
+export function getAppSettings(token: string): Promise<AppSettings> {
+  return api.get<{ data: AppSettings }>('/api/admin/settings', undefined, token).then((r) => r.data);
+}
+
+export function updateAppSettings(payload: { breaks_enabled: boolean }, token: string): Promise<AppSettings> {
+  return api.patch<{ data: AppSettings }>('/api/admin/settings', payload, token).then((r) => r.data);
 }

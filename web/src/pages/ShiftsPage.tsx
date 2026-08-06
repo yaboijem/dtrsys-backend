@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Coffee, Clock, Pencil, Plus, Timer, Trash2 } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { createShift, deleteShift, listShifts, updateShift } from '../api/endpoints';
+import { createShift, deleteShift, getAppSettings, listShifts, updateAppSettings, updateShift } from '../api/endpoints';
 import type { Paginated, Shift } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
@@ -52,6 +52,9 @@ export function ShiftsPage() {
   const [deleting, setDeleting] = useState<Shift | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
+  const [breaksEnabled, setBreaksEnabled] = useState<boolean | null>(null);
+  const [breaksToggleBusy, setBreaksToggleBusy] = useState(false);
+
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -70,6 +73,15 @@ export function ShiftsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!token) return;
+    void getAppSettings(token)
+      .then((s) => setBreaksEnabled(s.breaks_enabled))
+      .catch(() => {
+        /* leave null; toggle hidden until known */
+      });
+  }, [token]);
 
   function openCreate() {
     setEditing(null);
@@ -163,16 +175,47 @@ export function ShiftsPage() {
     }
   }
 
+  async function toggleBreaksEnabled() {
+    if (!token || breaksEnabled === null || breaksToggleBusy) return;
+    const next = !breaksEnabled;
+    const prev = breaksEnabled;
+    setBreaksEnabled(next);
+    setBreaksToggleBusy(true);
+    try {
+      const s = await updateAppSettings({ breaks_enabled: next }, token);
+      setBreaksEnabled(s.breaks_enabled);
+      notify('success', s.breaks_enabled ? 'Break in/out enabled.' : 'Break in/out disabled.');
+    } catch (err) {
+      setBreaksEnabled(prev);
+      notify('error', err instanceof ApiError ? err.message : 'Failed to update break setting.');
+    } finally {
+      setBreaksToggleBusy(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Shifts"
-        description="Working hours, grace periods and breaks"
+        description="Working hours, grace periods and breaks. When break in/out is off, employees cannot start a break; anyone already on break can still end it."
         actions={
-          <Button onClick={openCreate}>
-            <Plus size={15} />
-            Create new shift
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {breaksEnabled !== null ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-1.5">
+                <Toggle
+                  checked={breaksEnabled}
+                  onChange={() => void toggleBreaksEnabled()}
+                  disabled={breaksToggleBusy}
+                  label="Break in/out"
+                />
+                <span className="text-sm text-text">Break in/out</span>
+              </div>
+            ) : null}
+            <Button onClick={openCreate}>
+              <Plus size={15} />
+              Create new shift
+            </Button>
+          </div>
         }
       />
 
