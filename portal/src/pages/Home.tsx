@@ -30,6 +30,26 @@ import { deriveAttendanceState } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
+const BREAKS_ENABLED_KEY = 'dtr.breaks_enabled';
+
+function readCachedBreaksEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem(BREAKS_ENABLED_KEY);
+    if (raw === 'false') return false;
+    return true; // default on if missing
+  } catch {
+    return true;
+  }
+}
+
+function writeCachedBreaksEnabled(value: boolean): void {
+  try {
+    localStorage.setItem(BREAKS_ENABLED_KEY, value ? 'true' : 'false');
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 function shouldQueueOffline(err: unknown): boolean {
   if (!(err instanceof ApiError)) return false;
   if (err.code === 'network_error') return true;
@@ -82,6 +102,7 @@ export function Home() {
   const [networkOffline, setNetworkOffline] = useState(!navigator.onLine);
   const [gpsHint, setGpsHint] = useState<'unknown' | 'ok' | 'bad'>('unknown');
   const [breakTick, setBreakTick] = useState(0);
+  const [breaksEnabled, setBreaksEnabled] = useState<boolean>(() => readCachedBreaksEnabled());
   const flushBusyRef = useRef(false);
 
   const toLocalAttendance = (p: OfflinePunch, source: 'local_queue' | 'local_queue_synced'): Attendance => ({
@@ -178,6 +199,16 @@ export function Home() {
           })
           .catch(() => {
             // keep previous data so queued punches remain visible
+          }),
+        api
+          .get<{ data: { breaks_enabled: boolean } }>('/api/settings', undefined, token)
+          .then((res) => {
+            const enabled = Boolean(res.data.breaks_enabled);
+            setBreaksEnabled(enabled);
+            writeCachedBreaksEnabled(enabled);
+          })
+          .catch(() => {
+            // keep cached value
           }),
       ]);
     } catch {
@@ -596,7 +627,7 @@ export function Home() {
               loading={punching}
               icon={<Camera size={18} />}
             />
-            {isOpen && !breakUsed ? (
+            {breaksEnabled && isOpen && !breakUsed ? (
               <Button
                 title="Break In"
                 variant="secondary"
