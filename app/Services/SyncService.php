@@ -205,24 +205,25 @@ class SyncService
         $isOverbreak = false;
         $isEarlyTimeout = false;
 
-        $this->assertTransitionAllowed($employee, $type);
+        $at = \Illuminate\Support\Carbon::instance($timestamp);
+        $this->assertTransitionAllowed($employee, $type, $at);
 
         if ($type === 'break_out') {
-            $breakIn = $this->attendanceService->openBreakFor($employee);
+            $breakIn = $this->attendanceService->openBreakFor($employee, $at);
             $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($timestamp));
             $isOverbreak = $breakMinutes > 60;
         }
 
         if ($type === 'time_out') {
-            $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in');
+            $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in', $at);
             $shift = $this->scheduleService->shiftFor($employee, $timestamp);
             $workMinutes = $this->attendanceService->computeWorkMinutes(
                 $timeIn,
-                \Illuminate\Support\Carbon::instance($timestamp),
+                $at,
                 $shift,
             );
             $isEarlyTimeout = $this->attendanceService->isEarlyTimeout(
-                \Illuminate\Support\Carbon::instance($timestamp),
+                $at,
                 $shift,
                 $timeIn->timestamp,
             );
@@ -271,48 +272,48 @@ class SyncService
         return $attendance;
     }
 
-    private function assertTransitionAllowed($employee, string $type): void
+    private function assertTransitionAllowed($employee, string $type, \Illuminate\Support\Carbon $at): void
     {
         match ($type) {
-            'time_in' => $this->assertTimeInAllowed($employee),
-            'time_out' => $this->assertTimeOutAllowed($employee),
-            'break_in' => $this->assertBreakInAllowed($employee),
-            'break_out' => $this->assertBreakOutAllowed($employee),
+            'time_in' => $this->assertTimeInAllowed($employee, $at),
+            'time_out' => $this->assertTimeOutAllowed($employee, $at),
+            'break_in' => $this->assertBreakInAllowed($employee, $at),
+            'break_out' => $this->assertBreakOutAllowed($employee, $at),
             default => null,
         };
     }
 
-    private function assertTimeInAllowed($employee): void
+    private function assertTimeInAllowed($employee, \Illuminate\Support\Carbon $at): void
     {
-        if ($this->attendanceService->openPunchFor($employee, 'time_in')) {
+        if ($this->attendanceService->openPunchFor($employee, 'time_in', $at)) {
             throw new \InvalidArgumentException('You already clocked in today.');
         }
     }
 
-    private function assertTimeOutAllowed($employee): void
+    private function assertTimeOutAllowed($employee, \Illuminate\Support\Carbon $at): void
     {
-        if (! $this->attendanceService->openPunchFor($employee, 'time_in')) {
+        if (! $this->attendanceService->openPunchFor($employee, 'time_in', $at)) {
             throw new \InvalidArgumentException('You have not clocked in yet today.');
         }
 
-        if ($this->attendanceService->openBreakFor($employee)) {
+        if ($this->attendanceService->openBreakFor($employee, $at)) {
             throw new \InvalidArgumentException('End your break before clocking out.');
         }
     }
 
-    private function assertBreakInAllowed($employee): void
+    private function assertBreakInAllowed($employee, \Illuminate\Support\Carbon $at): void
     {
         if (! AppSetting::current()->breaks_enabled) {
             throw new BreaksDisabledException('Break in/out is currently disabled by an administrator.');
         }
 
-        $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in');
+        $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in', $at);
 
         if (! $timeIn) {
             throw new \InvalidArgumentException('You have not clocked in yet today.');
         }
 
-        if ($this->attendanceService->openBreakFor($employee)) {
+        if ($this->attendanceService->openBreakFor($employee, $at)) {
             throw new \InvalidArgumentException('You are already on break.');
         }
 
@@ -321,9 +322,9 @@ class SyncService
         }
     }
 
-    private function assertBreakOutAllowed($employee): void
+    private function assertBreakOutAllowed($employee, \Illuminate\Support\Carbon $at): void
     {
-        if (! $this->attendanceService->openBreakFor($employee)) {
+        if (! $this->attendanceService->openBreakFor($employee, $at)) {
             throw new \InvalidArgumentException('You are not on break.');
         }
     }

@@ -359,40 +359,71 @@ class AttendanceService
         }
     }
 
-    public function openPunchFor(Employee $employee, string $type): ?Attendance
+    /**
+     * Latest open time_in as of $asOf (chronological), not merely "unclosed by id today".
+     * Prevents late offline time_in syncs from inserting a second clock-in inside an already
+     * closed session, and supports overnight shifts that span calendar days.
+     */
+    public function openPunchFor(Employee $employee, string $type, ?Carbon $asOf = null): ?Attendance
     {
-        return Attendance::where('employee_id', $employee->id)
-            ->where('type', $type)
-            ->whereDate('timestamp', now()->toDateString())
-            ->when($type === 'time_in', function ($query) {
-                $query->whereNotExists(function ($sub) {
-                    $sub->selectRaw('1')
-                        ->from('attendance as closed')
-                        ->whereColumn('closed.employee_id', 'attendance.employee_id')
-                        ->where('closed.type', 'time_out')
-                        ->where('closed.deleted_at', null)
-                        ->whereColumn('closed.id', '>', 'attendance.id');
-                });
-            })
-            ->latest('timestamp')
-            ->first();
+        if ($type !== 'time_in') {
+            return null;
+        }
+
+        return $this->openTimeInAsOf($employee, $asOf ?? now());
     }
 
-    public function openBreakFor(Employee $employee): ?Attendance
+    public function openTimeInAsOf(Employee $employee, Carbon $asOf): ?Attendance
     {
-        return Attendance::where('employee_id', $employee->id)
-            ->where('type', 'break_in')
-            ->whereDate('timestamp', now()->toDateString())
-            ->whereNotExists(function ($sub) {
-                $sub->selectRaw('1')
-                    ->from('attendance as closed')
-                    ->whereColumn('closed.employee_id', 'attendance.employee_id')
-                    ->where('closed.type', 'break_out')
-                    ->whereNull('closed.deleted_at')
-                    ->whereColumn('closed.id', '>', 'attendance.id');
-            })
-            ->latest('timestamp')
-            ->first();
+        $punches = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereIn('type', ['time_in', 'time_out'])
+            ->where('timestamp', '<=', $asOf)
+            ->orderBy('timestamp')
+            ->orderBy('id')
+            ->get(['id', 'type', 'timestamp']);
+
+        $openId = null;
+        foreach ($punches as $punch) {
+            if ($punch->type === 'time_in') {
+                $openId = $punch->id;
+            } else {
+                $openId = null;
+            }
+        }
+
+        return $openId ? Attendance::query()->find($openId) : null;
+    }
+
+    public function openBreakFor(Employee $employee, ?Carbon $asOf = null): ?Attendance
+    {
+        $asOf ??= now();
+        $timeIn = $this->openTimeInAsOf($employee, $asOf);
+
+        if (! $timeIn) {
+            return null;
+        }
+
+        $punches = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereIn('type', ['break_in', 'break_out'])
+            ->where('timestamp', '>=', $timeIn->timestamp)
+            ->where('timestamp', '<=', $asOf)
+            ->where('id', '>', $timeIn->id)
+            ->orderBy('timestamp')
+            ->orderBy('id')
+            ->get(['id', 'type', 'timestamp']);
+
+        $openId = null;
+        foreach ($punches as $punch) {
+            if ($punch->type === 'break_in') {
+                $openId = $punch->id;
+            } else {
+                $openId = null;
+            }
+        }
+
+        return $openId ? Attendance::query()->find($openId) : null;
     }
 
     public function hasCompletedBreakSince(Employee $employee, Attendance $timeIn): bool

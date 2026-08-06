@@ -212,4 +212,70 @@ class SyncServiceTest extends TestCase
         $this->assertSame(1, $result['synced']);
         $this->assertDatabaseHas('attendance', ['uuid' => 'bo', 'type' => 'break_out']);
     }
+
+    #[Test]
+    public function offline_time_in_during_open_session_rejected_even_if_synced_after_timeout(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->travelTo(now()->startOfDay()->addHours(14));
+
+        // Live time_in, then live time_out (session closed "now").
+        $tIn = now()->subHours(2);
+        $tMid = now()->subHour();
+        $tOut = now()->subMinutes(5);
+
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $employee->branch_id,
+            'type' => 'time_in',
+            'timestamp' => $tIn,
+            'source' => 'app',
+            'uuid' => 'live-ti',
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $employee->branch_id,
+            'type' => 'time_out',
+            'timestamp' => $tOut,
+            'source' => 'app',
+            'uuid' => 'live-to',
+        ]);
+
+        // Offline time_in stamped while still clocked in, arrives after timeout was saved.
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record([
+                'client_uuid' => 'offline-ti-dup',
+                'type' => 'time_in',
+                'timestamp' => $tMid->toDateTimeString(),
+            ]),
+        ], 'sync-phone');
+
+        $this->assertSame(0, $result['synced']);
+        $this->assertSame(1, $result['failed']);
+        $this->assertDatabaseMissing('attendance', ['uuid' => 'offline-ti-dup']);
+        $this->assertSame(
+            1,
+            Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count()
+        );
+    }
+
+    #[Test]
+    public function second_time_in_after_timeout_same_day_still_allowed_on_sync(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->travelTo(now()->startOfDay()->addHours(18));
+        $t0 = now()->startOfDay()->addHours(8);
+
+        $result = app(SyncService::class)->sync($employee->user, [
+            $this->record(['client_uuid' => 'ti1', 'type' => 'time_in', 'timestamp' => $t0->toDateTimeString()]),
+            $this->record(['client_uuid' => 'to1', 'type' => 'time_out', 'timestamp' => $t0->copy()->addHours(4)->toDateTimeString()]),
+            $this->record(['client_uuid' => 'ti2', 'type' => 'time_in', 'timestamp' => $t0->copy()->addHours(5)->toDateTimeString()]),
+        ], 'sync-phone');
+
+        $this->assertSame(3, $result['synced']);
+        $this->assertSame(
+            2,
+            Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count()
+        );
+    }
 }
