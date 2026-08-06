@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceC
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\ScheduleAdminController;
+use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\DeviceChangeRequestController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
@@ -51,6 +53,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/schedule', [ScheduleController::class, 'index']);
     Route::get('/schedule/today', [ScheduleController::class, 'today']);
 
+    Route::get('/settings', [SettingsController::class, 'show']);
+
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
@@ -67,6 +71,9 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
 
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
+    Route::get('/settings', [AdminSettingsController::class, 'show']);
+    Route::patch('/settings', [AdminSettingsController::class, 'update']);
 
     Route::post('/schedules', [ScheduleAdminController::class, 'store']);
     Route::delete('/schedules/{schedule}', [ScheduleAdminController::class, 'destroy']);
