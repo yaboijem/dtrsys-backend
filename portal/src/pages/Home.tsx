@@ -27,7 +27,7 @@ import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl } from '../lib/image';
 import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
-import { deriveAttendanceState, upsertAttendance } from '../lib/punchPolicy';
+import { coerceAttendance, deriveAttendanceState, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
@@ -139,6 +139,8 @@ export function Home() {
   const effectivePunches: Attendance[] = [...todayPunches, ...localPunches].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
+  const todayKey = toLocalDate(new Date());
+  const todaysPunches = effectivePunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
 
   const { isOpen, onBreak, openBreakStartedAt } = deriveAttendanceState(todayPunches, localOffline);
 
@@ -179,6 +181,8 @@ export function Home() {
     let historyOk = false;
     try {
       const today = toLocalDate(new Date());
+      // Include yesterday so overnight open sessions still flip Time Out.
+      const historyFrom = toLocalDate(new Date(Date.now() - 86400000));
       await Promise.all([
         api
           .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
@@ -231,7 +235,7 @@ export function Home() {
         api
           .get<Paginated<Attendance>>(
             '/api/attendance/history',
-            { from: today, to: today, per_page: 50 },
+            { from: historyFrom, to: today, per_page: 50 },
             token,
           )
           .then((res) => {
@@ -240,7 +244,8 @@ export function Home() {
             const sorted = [...res.data].sort(
               (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
             );
-            setTodayPunches(sorted);
+            // Keep just-applied punches if history is empty/stale for a moment.
+            setTodayPunches((prev) => mergeServerAttendance(sorted, prev));
             historyOk = true;
           })
           .catch(() => {
@@ -370,9 +375,8 @@ export function Home() {
         form,
         token,
       );
-      const attendance = res.data;
-
-      // Apply server punch immediately so Time In/Out flips even if history reload lags.
+      // Always flip from request type + uuid so a partial payload cannot leave the button stuck.
+      const attendance = coerceAttendance(res?.data, { type, uuid: clientUuid });
       setTodayPunches((prev) => upsertAttendance(prev, attendance));
 
       const distance = attendance.gps_location?.distance_from_branch_meters;
@@ -390,19 +394,26 @@ export function Home() {
           .filter(Boolean)
           .join('\n'),
       });
-      await loadToday();
+      // Background refresh only — button already reflects the punch.
+      void loadToday();
       refreshUnread();
       void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err)) {
         const queued = await enqueueOfflinePunch(type, coords, compressedUri, clientUuid);
         setQueue(queued);
+        setTodayPunches((prev) =>
+          upsertAttendance(
+            prev,
+            coerceAttendance(null, { type, uuid: clientUuid, timestamp: new Date().toISOString() }),
+          ),
+        );
         setResult({
           kind: 'success',
           title: 'Queued offline',
           detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nNo face verification was possible offline.\nQueued offline — will sync when you're back online.`,
         });
-        await loadToday();
+        void loadToday();
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const details = (err.details ?? {}) as GpsOutOfRangeDetails;
@@ -503,29 +514,36 @@ export function Home() {
         },
         token,
       );
-      setTodayPunches((prev) => upsertAttendance(prev, res.data));
+      const attendance = coerceAttendance(res?.data, { type: breakType, uuid: clientUuid });
+      setTodayPunches((prev) => upsertAttendance(prev, attendance));
       setResult({
         kind: 'success',
         title: onBreak ? 'Break ended' : 'Break started',
         detail: onBreak
-          ? res.data.break_minutes != null
-            ? `Break lasted ${res.data.break_minutes} min${res.data.is_overbreak ? ' (overbreak)' : ''}.`
+          ? attendance.break_minutes != null
+            ? `Break lasted ${attendance.break_minutes} min${attendance.is_overbreak ? ' (overbreak)' : ''}.`
             : undefined
           : 'GPS verified. Remember to Break Out within 1 hour.',
       });
-      await loadToday();
+      void loadToday();
       refreshUnread();
       void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err) && coords) {
         const queued = await enqueueOfflinePunch(breakType, coords, null, clientUuid);
         setQueue(queued);
+        setTodayPunches((prev) =>
+          upsertAttendance(
+            prev,
+            coerceAttendance(null, { type: breakType, uuid: clientUuid, timestamp: new Date().toISOString() }),
+          ),
+        );
         setResult({
           kind: 'success',
           title: 'Queued offline',
           detail: `${breakType === 'break_in' ? 'Break in' : 'Break out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nQueued offline — will sync when you're back online.`,
         });
-        await loadToday();
+        void loadToday();
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const d = (err.details ?? {}) as GpsOutOfRangeDetails;
@@ -816,7 +834,7 @@ export function Home() {
         )}
       </SectionCard>
 
-      {effectivePunches.length > 0 ? (
+      {todaysPunches.length > 0 ? (
         <SectionCard title="Today's punches">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div
@@ -838,7 +856,7 @@ export function Home() {
               <div style={{ flexShrink: 0 }}>Time</div>
               <div style={{ flexShrink: 0, minWidth: 48, textAlign: 'right' }}>Duration</div>
             </div>
-            {effectivePunches.map((p, idx) => {
+            {todaysPunches.map((p, idx) => {
               const meta: string[] = [];
               if (p.is_late) meta.push('Late');
               if (p.is_overbreak) meta.push('Overbreak');
@@ -861,7 +879,7 @@ export function Home() {
                     minHeight: 36,
                     paddingTop: 4,
                     paddingBottom: 4,
-                    borderBottom: idx === effectivePunches.length - 1 ? 'none' : `1px solid ${colors.border}`,
+                    borderBottom: idx === todaysPunches.length - 1 ? 'none' : `1px solid ${colors.border}`,
                   }}
                 >
                   <div

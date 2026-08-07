@@ -14,7 +14,7 @@ import { Banner, Row, SectionCard, Tag } from '../components/Feedback';
 import { GateLamp } from '../components/GateLamp';
 import { Screen } from '../components/Screen';
 import { Stamp } from '../components/Stamp';
-import { distanceLabel, errorMessage, formatClockTime, formatDateTime, formatTime, minutesToDuration, toLocalDate } from '../lib/format';
+import { distanceLabel, errorMessage, formatClockTime, formatDateTime, formatTime, minutesToDuration, newUuid, toLocalDate } from '../lib/format';
 import { photoFileInfo, resolveGpsPosition } from '../lib/location';
 import { enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { useUnread } from '../notifications/UnreadContext';
@@ -33,12 +33,58 @@ interface FlushResultView {
   faceIssues: number;
 }
 
+function attendanceKey(row: { uuid?: string | null; id?: number | null }): string {
+  if (row.uuid) return row.uuid;
+  if (row.id != null) return String(row.id);
+  return '';
+}
+
 function upsertAttendance(list: Attendance[], row: Attendance): Attendance[] {
-  const key = row.uuid || String(row.id);
-  const next = list.filter((p) => (p.uuid || String(p.id)) !== key);
+  const key = attendanceKey(row);
+  const next = list.filter((p) => attendanceKey(p) !== key);
   next.push(row);
   next.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   return next;
+}
+
+function mergeServerAttendance(server: Attendance[], previous: Attendance[], retainMs = 60_000): Attendance[] {
+  let next = [...server].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+  const keys = new Set(next.map(attendanceKey).filter(Boolean));
+  const now = Date.now();
+  for (const row of previous) {
+    const key = attendanceKey(row);
+    if (!key || keys.has(key)) continue;
+    const age = now - new Date(row.timestamp).getTime();
+    if (!Number.isFinite(age) || age < 0 || age > retainMs) continue;
+    next = upsertAttendance(next, row);
+    keys.add(key);
+  }
+  return next;
+}
+
+function coerceAttendance(
+  row: Partial<Attendance> | null | undefined,
+  fallback: { type: Attendance['type']; uuid: string; timestamp?: string },
+): Attendance {
+  return {
+    id: row?.id ?? -1,
+    uuid: row?.uuid || fallback.uuid,
+    type: row?.type || fallback.type,
+    timestamp: row?.timestamp || fallback.timestamp || new Date().toISOString(),
+    is_offline: Boolean(row?.is_offline),
+    is_late: Boolean(row?.is_late),
+    is_early_timeout: Boolean(row?.is_early_timeout),
+    work_minutes: row?.work_minutes ?? null,
+    source: row?.source ?? 'app',
+    notes: row?.notes ?? null,
+    synced_at: row?.synced_at ?? null,
+    branch: row?.branch,
+    gps_location: row?.gps_location,
+    photo: row?.photo,
+    fraud_flags: row?.fraud_flags,
+  };
 }
 
 export function HomeScreen() {
@@ -87,7 +133,8 @@ export function HomeScreen() {
   const effectivePunches: Attendance[] = [...todayPunches, ...localPunches].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
-  const lastPunch = effectivePunches[effectivePunches.length - 1] ?? null;
+  const workPunches = effectivePunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
+  const lastPunch = workPunches[workPunches.length - 1] ?? null;
   const isOpen = lastPunch?.type === 'time_in';
 
   const loadToday = useCallback(async (): Promise<boolean> => {
@@ -98,6 +145,7 @@ export function HomeScreen() {
     let historyOk = false;
     try {
       const today = toLocalDate(new Date());
+      const historyFrom = toLocalDate(new Date(Date.now() - 86400000));
       await Promise.all([
         api
           .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
@@ -118,7 +166,7 @@ export function HomeScreen() {
         api
           .get<Paginated<Attendance>>(
             '/api/attendance/history',
-            { from: today, to: today, per_page: 50 },
+            { from: historyFrom, to: today, per_page: 50 },
             token,
           )
           .then((res) => {
@@ -126,7 +174,7 @@ export function HomeScreen() {
             const sorted = [...res.data].sort(
               (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
             );
-            setTodayPunches(sorted);
+            setTodayPunches((prev) => mergeServerAttendance(sorted, prev));
             historyOk = true;
           })
           .catch(() => {
@@ -214,6 +262,7 @@ export function HomeScreen() {
     setResult(null);
     setPunching(true);
     punchBusyRef.current = true;
+    const clientUuid = newUuid();
     try {
       const photoInfo = photoFileInfo(uri);
       if (photoInfo.checkOk && (!photoInfo.exists || photoInfo.size === 0)) {
@@ -233,14 +282,14 @@ export function HomeScreen() {
         form.append('accuracy_meters', String(coords.accuracy));
       }
       form.append('device_id', deviceId);
+      form.append('client_uuid', clientUuid);
 
       const res = await api.postForm<{ data: Attendance }>(
         `/api/attendance/${type === 'time_in' ? 'time-in' : 'time-out'}`,
         form,
         token,
       );
-      const attendance = res.data;
-
+      const attendance = coerceAttendance(res?.data, { type, uuid: clientUuid });
       setTodayPunches((prev) => upsertAttendance(prev, attendance));
 
       const distance = attendance.gps_location?.distance_from_branch_meters;
@@ -258,7 +307,7 @@ export function HomeScreen() {
           .filter(Boolean)
           .join('\n'),
       });
-      await loadToday();
+      void loadToday();
       refreshUnread();
       void runFlush();
     } catch (err) {
@@ -266,12 +315,18 @@ export function HomeScreen() {
         if (err.code === 'network_error') {
           const queued = await enqueueOfflinePunch(type, coords, uri);
           setQueue(queued);
+          setTodayPunches((prev) =>
+            upsertAttendance(
+              prev,
+              coerceAttendance(null, { type, uuid: clientUuid, timestamp: new Date().toISOString() }),
+            ),
+          );
           setResult({
             kind: 'success',
             title: 'Queued offline',
             detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nNo face verification was possible offline.\nYour selfie will be verified when it syncs, and it will sync automatically when you're back online.`,
           });
-          await loadToday();
+          void loadToday();
         } else if (err.code === 'gps_out_of_range') {
           const details = (err.details ?? {}) as GpsOutOfRangeDetails;
           setResult({
