@@ -5,13 +5,16 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 const apiTarget = process.env.VITE_API_PROXY ?? "http://127.0.0.1:8000";
+// Self-signed HTTPS breaks Service Worker registration (SSL error on sw.js).
+// Default HTTP so offline pack works on localhost. Set VITE_HTTPS=1 only when
+// you need phone GPS/camera over LAN (offline refresh still won't work without a trusted cert).
+const useHttps = process.env.VITE_HTTPS === "1" || process.env.VITE_HTTPS === "true";
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // Dev HTTPS so mobile browsers allow GPS / camera (secure context).
-    basicSsl(),
+    ...(useHttps ? [basicSsl()] : []),
     VitePWA({
       // autoUpdate + clientsClaim so the SW controls the tab after first visit
       // (prompt mode left pages uncontrolled → offline refresh = Chrome dino).

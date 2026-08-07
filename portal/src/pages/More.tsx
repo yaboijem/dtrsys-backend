@@ -9,7 +9,27 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { Avatar, Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { getSwStatus, onSwStatus, type SwStatus } from '../pwa/register';
 import { fontSize, spacing, useThemeColors } from '../theme';
+
+function swStatusLabel(status: SwStatus): string {
+  switch (status) {
+    case 'ready':
+      return 'Offline pack ready';
+    case 'registered':
+      return 'Service worker registered';
+    case 'registering':
+      return 'Installing offline pack…';
+    case 'dev':
+      return 'Dev mode (no offline pack)';
+    case 'unsupported':
+      return 'Not supported on this browser';
+    case 'error':
+      return 'Offline pack failed';
+    default:
+      return status;
+  }
+}
 
 export function More() {
   const colors = useThemeColors();
@@ -18,6 +38,9 @@ export function More() {
 
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const initialSw = getSwStatus();
+  const [swStatus, setSwStatus] = useState<SwStatus>(initialSw.status);
+  const [swDetail, setSwDetail] = useState(initialSw.detail);
 
   const loadMfaStatus = useCallback(async () => {
     if (!token) return;
@@ -31,6 +54,13 @@ export function More() {
   useEffect(() => {
     loadMfaStatus();
   }, [loadMfaStatus]);
+
+  useEffect(() => {
+    return onSwStatus((status, detail) => {
+      setSwStatus(status);
+      setSwDetail(detail ?? '');
+    });
+  }, []);
 
   const displayName = user?.employee?.full_name ?? user?.name ?? '—';
 
@@ -169,6 +199,20 @@ export function More() {
           Choose light, dark, or match your device setting.
         </div>
         <ThemeToggle />
+      </SectionCard>
+
+      <SectionCard title="Offline">
+        <div style={{ fontSize: fontSize.md, fontWeight: 700, color: colors.ink }}>{swStatusLabel(swStatus)}</div>
+        {swDetail ? (
+          <div style={{ fontSize: fontSize.sm, color: colors.muted, marginTop: 6, lineHeight: 1.45 }}>{swDetail}</div>
+        ) : null}
+        <div style={{ fontSize: fontSize.sm, color: colors.muted, marginTop: spacing.sm, lineHeight: 1.45 }}>
+          Offline refresh only works after this says “Offline pack ready”. Self-signed HTTPS on phones often blocks
+          that — test on the PC with Chrome DevTools → Network → Offline, or use a real HTTPS deploy.
+        </div>
+        <div style={{ fontSize: fontSize.sm, color: colors.muted, marginTop: spacing.sm }}>
+          Network now: {typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline'}
+        </div>
       </SectionCard>
 
       <Button

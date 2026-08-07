@@ -9,19 +9,22 @@ npm install
 npm run dev
 ```
 
-Dev uses **HTTPS** (self-signed via `@vitejs/plugin-basic-ssl`) so mobile browsers treat the page as a secure context (GPS + camera).
+**Default is HTTP** so the offline service worker can register on `localhost`.
 
 | Where | URL |
 |--------|-----|
-| Desktop | `https://localhost:5173` |
-| Phone (same Wi‑Fi) | `https://YOUR_PC_IP:5173` |
+| Desktop (offline pack works) | `http://localhost:5173` (dev) or `http://localhost:4174` (preview) |
+| Phone LAN | `http://YOUR_PC_IP:5173` — app loads; GPS/camera need a **trusted** HTTPS origin |
+
+Self-signed HTTPS (`VITE_HTTPS=1`) unlocks GPS on phones after the cert warning, but **blocks** the service worker (`SSL certificate error` on `sw.js`). Use real HTTPS (production) or [mkcert](https://github.com/FiloSottile/mkcert) for both GPS + offline on a phone.
 
 ```bash
-# LAN / mobile
+# LAN / mobile (HTTP)
 npm run dev:mobile
-```
 
-On the phone, accept the certificate warning (**Advanced → Proceed**). That is normal for a local self-signed cert.
+# Optional self-signed HTTPS (GPS only; offline pack will fail)
+# PowerShell: $env:VITE_HTTPS=1; npm run dev:mobile
+```
 
 Also run the API:
 
