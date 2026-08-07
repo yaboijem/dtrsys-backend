@@ -92,6 +92,7 @@ Logins: `EMP001` / `HR001` / `ADMIN001`, password `password`.
 | Issue | Fix |
 |-------|-----|
 | CORS / admin fails | Match `CORS_ALLOWED_ORIGINS` to admin URL; rebuild admin if `VITE_API_URL` wrong |
+| Admin refresh → 404 | SPA rewrite `/*` → `/index.html` (200). Build ships `web/public/_redirects`; enable rewrite on the static host if missing |
 | Migrate errors | Neon URI + `sslmode=require` |
 | Photos missing | `ATTENDANCE_PHOTO_DISK=database` (not `public` on Render) |
 | Slow first load | Free cold start — wait and retry |
