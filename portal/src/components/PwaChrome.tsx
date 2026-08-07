@@ -30,7 +30,7 @@ export function PwaChrome() {
       if (offlineToastShown.current) return;
       offlineToastShown.current = true;
       setOfflineReady(true);
-      window.setTimeout(() => setOfflineReady(false), 5000);
+      window.setTimeout(() => setOfflineReady(false), 3500);
     };
 
     const offRefresh = onNeedRefresh((update) => {
@@ -154,9 +154,31 @@ export function PwaChrome() {
     );
   }
 
+  const offlineToastStyle: CSSProperties = {
+    position: 'fixed',
+    top: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+    right: spacing.md,
+    left: 'auto',
+    bottom: 'auto',
+    zIndex: 60,
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: `${spacing.sm}px ${spacing.md}px`,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: colors.success,
+    backgroundColor: colors.card,
+    boxShadow: '0 8px 24px rgba(12, 27, 42, 0.12)',
+    color: colors.ink,
+    fontSize: fontSize.sm,
+    maxWidth: 'min(16rem, calc(100vw - 2rem))',
+  };
+
   return (
-    <div role="status" style={{ ...barStyle, borderColor: colors.success, backgroundColor: colors.card }}>
-      <span style={{ flex: 1, fontWeight: 700, color: colors.successText }}>Offline Ready</span>
+    <div role="status" style={offlineToastStyle}>
+      <span style={{ fontWeight: 700, color: colors.successText }}>Offline Ready</span>
     </div>
   );
 }
