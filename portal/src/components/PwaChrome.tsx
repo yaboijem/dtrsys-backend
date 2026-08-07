@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
-import { onNeedRefresh, onOfflineReady } from '../pwa/register';
+import { getSwStatus, onNeedRefresh, onOfflineReady, onSwStatus } from '../pwa/register';
 import { fontSize, radius, spacing, useThemeColors } from '../theme';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -14,6 +14,7 @@ export function PwaChrome() {
   const [installDismissed, setInstallDismissed] = useState(false);
   const [updateAction, setUpdateAction] = useState<(() => void) | null>(null);
   const [offlineReady, setOfflineReady] = useState(false);
+  const offlineToastShown = useRef(false);
 
   useEffect(() => {
     const onBip = (e: Event) => {
@@ -25,16 +26,29 @@ export function PwaChrome() {
   }, []);
 
   useEffect(() => {
+    const showOfflineToast = () => {
+      if (offlineToastShown.current) return;
+      offlineToastShown.current = true;
+      setOfflineReady(true);
+      window.setTimeout(() => setOfflineReady(false), 5000);
+    };
+
     const offRefresh = onNeedRefresh((update) => {
       setUpdateAction(() => update);
     });
-    const offOffline = onOfflineReady(() => {
-      setOfflineReady(true);
-      window.setTimeout(() => setOfflineReady(false), 4000);
+    const offOffline = onOfflineReady(showOfflineToast);
+    const offStatus = onSwStatus((status) => {
+      if (status === 'ready') showOfflineToast();
     });
+
+    if (getSwStatus().status === 'ready') {
+      showOfflineToast();
+    }
+
     return () => {
       offRefresh();
       offOffline();
+      offStatus();
     };
   }, []);
 
@@ -141,8 +155,8 @@ export function PwaChrome() {
   }
 
   return (
-    <div role="status" style={barStyle}>
-      <span style={{ flex: 1 }}>Ready for offline use</span>
+    <div role="status" style={{ ...barStyle, borderColor: colors.success, backgroundColor: colors.card }}>
+      <span style={{ flex: 1, fontWeight: 700, color: colors.successText }}>Offline Ready</span>
     </div>
   );
 }
