@@ -64,15 +64,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deviceIdRef.current = dev;
 
         if (storedToken && storedUser) {
+          let cachedUser: User | null = null;
+          try {
+            cachedUser = JSON.parse(storedUser) as User;
+          } catch {
+            cachedUser = null;
+          }
+
           try {
             const me = await apiRef.current.get<{ data: User }>('/api/auth/me', undefined, storedToken);
             setToken(storedToken);
             setUser(me.data);
+            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me.data));
             setStatus('authed');
             return;
-          } catch {
-            localStorage.removeItem(STORAGE_KEYS.token);
-            localStorage.removeItem(STORAGE_KEYS.user);
+          } catch (err) {
+            // Offline / unreachable API: keep last good session so punches can queue locally.
+            const networkFail =
+              err instanceof ApiError && (err.status === 0 || err.code === 'network_error');
+            if (networkFail && cachedUser) {
+              setToken(storedToken);
+              setUser(cachedUser);
+              setStatus('authed');
+              return;
+            }
+            // Auth rejected (expired/revoked token) — force fresh login.
+            if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+              localStorage.removeItem(STORAGE_KEYS.token);
+              localStorage.removeItem(STORAGE_KEYS.user);
+            } else if (cachedUser) {
+              // Transient server error: still allow cached session.
+              setToken(storedToken);
+              setUser(cachedUser);
+              setStatus('authed');
+              return;
+            } else {
+              localStorage.removeItem(STORAGE_KEYS.token);
+              localStorage.removeItem(STORAGE_KEYS.user);
+            }
           }
         }
       } catch {
