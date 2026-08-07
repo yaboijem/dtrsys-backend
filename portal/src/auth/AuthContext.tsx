@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { ApiClient, ApiError } from '../api/client';
 import { LoginResult, LoginSuccess, User } from '../api/types';
 import { APP_VERSION, DEFAULT_API_URL, DEV_OTP_ENABLED, DEFAULT_DEVICE_ID, STORAGE_KEYS } from '../config';
+import { clearUserDataCache } from '../lib/dataCache';
 
 type AuthStatus = 'restoring' | 'guest' | 'authed';
 
@@ -183,8 +184,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [mfa]);
 
   const logout = useCallback(async () => {
+    const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
     if (token) {
       await apiRef.current.post('/api/auth/logout', {}, token).catch(() => undefined);
+    }
+    if (userKey) {
+      void clearUserDataCache(userKey);
     }
     setToken(null);
     setUser(null);
@@ -192,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus('guest');
     localStorage.removeItem(STORAGE_KEYS.token);
     localStorage.removeItem(STORAGE_KEYS.user);
-  }, [token]);
+  }, [token, user]);
 
   const refreshMe = useCallback(async () => {
     if (!token) {

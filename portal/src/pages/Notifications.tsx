@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { Banner } from '../components/Feedback';
 import { Screen } from '../components/Screen';
+import { loadAlertsCache, saveAlertsCache } from '../lib/dataCache';
 import { errorMessage, formatRelative, startOfDay } from '../lib/format';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
@@ -36,12 +37,14 @@ function groupLabel(iso: string): string {
 
 export function Notifications() {
   const colors = useThemeColors();
-  const { api, token } = useAuth();
+  const { api, token, user } = useAuth();
   const { refreshUnread, setUnreadCount } = useUnread();
+  const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
 
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmAction>(null);
 
   const load = useCallback(async () => {
@@ -50,16 +53,33 @@ export function Notifications() {
     try {
       const res = await api.get<Paginated<AppNotification>>('/api/notifications', { per_page: 50 }, token);
       setItems(res.data);
+      setStale(false);
+      if (userKey) {
+        void saveAlertsCache(userKey, res.data);
+      }
     } catch (err) {
+      if (userKey) {
+        const cached = await loadAlertsCache(userKey);
+        if (cached && cached.items.length > 0) {
+          setItems(cached.items);
+          setStale(true);
+          setError(null);
+          return;
+        }
+      }
       setError(errorMessage(err));
+      setStale(false);
     } finally {
       setLoading(false);
     }
-  }, [api, token]);
+  }, [api, token, userKey]);
 
   useEffect(() => {
+    setLoading(true);
     load();
-    refreshUnread();
+    if (navigator.onLine) {
+      refreshUnread();
+    }
   }, [load, refreshUnread]);
 
   const markRead = async (id: string) => {
@@ -161,6 +181,13 @@ export function Notifications() {
         </div>
       </div>
 
+      {stale ? (
+        <Banner
+          kind="info"
+          title="Showing saved alerts"
+          detail="Connect to the internet to load the latest alerts."
+        />
+      ) : null}
       {error ? <Banner kind="error" title="Failed to load alerts" detail={error} /> : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 8 }}>
