@@ -62,7 +62,7 @@ function composeFullName(firstName: string, middleName: string, lastName: string
 }
 
 export function EmployeesPage() {
-  const { token } = useAuth();
+  const { token, user, refreshUser } = useAuth();
   const { notify } = useToast();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department: '' });
@@ -182,6 +182,11 @@ export function EmployeesPage() {
       };
       if (editing) {
         await updateEmployee(editing.id, payload, token);
+        const isSelf =
+          user != null && (editing.user_id === user.id || editing.id === user.employee?.id);
+        if (isSelf) {
+          await refreshUser();
+        }
         notify('success', 'Employee updated.');
       } else {
         await createEmployee(payload as Parameters<typeof createEmployee>[0], token);
