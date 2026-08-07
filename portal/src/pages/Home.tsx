@@ -25,6 +25,7 @@ import {
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl } from '../lib/image';
+import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { deriveAttendanceState } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
@@ -89,6 +90,7 @@ export function Home() {
 
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [scheduleStale, setScheduleStale] = useState(false);
   const [todayPunches, setTodayPunches] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [punching, setPunching] = useState(false);
@@ -169,6 +171,7 @@ export function Home() {
     if (!token) {
       return false;
     }
+    const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
     let historyOk = false;
     try {
       const today = toLocalDate(new Date());
@@ -178,14 +181,45 @@ export function Home() {
           .then((s) => {
             setSchedule(s.data);
             setScheduleMessage(null);
-          })
-          .catch((err: unknown) => {
-            setSchedule(null);
-            if (err instanceof ApiError && err.code === 'no_schedule') {
-              setScheduleMessage('No schedule assigned for today.');
-            } else {
-              setScheduleMessage(errorMessage(err));
+            setScheduleStale(false);
+            if (userKey) {
+              void saveScheduleCache(userKey, {
+                schedule: s.data,
+                date: today,
+                message: null,
+              });
             }
+          })
+          .catch(async (err: unknown) => {
+            if (err instanceof ApiError && err.code === 'no_schedule') {
+              setSchedule(null);
+              setScheduleMessage('No schedule assigned for today.');
+              setScheduleStale(false);
+              if (userKey) {
+                void saveScheduleCache(userKey, {
+                  schedule: null,
+                  date: today,
+                  message: 'No schedule assigned for today.',
+                });
+              }
+              return;
+            }
+            if (userKey) {
+              const cached = await loadScheduleCache(userKey);
+              if (cached && cached.date === today) {
+                setSchedule(cached.schedule);
+                setScheduleMessage(
+                  cached.schedule
+                    ? 'Connect to the internet to load the latest schedule.'
+                    : (cached.message ?? 'No schedule assigned for today.'),
+                );
+                setScheduleStale(Boolean(cached.schedule));
+                return;
+              }
+            }
+            setSchedule(null);
+            setScheduleStale(false);
+            setScheduleMessage(errorMessage(err));
           }),
         api
           .get<Paginated<Attendance>>(
@@ -217,7 +251,7 @@ export function Home() {
       setLoading(false);
     }
     return historyOk;
-  }, [api, token]);
+  }, [api, token, user]);
 
   const runFlush = useCallback(async () => {
     if (flushBusyRef.current) {
@@ -644,6 +678,11 @@ export function Home() {
       {result ? <Stamp kind={result.kind} title={result.title} detail={result.detail} /> : null}
 
       <SectionCard title="Today's schedule">
+        {scheduleStale ? (
+          <div style={{ fontSize: 12, fontWeight: 600, color: colors.muted, marginBottom: spacing.sm }}>
+            Showing saved schedule. Connect to the internet to load the latest.
+          </div>
+        ) : null}
         {loading ? (
           <div style={{ fontSize: fontSize.sm, color: colors.muted }}>Loading…</div>
         ) : schedule ? (

@@ -1,4 +1,4 @@
-import type { AppNotification, Attendance } from '../api/types';
+import type { AppNotification, Attendance, Schedule } from '../api/types';
 import { idbDelete, idbGet, idbSet } from './idbQueue';
 
 export type CachedHistory = {
@@ -16,12 +16,24 @@ export type CachedAlerts = {
   savedAt: string;
 };
 
+export type CachedSchedule = {
+  schedule: Schedule | null;
+  /** Local calendar date the schedule was fetched for (YYYY-MM-DD). */
+  date: string;
+  message: string | null;
+  savedAt: string;
+};
+
 function historyKey(userKey: string): string {
   return `cache:history:${userKey}`;
 }
 
 function alertsKey(userKey: string): string {
   return `cache:alerts:${userKey}`;
+}
+
+function scheduleKey(userKey: string): string {
+  return `cache:schedule:${userKey}`;
 }
 
 export async function saveHistoryCache(userKey: string, data: Omit<CachedHistory, 'savedAt'>): Promise<void> {
@@ -42,6 +54,22 @@ export async function loadAlertsCache(userKey: string): Promise<CachedAlerts | u
   return idbGet<CachedAlerts>(alertsKey(userKey));
 }
 
+export async function saveScheduleCache(
+  userKey: string,
+  data: Omit<CachedSchedule, 'savedAt'>,
+): Promise<void> {
+  const payload: CachedSchedule = { ...data, savedAt: new Date().toISOString() };
+  await idbSet(scheduleKey(userKey), payload);
+}
+
+export async function loadScheduleCache(userKey: string): Promise<CachedSchedule | undefined> {
+  return idbGet<CachedSchedule>(scheduleKey(userKey));
+}
+
 export async function clearUserDataCache(userKey: string): Promise<void> {
-  await Promise.all([idbDelete(historyKey(userKey)), idbDelete(alertsKey(userKey))]);
+  await Promise.all([
+    idbDelete(historyKey(userKey)),
+    idbDelete(alertsKey(userKey)),
+    idbDelete(scheduleKey(userKey)),
+  ]);
 }
