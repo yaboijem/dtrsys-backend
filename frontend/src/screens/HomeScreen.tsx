@@ -33,6 +33,14 @@ interface FlushResultView {
   faceIssues: number;
 }
 
+function upsertAttendance(list: Attendance[], row: Attendance): Attendance[] {
+  const key = row.uuid || String(row.id);
+  const next = list.filter((p) => (p.uuid || String(p.id)) !== key);
+  next.push(row);
+  next.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return next;
+}
+
 export function HomeScreen() {
   const colors = useThemeColors();
   const { api, token, user, deviceId } = useAuth();
@@ -52,6 +60,9 @@ export function HomeScreen() {
   const [flushResult, setFlushResult] = useState<FlushResultView | null>(null);
   const [networkOffline, setNetworkOffline] = useState(false);
   const flushBusyRef = useRef(false);
+  const punchBusyRef = useRef(false);
+  const loadGenRef = useRef(0);
+  const pendingPunchTypeRef = useRef<'time_in' | 'time_out'>('time_in');
 
   const toLocalAttendance = (p: OfflinePunch, source: 'local_queue' | 'local_queue_synced'): Attendance => ({
     id: -1,
@@ -83,6 +94,7 @@ export function HomeScreen() {
     if (!token) {
       return false;
     }
+    const gen = ++loadGenRef.current;
     let historyOk = false;
     try {
       const today = toLocalDate(new Date());
@@ -90,10 +102,12 @@ export function HomeScreen() {
         api
           .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
           .then((s) => {
+            if (gen !== loadGenRef.current) return;
             setSchedule(s.data);
             setScheduleMessage(null);
           })
           .catch((err: unknown) => {
+            if (gen !== loadGenRef.current) return;
             setSchedule(null);
             if (err instanceof ApiError && err.code === 'no_schedule') {
               setScheduleMessage('No schedule assigned for today.');
@@ -104,11 +118,15 @@ export function HomeScreen() {
         api
           .get<Paginated<Attendance>>(
             '/api/attendance/history',
-            { from: today, to: today, per_page: 10 },
+            { from: today, to: today, per_page: 50 },
             token,
           )
           .then((res) => {
-            setTodayPunches(res.data);
+            if (gen !== loadGenRef.current) return;
+            const sorted = [...res.data].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+            );
+            setTodayPunches(sorted);
             historyOk = true;
           })
           .catch(() => {
@@ -118,7 +136,9 @@ export function HomeScreen() {
     } catch {
       // individual fetches already surface errors
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+      }
     }
     return historyOk;
   }, [api, token]);
@@ -193,6 +213,7 @@ export function HomeScreen() {
   ) => {
     setResult(null);
     setPunching(true);
+    punchBusyRef.current = true;
     try {
       const photoInfo = photoFileInfo(uri);
       if (photoInfo.checkOk && (!photoInfo.exists || photoInfo.size === 0)) {
@@ -219,6 +240,8 @@ export function HomeScreen() {
         token,
       );
       const attendance = res.data;
+
+      setTodayPunches((prev) => upsertAttendance(prev, attendance));
 
       const distance = attendance.gps_location?.distance_from_branch_meters;
       setResult({
@@ -273,22 +296,28 @@ export function HomeScreen() {
       }
     } finally {
       setPunching(false);
+      punchBusyRef.current = false;
     }
   };
 
   const handlePunchPress = async () => {
+    if (punchBusyRef.current || punching || cameraVisible) return;
     setResult(null);
     setPunching(true);
+    punchBusyRef.current = true;
+    pendingPunchTypeRef.current = isOpen ? 'time_out' : 'time_in';
     try {
       const gps = await resolveGpsPosition();
       if (gps.status !== 'ok') {
         setResult({ kind: 'error', title: 'GPS required', detail: gpsErrorDetail() });
+        punchBusyRef.current = false;
         return;
       }
       setPendingCoords(gps.position);
       setCameraVisible(true);
     } catch {
       setResult({ kind: 'error', title: 'GPS required', detail: gpsErrorDetail() });
+      punchBusyRef.current = false;
     } finally {
       setPunching(false);
     }
@@ -300,9 +329,17 @@ export function HomeScreen() {
     setPendingCoords(null);
     if (!coords) {
       setResult({ kind: 'error', title: 'GPS required', detail: gpsErrorDetail() });
+      punchBusyRef.current = false;
       return;
     }
-    void submitPunch(uri, isOpen ? 'time_out' : 'time_in', coords);
+    void submitPunch(uri, pendingPunchTypeRef.current, coords);
+  };
+
+  const handleCameraClose = () => {
+    setCameraVisible(false);
+    setPendingCoords(null);
+    punchBusyRef.current = false;
+    setPunching(false);
   };
 
   const lampState = loading
@@ -434,7 +471,7 @@ export function HomeScreen() {
         </SectionCard>
       ) : null}
 
-      <CameraModal visible={cameraVisible} onCapture={handleCapture} onClose={() => setCameraVisible(false)} />
+      <CameraModal visible={cameraVisible} onCapture={handleCapture} onClose={handleCameraClose} />
     </Screen>
   );
 }

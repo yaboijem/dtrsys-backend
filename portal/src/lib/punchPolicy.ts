@@ -6,6 +6,15 @@ export type AttendanceState = {
   openBreakStartedAt: string | null;
 };
 
+/** Insert or replace one attendance row, sorted oldest → newest. */
+export function upsertAttendance(list: Attendance[], row: Attendance): Attendance[] {
+  const key = row.uuid || String(row.id);
+  const next = list.filter((p) => (p.uuid || String(p.id)) !== key);
+  next.push(row);
+  next.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  return next;
+}
+
 type ChronoPunch = {
   type: PunchType;
   timestamp: string;

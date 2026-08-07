@@ -27,7 +27,7 @@ import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl } from '../lib/image';
 import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
-import { deriveAttendanceState } from '../lib/punchPolicy';
+import { deriveAttendanceState, upsertAttendance } from '../lib/punchPolicy';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
@@ -106,6 +106,9 @@ export function Home() {
   const [breakTick, setBreakTick] = useState(0);
   const [breaksEnabled, setBreaksEnabled] = useState<boolean>(() => readCachedBreaksEnabled());
   const flushBusyRef = useRef(false);
+  const punchBusyRef = useRef(false);
+  const loadGenRef = useRef(0);
+  const pendingPunchTypeRef = useRef<'time_in' | 'time_out'>('time_in');
 
   const toLocalAttendance = (p: OfflinePunch, source: 'local_queue' | 'local_queue_synced'): Attendance => ({
     id: -1,
@@ -171,6 +174,7 @@ export function Home() {
     if (!token) {
       return false;
     }
+    const gen = ++loadGenRef.current;
     const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
     let historyOk = false;
     try {
@@ -179,6 +183,7 @@ export function Home() {
         api
           .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
           .then((s) => {
+            if (gen !== loadGenRef.current) return;
             setSchedule(s.data);
             setScheduleMessage(null);
             setScheduleStale(false);
@@ -191,6 +196,7 @@ export function Home() {
             }
           })
           .catch(async (err: unknown) => {
+            if (gen !== loadGenRef.current) return;
             if (err instanceof ApiError && err.code === 'no_schedule') {
               setSchedule(null);
               setScheduleMessage('No schedule assigned for today.');
@@ -206,6 +212,7 @@ export function Home() {
             }
             if (userKey) {
               const cached = await loadScheduleCache(userKey);
+              if (gen !== loadGenRef.current) return;
               if (cached && cached.date === today) {
                 setSchedule(cached.schedule);
                 setScheduleMessage(
@@ -224,11 +231,16 @@ export function Home() {
         api
           .get<Paginated<Attendance>>(
             '/api/attendance/history',
-            { from: today, to: today, per_page: 10 },
+            { from: today, to: today, per_page: 50 },
             token,
           )
           .then((res) => {
-            setTodayPunches(res.data);
+            if (gen !== loadGenRef.current) return;
+            // Newest-first API page → chronological for open-session derivation.
+            const sorted = [...res.data].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+            );
+            setTodayPunches(sorted);
             historyOk = true;
           })
           .catch(() => {
@@ -237,6 +249,7 @@ export function Home() {
         api
           .get<{ data: { breaks_enabled: boolean } }>('/api/settings', undefined, token)
           .then((res) => {
+            if (gen !== loadGenRef.current) return;
             const enabled = Boolean(res.data.breaks_enabled);
             setBreaksEnabled(enabled);
             writeCachedBreaksEnabled(enabled);
@@ -248,7 +261,9 @@ export function Home() {
     } catch {
       // individual fetches already surface errors
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) {
+        setLoading(false);
+      }
     }
     return historyOk;
   }, [api, token, user]);
@@ -325,6 +340,7 @@ export function Home() {
   ) => {
     setResult(null);
     setPunching(true);
+    punchBusyRef.current = true;
     const clientUuid = newUuid();
     // Compress before live upload or offline enqueue to cut upload/CPU cost.
     const compressedUri = await compressDataUrl(uri);
@@ -338,7 +354,6 @@ export function Home() {
           title: 'Photo unavailable',
           detail: 'The captured selfie could not be read. Tap the button again to retake it.',
         });
-        setPunching(false);
         return;
       }
       form.append('selfie', selfieFile);
@@ -356,6 +371,9 @@ export function Home() {
         token,
       );
       const attendance = res.data;
+
+      // Apply server punch immediately so Time In/Out flips even if history reload lags.
+      setTodayPunches((prev) => upsertAttendance(prev, attendance));
 
       const distance = attendance.gps_location?.distance_from_branch_meters;
       setResult({
@@ -395,6 +413,7 @@ export function Home() {
           });
         } else if (err.code === 'attendance_conflict') {
           setResult({ kind: 'error', title: 'Conflict', detail: err.message });
+          // Server is source of truth — resync button state after conflict/spam.
           await loadToday();
         } else if (err.code === 'face_verification_failed') {
           setResult({ kind: 'error', title: 'Face verification failed', detail: 'Retake your selfie with better lighting and look directly at the camera.' });
@@ -408,6 +427,7 @@ export function Home() {
       }
     } finally {
       setPunching(false);
+      punchBusyRef.current = false;
     }
   };
 
@@ -416,8 +436,14 @@ export function Home() {
       setResult({ kind: 'error', title: 'On break', detail: 'End your break before clocking out.' });
       return;
     }
+    if (punchBusyRef.current || punching || cameraVisible) {
+      return;
+    }
     setResult(null);
     setPunching(true);
+    punchBusyRef.current = true;
+    // Freeze intended punch type at press time (not capture time).
+    pendingPunchTypeRef.current = isOpen ? 'time_out' : 'time_in';
     try {
       const gps = await resolveGpsPosition();
       if (gps.status !== 'ok') {
@@ -427,11 +453,13 @@ export function Home() {
           title: 'Location needed',
           detail: gpsFailureMessage(gps.status),
         });
+        punchBusyRef.current = false;
         return;
       }
       setGpsHint('ok');
       setPendingCoords(gps.position);
       setCameraVisible(true);
+      // Keep punchBusyRef until capture finishes or camera closes.
     } catch {
       setGpsHint('bad');
       setResult({
@@ -439,6 +467,7 @@ export function Home() {
         title: 'Location needed',
         detail: gpsFailureMessage('unavailable'),
       });
+      punchBusyRef.current = false;
     } finally {
       setPunching(false);
     }
@@ -446,8 +475,10 @@ export function Home() {
 
   const handleBreakPress = async () => {
     if (!token || !isOpen) return;
+    if (punchBusyRef.current || punching) return;
     setResult(null);
     setPunching(true);
+    punchBusyRef.current = true;
     const breakType: PunchType = onBreak ? 'break_out' : 'break_in';
     const clientUuid = newUuid();
     let coords: { latitude: number; longitude: number; accuracy: number | null } | null = null;
@@ -472,6 +503,7 @@ export function Home() {
         },
         token,
       );
+      setTodayPunches((prev) => upsertAttendance(prev, res.data));
       setResult({
         kind: 'success',
         title: onBreak ? 'Break ended' : 'Break started',
@@ -513,6 +545,7 @@ export function Home() {
       }
     } finally {
       setPunching(false);
+      punchBusyRef.current = false;
     }
   };
 
@@ -526,9 +559,17 @@ export function Home() {
         title: 'Location needed',
         detail: gpsFailureMessage('unavailable'),
       });
+      punchBusyRef.current = false;
       return;
     }
-    void submitPunch(uri, isOpen ? 'time_out' : 'time_in', coords);
+    void submitPunch(uri, pendingPunchTypeRef.current, coords);
+  };
+
+  const handleCameraClose = () => {
+    setCameraVisible(false);
+    setPendingCoords(null);
+    punchBusyRef.current = false;
+    setPunching(false);
   };
 
   useEffect(() => {
@@ -920,7 +961,7 @@ export function Home() {
         </SectionCard>
       ) : null}
 
-      <CameraModal visible={cameraVisible} onCapture={handleCapture} onClose={() => setCameraVisible(false)} />
+      <CameraModal visible={cameraVisible} onCapture={handleCapture} onClose={handleCameraClose} />
     </Screen>
   );
 }
