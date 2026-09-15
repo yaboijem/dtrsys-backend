@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
+import { BackPill } from '../components/BackPill';
 import { Button } from '../components/Button';
 import { Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
@@ -82,7 +82,6 @@ function PinDetails({ pin, title }: { pin: HomeLocationPin; title: string }) {
 
 export function HomeLocationPage() {
   const colors = useThemeColors();
-  const navigate = useNavigate();
   const { api, token, user, refreshMe } = useAuth();
   const [data, setData] = useState<HomeLocationPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,26 +142,7 @@ export function HomeLocationPage() {
 
   return (
     <Screen>
-      <button
-        onClick={() => navigate('/more')}
-        aria-label="Back to More"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          minHeight: 44,
-          alignSelf: 'flex-start',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: colors.teal,
-          fontWeight: 700,
-          fontSize: fontSize.sm,
-          marginBottom: spacing.sm,
-          padding: 0,
-        }}
-      >
-        ← Back
-      </button>
+      <BackPill to="/more" label="< Back" ariaLabel="Back to More" />
 
       <h1 className="portal-page-title">Home location</h1>
 

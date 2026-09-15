@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { Consent as ConsentType, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { BackPill } from '../components/BackPill';
 import { Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { errorMessage, formatDateTime } from '../lib/format';
@@ -15,7 +15,6 @@ const CONSENT_TYPES = [
 
 export function Consent() {
   const colors = useThemeColors();
-  const navigate = useNavigate();
   const { api, token } = useAuth();
 
   const [consents, setConsents] = useState<ConsentType[]>([]);
@@ -67,22 +66,7 @@ export function Consent() {
 
   return (
     <Screen>
-      <button
-        onClick={() => navigate('/more')}
-        aria-label="Back to More"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          minHeight: 44,
-          alignSelf: 'flex-start',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-        }}
-      >
-        <span style={{ fontSize: fontSize.md, fontWeight: '600', color: colors.band }}>← More</span>
-      </button>
+      <BackPill to="/more" label="< Back" ariaLabel="Back to More" />
 
       <h1 className="portal-page-title" style={{ color: colors.ink, marginBottom: spacing.lg }}>
         Consent
