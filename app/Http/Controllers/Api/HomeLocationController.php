@@ -33,6 +33,13 @@ class HomeLocationController extends Controller
             ->latest('home_locations.id')
             ->first();
 
+        if ($primary) {
+            $primary = $this->homeLocationService->ensureAddressParts($primary);
+        }
+        if ($pending) {
+            $pending = $this->homeLocationService->ensureAddressParts($pending);
+        }
+
         return response()->json([
             'data' => [
                 'work_arrangement' => $employee->work_arrangement,

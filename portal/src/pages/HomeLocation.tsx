@@ -9,24 +9,75 @@ import { errorMessage } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
+interface HomeLocationPin {
+  id: number;
+  label: string | null;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  address_text: string | null;
+  street: string | null;
+  city: string | null;
+  province: string | null;
+  status: string;
+}
+
 interface HomeLocationPayload {
   work_arrangement: string;
   status: 'none' | 'pending' | 'approved';
-  primary: {
-    id: number;
-    label: string | null;
-    latitude: number;
-    longitude: number;
-    radius_meters: number;
-    status: string;
-  } | null;
-  pending: {
-    id: number;
-    label: string | null;
-    latitude: number;
-    longitude: number;
-    status: string;
-  } | null;
+  primary: HomeLocationPin | null;
+  pending: HomeLocationPin | null;
+}
+
+function formatRange(meters: number): string {
+  if (meters >= 1000) {
+    const km = meters / 1000;
+    return `${km % 1 === 0 ? km.toFixed(0) : km.toFixed(1)} km`;
+  }
+  return `${meters} m`;
+}
+
+function PinDetails({ pin, title }: { pin: HomeLocationPin; title: string }) {
+  const colors = useThemeColors();
+  const street = pin.street?.trim() || null;
+  const city = pin.city?.trim() || null;
+  const province = pin.province?.trim() || null;
+  const hasParts = Boolean(street || city || province);
+  const fallback = pin.address_text?.trim() || null;
+
+  const row = (label: string, value: string) => (
+    <div
+      key={label}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '96px 1fr',
+        gap: 8,
+        marginTop: 8,
+        fontSize: fontSize.sm,
+      }}
+    >
+      <div style={{ color: colors.muted, fontWeight: 600 }}>{label}</div>
+      <div style={{ color: colors.ink, fontWeight: 600, wordBreak: 'break-word' }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: spacing.sm }}>
+      <div style={{ fontSize: fontSize.sm, fontWeight: 800, color: colors.ink, marginBottom: 4 }}>{title}</div>
+      {hasParts ? (
+        <>
+          {row('Street', street || '—')}
+          {row('City', city || '—')}
+          {row('Province', province || '—')}
+        </>
+      ) : fallback ? (
+        row('Address', fallback)
+      ) : (
+        row('Address', 'Address unavailable')
+      )}
+      {row('Range', formatRange(pin.radius_meters))}
+    </div>
+  );
 }
 
 export function HomeLocationPage() {
@@ -39,8 +90,7 @@ export function HomeLocationPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const arrangement =
-    user?.employee?.work_arrangement ?? data?.work_arrangement ?? 'onsite';
+  const arrangement = user?.employee?.work_arrangement ?? data?.work_arrangement ?? 'onsite';
   const needsHome = arrangement === 'wfh' || arrangement === 'hybrid';
 
   const load = useCallback(async () => {
@@ -133,16 +183,8 @@ export function HomeLocationPage() {
             <div style={{ fontSize: fontSize.md, fontWeight: 700, color: colors.ink, marginBottom: 8 }}>
               {(data?.status ?? 'none').toUpperCase()}
             </div>
-            {data?.primary && (
-              <div style={{ fontSize: fontSize.sm, color: colors.muted }}>
-                Approved pin: {data.primary.latitude.toFixed(5)}, {data.primary.longitude.toFixed(5)} (±{data.primary.radius_meters}m)
-              </div>
-            )}
-            {data?.pending && (
-              <div style={{ fontSize: fontSize.sm, color: colors.muted, marginTop: 6 }}>
-                Pending pin: {data.pending.latitude.toFixed(5)}, {data.pending.longitude.toFixed(5)}
-              </div>
-            )}
+            {data?.primary && <PinDetails pin={data.primary} title="Approved pin" />}
+            {data?.pending && <PinDetails pin={data.pending} title="Pending pin" />}
             {data?.status === 'none' && (
               <div style={{ fontSize: fontSize.sm, color: colors.muted }}>
                 Submit your home GPS while you are at home. HR must approve before you can punch.

@@ -11,13 +11,26 @@ use InvalidArgumentException;
 
 class HomeLocationService
 {
+    public function __construct(
+        private readonly NominatimGeocoder $geocoder,
+    ) {}
+
     public function submit(Employee $employee, User $actor, array $data): HomeLocation
     {
         if (! $employee->requiresHomeLocation()) {
             throw new InvalidArgumentException('Only WFH or hybrid employees can submit a home location.');
         }
 
-        return DB::transaction(function () use ($employee, $actor, $data) {
+        $resolved = $this->resolveAddressParts(
+            (float) $data['latitude'],
+            (float) $data['longitude'],
+            $data['address_text'] ?? null,
+            $data['street'] ?? null,
+            $data['city'] ?? null,
+            $data['province'] ?? null,
+        );
+
+        return DB::transaction(function () use ($employee, $actor, $data, $resolved) {
             $this->rejectSolePendingFor($employee);
 
             $home = HomeLocation::create([
@@ -25,7 +38,10 @@ class HomeLocationService
                 'latitude' => $data['latitude'],
                 'longitude' => $data['longitude'],
                 'radius_meters' => (int) config('dtr.gps.home_radius_meters', 150),
-                'address_text' => $data['address_text'] ?? null,
+                'address_text' => $resolved['address_text'],
+                'street' => $resolved['street'],
+                'city' => $resolved['city'],
+                'province' => $resolved['province'],
                 'created_by' => $actor->id,
                 'status' => 'pending',
             ]);
@@ -126,6 +142,75 @@ class HomeLocationService
         $assignment->is_primary = true;
         $assignment->assigned_at = now();
         $assignment->save();
+    }
+
+    /**
+     * Fill street/city/province when missing (e.g. older pins).
+     */
+    public function ensureAddressParts(HomeLocation $home): HomeLocation
+    {
+        if (filled($home->street) || filled($home->city) || filled($home->province) || filled($home->address_text)) {
+            if (filled($home->street) || filled($home->city) || filled($home->province)) {
+                return $home;
+            }
+        }
+
+        $resolved = $this->resolveAddressParts(
+            (float) $home->latitude,
+            (float) $home->longitude,
+            $home->address_text,
+            $home->street,
+            $home->city,
+            $home->province,
+        );
+
+        if (
+            $resolved['street'] === $home->street
+            && $resolved['city'] === $home->city
+            && $resolved['province'] === $home->province
+            && $resolved['address_text'] === $home->address_text
+        ) {
+            return $home;
+        }
+
+        $home->update([
+            'address_text' => $resolved['address_text'] ?? $home->address_text,
+            'street' => $resolved['street'] ?? $home->street,
+            'city' => $resolved['city'] ?? $home->city,
+            'province' => $resolved['province'] ?? $home->province,
+        ]);
+
+        return $home->fresh() ?? $home;
+    }
+
+    /**
+     * @return array{address_text: ?string, street: ?string, city: ?string, province: ?string}
+     */
+    private function resolveAddressParts(
+        float $lat,
+        float $lng,
+        ?string $addressText,
+        ?string $street,
+        ?string $city,
+        ?string $province,
+    ): array {
+        if (filled($street) && filled($city) && filled($province)) {
+            return [
+                'address_text' => $addressText ?: collect([$street, $city, $province])->filter()->implode(', '),
+                'street' => $street,
+                'city' => $city,
+                'province' => $province,
+            ];
+        }
+
+        $geo = $this->geocoder->reverse($lat, $lng);
+
+        return [
+            'address_text' => $addressText ?: ($geo['display_name'] ?? null),
+            'street' => $street ?: ($geo['street'] ?? null),
+            'city' => $city ?: ($geo['city'] ?? null),
+            'province' => $province ?: ($geo['province'] ?? null),
+        ];
     }
 
     private function rejectSolePendingFor(Employee $employee): void

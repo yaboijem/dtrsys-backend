@@ -31,4 +31,10 @@ return [
         'attendance_days' => (int) env('RETENTION_ATTENDANCE_DAYS', 730),
         'audit_days' => (int) env('RETENTION_AUDIT_DAYS', 730),
     ],
+
+    'nominatim' => [
+        'base_url' => env('NOMINATIM_BASE_URL', 'https://nominatim.openstreetmap.org'),
+        'user_agent' => env('NOMINATIM_USER_AGENT', 'DTRSys/1.0 (home-location reverse geocode)'),
+        'cache_seconds' => (int) env('NOMINATIM_CACHE_SECONDS', 86400),
+    ],
 ];
