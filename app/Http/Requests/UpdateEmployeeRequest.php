@@ -23,7 +23,7 @@ class UpdateEmployeeRequest extends FormRequest
             'password' => ['nullable', 'string', 'min:8'],
             'role' => ['sometimes', Rule::in(StoreEmployeeRequest::ROLES)],
             'branch_id' => ['sometimes', 'integer', 'exists:branches,id'],
-            'work_arrangement' => ['sometimes', Rule::in(['onsite', 'wfh'])],
+            'work_arrangement' => ['sometimes', Rule::in(['onsite', 'wfh', 'hybrid'])],
             'first_name' => ['sometimes', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['sometimes', 'string', 'max:255'],

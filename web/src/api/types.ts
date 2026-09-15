@@ -157,7 +157,7 @@ export interface Employee {
   position: string;
   date_hired: string | null;
   is_active: boolean;
-  work_arrangement?: 'onsite' | 'wfh';
+  work_arrangement?: 'onsite' | 'wfh' | 'hybrid';
   home_location_status?: 'none' | 'pending' | 'approved';
   roles: string[] | null;
   branch: BranchRef | null;

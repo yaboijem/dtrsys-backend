@@ -108,7 +108,7 @@ export interface EmployeePayload {
   password?: string;
   role: string;
   branch_id: number;
-  work_arrangement?: 'onsite' | 'wfh';
+  work_arrangement?: 'onsite' | 'wfh' | 'hybrid';
   first_name: string;
   middle_name?: string | null;
   last_name: string;

@@ -30,7 +30,7 @@ interface FormState {
   password: string;
   role: string;
   branch_id: string;
-  work_arrangement: 'onsite' | 'wfh';
+  work_arrangement: 'onsite' | 'wfh' | 'hybrid';
   first_name: string;
   middle_name: string;
   last_name: string;
@@ -148,7 +148,10 @@ export function EmployeesPage() {
       password: '',
       role: employee.roles?.[0] ?? 'Employee',
       branch_id: employee.branch ? String(employee.branch.id) : '',
-      work_arrangement: employee.work_arrangement === 'wfh' ? 'wfh' : 'onsite',
+      work_arrangement:
+        employee.work_arrangement === 'wfh' || employee.work_arrangement === 'hybrid'
+          ? employee.work_arrangement
+          : 'onsite',
       first_name: employee.first_name,
       middle_name: employee.middle_name ?? '',
       last_name: employee.last_name,
@@ -321,8 +324,12 @@ export function EmployeesPage() {
                   render: (r) => (
                     <div className="flex flex-wrap gap-1">
                       <Badge tone="teal">{branchName(r.branch?.id)}</Badge>
-                      <Badge tone={r.work_arrangement === 'wfh' ? 'violet' : 'gray'}>
-                        {r.work_arrangement === 'wfh' ? 'WFH' : 'Onsite'}
+                      <Badge tone={r.work_arrangement === 'onsite' || !r.work_arrangement ? 'gray' : 'violet'}>
+                        {r.work_arrangement === 'wfh'
+                          ? 'WFH'
+                          : r.work_arrangement === 'hybrid'
+                            ? 'Hybrid'
+                            : 'Onsite'}
                       </Badge>
                       {r.department ? <Badge tone="gray">{r.department}</Badge> : null}
                       <Badge tone={r.roles?.[0] === 'Super Admin' ? 'violet' : 'blue'}>{r.roles?.[0] ?? '—'}</Badge>
@@ -408,10 +415,11 @@ export function EmployeesPage() {
           <Field label="Work arrangement" error={fieldErrors.work_arrangement?.[0]}>
             <Select
               value={form.work_arrangement}
-              onChange={(e) => setForm({ ...form, work_arrangement: e.target.value as 'onsite' | 'wfh' })}
+              onChange={(e) => setForm({ ...form, work_arrangement: e.target.value as 'onsite' | 'wfh' | 'hybrid' })}
             >
               <option value="onsite">Onsite</option>
               <option value="wfh">WFH</option>
+              <option value="hybrid">Hybrid</option>
             </Select>
           </Field>
           <Field label="First name" required error={fieldErrors.first_name?.[0]}>

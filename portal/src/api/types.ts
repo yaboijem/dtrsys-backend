@@ -16,7 +16,7 @@ export interface EmployeeInfo {
   department: string | null;
   position: string | null;
   date_hired: string | null;
-  work_arrangement?: 'onsite' | 'wfh';
+  work_arrangement?: 'onsite' | 'wfh' | 'hybrid';
   home_location_status?: 'none' | 'pending' | 'approved';
   home_location?: {
     id: number;

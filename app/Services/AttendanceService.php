@@ -269,29 +269,24 @@ class AttendanceService
 
     public function resolveGpsVerification(Employee $employee, array $data): array
     {
+        $lat = isset($data['latitude']) ? (float) $data['latitude'] : null;
+        $lng = isset($data['longitude']) ? (float) $data['longitude'] : null;
+        $acc = isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null;
+
         if ($employee->isWfh()) {
             $home = $employee->primaryHomeLocation();
 
             if (! $home) {
-                $hasPending = $employee->homeLocations()
-                    ->where('home_locations.status', 'pending')
-                    ->exists();
-
-                throw new HomeLocationRequiredException(
-                    $hasPending
-                        ? 'Your home location is pending HR approval.'
-                        : 'Set and get approval for your home location before clocking in.',
-                    $hasPending ? 'home_location_pending' : 'home_location_required',
-                );
+                throw $this->homeLocationRequiredException($employee);
             }
 
             $result = $this->gpsService->verifyCoordinates(
                 (float) $home->latitude,
                 (float) $home->longitude,
                 (float) $home->radius_meters,
-                isset($data['latitude']) ? (float) $data['latitude'] : null,
-                isset($data['longitude']) ? (float) $data['longitude'] : null,
-                isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null,
+                $lat,
+                $lng,
+                $acc,
             );
 
             $result['verified_against_type'] = 'home_location';
@@ -300,11 +295,75 @@ class AttendanceService
             return $result;
         }
 
+        if ($employee->isHybrid()) {
+            $home = $employee->primaryHomeLocation();
+
+            if (! $home) {
+                throw $this->homeLocationRequiredException($employee);
+            }
+
+            $branch = $employee->branch;
+            $branchResult = $this->gpsService->verifyCoordinates(
+                (float) $branch->latitude,
+                (float) $branch->longitude,
+                (float) $branch->radius_meters,
+                $lat,
+                $lng,
+                $acc,
+            );
+            $branchResult['verified_against_type'] = 'branch';
+            $branchResult['verified_against_id'] = $branch->id;
+
+            $homeResult = $this->gpsService->verifyCoordinates(
+                (float) $home->latitude,
+                (float) $home->longitude,
+                (float) $home->radius_meters,
+                $lat,
+                $lng,
+                $acc,
+            );
+            $homeResult['verified_against_type'] = 'home_location';
+            $homeResult['verified_against_id'] = $home->id;
+
+            $candidates = [];
+            if ($branchResult['is_within_radius']) {
+                $candidates[] = $branchResult;
+            }
+            if ($homeResult['is_within_radius']) {
+                $candidates[] = $homeResult;
+            }
+
+            if ($candidates === []) {
+                $distances = array_values(array_filter(
+                    [$branchResult['distance_meters'], $homeResult['distance_meters']],
+                    fn ($d) => $d !== null,
+                ));
+
+                return [
+                    'distance_meters' => $distances === [] ? null : min($distances),
+                    'is_within_radius' => false,
+                    'accuracy_meters' => $acc,
+                    'reason' => 'Outside both office and home geofences.',
+                    'branch_distance_meters' => $branchResult['distance_meters'],
+                    'home_distance_meters' => $homeResult['distance_meters'],
+                    'verified_against_type' => null,
+                    'verified_against_id' => null,
+                ];
+            }
+
+            usort(
+                $candidates,
+                fn ($a, $b) => ($a['distance_meters'] ?? PHP_FLOAT_MAX) <=> ($b['distance_meters'] ?? PHP_FLOAT_MAX),
+            );
+
+            return $candidates[0];
+        }
+
         $result = $this->gpsService->verify(
             $employee->branch,
-            isset($data['latitude']) ? (float) $data['latitude'] : null,
-            isset($data['longitude']) ? (float) $data['longitude'] : null,
-            isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null,
+            $lat,
+            $lng,
+            $acc,
         );
 
         $result['verified_against_type'] = 'branch';
@@ -313,14 +372,33 @@ class AttendanceService
         return $result;
     }
 
+    private function homeLocationRequiredException(Employee $employee): HomeLocationRequiredException
+    {
+        $hasPending = $employee->homeLocations()
+            ->where('home_locations.status', 'pending')
+            ->exists();
+
+        return new HomeLocationRequiredException(
+            $hasPending
+                ? 'Your home location is pending HR approval.'
+                : 'Set and get approval for your home location before clocking in.',
+            $hasPending ? 'home_location_pending' : 'home_location_required',
+        );
+    }
+
     private function verifyGps(Employee $employee, array $data): array
     {
         $result = $this->resolveGpsVerification($employee, $data);
 
         if (! $result['is_within_radius']) {
-            $message = ($result['verified_against_type'] ?? null) === 'home_location'
-                ? 'You are outside the allowed GPS radius for your approved home location.'
-                : 'You are outside the allowed GPS radius for your assigned branch.';
+            $type = $result['verified_against_type'] ?? null;
+            $message = match ($type) {
+                'home_location' => 'You are outside the allowed GPS radius for your approved home location.',
+                'branch' => 'You are outside the allowed GPS radius for your assigned branch.',
+                default => $employee->isHybrid()
+                    ? 'You are outside both your office and home allowed areas.'
+                    : 'You are outside the allowed GPS radius for your assigned branch.',
+            };
 
             throw new GpsOutOfRangeException($message, $result);
         }

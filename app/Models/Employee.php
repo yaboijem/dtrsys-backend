@@ -97,6 +97,16 @@ class Employee extends Model
         return $this->work_arrangement === 'wfh';
     }
 
+    public function isHybrid(): bool
+    {
+        return $this->work_arrangement === 'hybrid';
+    }
+
+    public function requiresHomeLocation(): bool
+    {
+        return $this->isWfh() || $this->isHybrid();
+    }
+
     public function homeLocationStatus(): string
     {
         if ($this->primaryHomeLocation()) {

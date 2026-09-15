@@ -295,7 +295,7 @@ Designed for field use: one-handed targets, offline-first punches, high contrast
 | Dashboard | Super Admin, HR, Branch Manager, Department Head | Metrics + day-over-day deltas; fraud severity; recent audit activity |
 | Attendance | Super Admin, HR, Branch Manager, Department Head | Filters; searchable **EmployeePicker**; selfie / map drawer |
 | Fraud flags | Super Admin, HR, Branch Manager | Resolve / dismiss; drawer with selfie + reference photo; severity filters |
-| Employees | Super Admin, HR | Search; create/edit; **work arrangement** (onsite/WFH); reference photo; deactivate; device name / shared |
+| Employees | Super Admin, HR | Search; create/edit; **work arrangement** (onsite/WFH/hybrid); reference photo; deactivate; device name / shared |
 | Home locations | Super Admin, HR | Pending WFH home pins; approve/reject/link shared pin |
 | Branches | Super Admin, HR | CRUD + map location picker |
 | Shifts | Super Admin, HR | CRUD |

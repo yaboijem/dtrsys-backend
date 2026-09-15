@@ -13,8 +13,8 @@ class HomeLocationService
 {
     public function submit(Employee $employee, User $actor, array $data): HomeLocation
     {
-        if (! $employee->isWfh()) {
-            throw new InvalidArgumentException('Only WFH employees can submit a home location.');
+        if (! $employee->requiresHomeLocation()) {
+            throw new InvalidArgumentException('Only WFH or hybrid employees can submit a home location.');
         }
 
         return DB::transaction(function () use ($employee, $actor, $data) {

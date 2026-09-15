@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { errorMessage } from '../lib/format';
-import { resolveGpsPosition } from '../lib/location';
+import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
 interface HomeLocationPayload {
@@ -39,8 +39,9 @@ export function HomeLocationPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const isWfh = (user?.employee as { work_arrangement?: string } | null | undefined)?.work_arrangement === 'wfh'
-    || data?.work_arrangement === 'wfh';
+  const arrangement =
+    user?.employee?.work_arrangement ?? data?.work_arrangement ?? 'onsite';
+  const needsHome = arrangement === 'wfh' || arrangement === 'hybrid';
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -66,17 +67,16 @@ export function HomeLocationPage() {
     setMessage(null);
     try {
       const gps = await resolveGpsPosition();
-      if (!gps.ok) {
-        setError('Could not get GPS. Allow location and try again at home.');
+      if (gps.status !== 'ok') {
+        setError(gpsFailureMessage(gps.status));
         return;
       }
-      const coords = gps.position.coords;
       await api.post(
         '/api/home-location',
         {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          accuracy_meters: coords.accuracy,
+          latitude: gps.position.latitude,
+          longitude: gps.position.longitude,
+          accuracy_meters: gps.position.accuracy,
           label: 'My Home',
         },
         token,
@@ -118,8 +118,12 @@ export function HomeLocationPage() {
 
       {loading ? (
         <div style={{ color: colors.muted, fontSize: fontSize.sm }}>Loading…</div>
-      ) : !isWfh ? (
-        <Banner kind="info" title="Onsite employee" detail="Home location is only required for WFH staff. Ask HR to set your work arrangement to WFH if needed." />
+      ) : !needsHome ? (
+        <Banner
+          kind="info"
+          title="Onsite employee"
+          detail="Home location is only required for WFH or hybrid staff. Ask HR to update your work arrangement if needed."
+        />
       ) : (
         <>
           {error && <Banner kind="error" title="Error" detail={error} />}

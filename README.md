@@ -134,7 +134,7 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 |---|---|---|
 | GET | `/admin/branches` · POST `/admin/branches` · GET/PUT/DELETE `/admin/branches/{branch}` | Branch CRUD (`{ name, code, address?, latitude, longitude, radius_meters, is_active? }`). Delete is blocked while employees exist (`branch_has_employees`) |
 | GET | `/admin/shifts` · POST `/admin/shifts` · GET/PUT/DELETE `/admin/shifts/{shift}` | Shift CRUD (`{ name, start_time, end_time, grace_minutes?, break_start?, break_end?, is_active? }`). Delete blocked while assigned (`shift_in_use`) |
-| GET/POST | `/admin/employees` · GET/PUT/DELETE `/admin/employees/{employee}` | Employee CRUD (`{ employee_id, name, email, password, role, branch_id, work_arrangement?: onsite\|wfh, first_name, last_name, department, position, date_hired?, is_active? }`). Delete blocks accounts with attendance history |
+| GET/POST | `/admin/employees` · GET/PUT/DELETE `/admin/employees/{employee}` | Employee CRUD (`{ employee_id, name, email, password, role, branch_id, work_arrangement?: onsite\|wfh\|hybrid, first_name, last_name, department, position, date_hired?, is_active? }`). Hybrid = branch or approved home (nearest wins); home pin required before any punch. Delete blocks accounts with attendance history |
 | GET | `/admin/home-locations` | List home pins; filter `status` (`pending`/`approved`/…) |
 | PATCH | `/admin/home-locations/{id}` | `{ action: approve\|reject\|link, radius_meters?, review_note?, link_home_location_id?, employee_id? }` |
 | POST | `/admin/employees/{employee}/reference-photo` | `{ photo: file }` (jpeg/png, ≤ 5 MB) — compressed and stored, audited |
