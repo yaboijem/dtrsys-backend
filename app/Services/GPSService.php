@@ -25,6 +25,24 @@ class GPSService
 
     public function verify(Branch $branch, ?float $latitude, ?float $longitude, ?float $accuracyMeters = null): array
     {
+        return $this->verifyCoordinates(
+            (float) $branch->latitude,
+            (float) $branch->longitude,
+            (float) $branch->radius_meters,
+            $latitude,
+            $longitude,
+            $accuracyMeters,
+        );
+    }
+
+    public function verifyCoordinates(
+        ?float $targetLat,
+        ?float $targetLng,
+        float $radiusMeters,
+        ?float $latitude,
+        ?float $longitude,
+        ?float $accuracyMeters = null,
+    ): array {
         if ($latitude === null || $longitude === null) {
             return [
                 'distance_meters' => null,
@@ -34,14 +52,23 @@ class GPSService
             ];
         }
 
+        if ($targetLat === null || $targetLng === null) {
+            return [
+                'distance_meters' => null,
+                'is_within_radius' => false,
+                'accuracy_meters' => $accuracyMeters,
+                'reason' => 'No target coordinates configured.',
+            ];
+        }
+
         $distance = $this->distanceMeters(
-            (float) $branch->latitude,
-            (float) $branch->longitude,
+            $targetLat,
+            $targetLng,
             $latitude,
             $longitude,
         );
 
-        $effectiveRadius = (float) $branch->radius_meters + ($accuracyMeters ?? 0);
+        $effectiveRadius = $radiusMeters + ($accuracyMeters ?? 0);
 
         return [
             'distance_meters' => round($distance, 2),

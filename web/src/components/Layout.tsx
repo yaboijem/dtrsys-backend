@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Clock,
   Flag,
+  Home,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -42,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { to: '/schedules', label: 'Schedules', icon: <CalendarDays size={18} />, roles: ALL_ROLES },
   { to: '/employees', label: 'Employees', icon: <Users size={18} />, roles: ['Super Admin', 'HR'] },
+  { to: '/home-locations', label: 'Home locations', icon: <Home size={18} />, roles: ['Super Admin', 'HR'] },
   { to: '/branches', label: 'Branches', icon: <Building2 size={18} />, roles: ['Super Admin', 'HR'] },
   { to: '/shifts', label: 'Shifts', icon: <Clock size={18} />, roles: ['Super Admin', 'HR'] },
 ];

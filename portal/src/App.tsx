@@ -15,6 +15,7 @@ import { History } from './pages/History';
 import { Notifications } from './pages/Notifications';
 import { More } from './pages/More';
 import { Consent } from './pages/Consent';
+import { HomeLocationPage } from './pages/HomeLocation';
 
 // ── Auth guard ─────────────────────────────────────────────────────────────────
 function AuthGuard() {
@@ -79,6 +80,7 @@ export default function App() {
                   <Route path="/alerts" element={<Notifications />} />
                   <Route path="/more" element={<More />} />
                   <Route path="/more/consent" element={<Consent />} />
+                  <Route path="/more/home-location" element={<HomeLocationPage />} />
                 </Route>
               </Route>
 

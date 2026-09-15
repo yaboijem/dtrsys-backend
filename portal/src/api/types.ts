@@ -16,6 +16,16 @@ export interface EmployeeInfo {
   department: string | null;
   position: string | null;
   date_hired: string | null;
+  work_arrangement?: 'onsite' | 'wfh';
+  home_location_status?: 'none' | 'pending' | 'approved';
+  home_location?: {
+    id: number;
+    label: string | null;
+    latitude: number;
+    longitude: number;
+    radius_meters: number;
+    status: string;
+  } | null;
   branch: Branch | null;
 }
 
@@ -35,6 +45,8 @@ export interface GpsLocation {
   accuracy_meters: number | null;
   distance_from_branch_meters: number | null;
   is_within_radius: boolean;
+  verified_against_type?: 'branch' | 'home_location' | null;
+  verified_against_id?: number | null;
 }
 
 export interface AttendancePhoto {
@@ -173,4 +185,6 @@ export interface GpsOutOfRangeDetails {
   branch_latitude?: number;
   branch_longitude?: number;
   radius_meters?: number;
+  verified_against_type?: 'branch' | 'home_location';
+  verified_against_id?: number;
 }

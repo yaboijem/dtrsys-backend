@@ -64,6 +64,7 @@ class EmployeeController extends Controller
             return Employee::create([
                 'user_id' => $user->id,
                 'branch_id' => $request->integer('branch_id'),
+                'work_arrangement' => $request->input('work_arrangement', 'onsite'),
                 'first_name' => $request->input('first_name'),
                 'middle_name' => $request->input('middle_name'),
                 'last_name' => $request->input('last_name'),
@@ -125,6 +126,7 @@ class EmployeeController extends Controller
 
             $employee->update($request->only([
                 'branch_id',
+                'work_arrangement',
                 'first_name',
                 'middle_name',
                 'last_name',

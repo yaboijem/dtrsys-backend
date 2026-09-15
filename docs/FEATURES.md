@@ -96,7 +96,8 @@ Automated flags evaluated on punches (live and sync):
 
 | Flag type | Meaning |
 |-----------|---------|
-| Out of radius | GPS outside branch geofence |
+| Out of radius | GPS outside branch or approved home geofence |
+| Home location required / pending | WFH punch blocked until HR-approved home pin |
 | Face mismatch | Selfie did not match reference |
 | No face | Face not detected in selfie |
 | Impossible jump | Unrealistic travel speed between punches |
@@ -260,11 +261,12 @@ Installable Progressive Web App for employees.
 | **Home** | GPS status; Time In / Time Out (camera selfie, client-side compress); Break In / Break Out; today’s schedule (shift, grace, start/end, progress); compact today’s punches with Activity / Time / **Duration** columns; offline queue + sync; result stamp |
 | **History** | Attendance history with filters and tags (offline, late, etc.) |
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
-| **More** | Profile (department, branch, position, roles); MFA status; consent link; light / dark / system theme; logout via `ConfirmModal` |
+| **More** | Profile (department, branch, position, roles); MFA status; consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |
 | **Consent** | Biometric + GPS toggles |
+| **Home location** | WFH employees submit current GPS as home pin; status none/pending/approved |
 | **PWA** | Manifest, service worker, offline shell banner, install prompt, IndexedDB offline punch queue |
 
-Routes: `/login`, `/mfa`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`.
+Routes: `/login`, `/mfa`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`, `/more/home-location`.
 
 Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PwaChrome`.
 
@@ -293,7 +295,8 @@ Designed for field use: one-handed targets, offline-first punches, high contrast
 | Dashboard | Super Admin, HR, Branch Manager, Department Head | Metrics + day-over-day deltas; fraud severity; recent audit activity |
 | Attendance | Super Admin, HR, Branch Manager, Department Head | Filters; searchable **EmployeePicker**; selfie / map drawer |
 | Fraud flags | Super Admin, HR, Branch Manager | Resolve / dismiss; drawer with selfie + reference photo; severity filters |
-| Employees | Super Admin, HR | Search; create/edit; reference photo; deactivate; device name / shared |
+| Employees | Super Admin, HR | Search; create/edit; **work arrangement** (onsite/WFH); reference photo; deactivate; device name / shared |
+| Home locations | Super Admin, HR | Pending WFH home pins; approve/reject/link shared pin |
 | Branches | Super Admin, HR | CRUD + map location picker |
 | Shifts | Super Admin, HR | CRUD |
 | Schedules | Super Admin, HR, Branch Manager, Department Head | List + week view; searchable employee filter; add schedule; **bulk assign** via multi `EmployeePicker` |

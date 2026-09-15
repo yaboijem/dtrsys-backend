@@ -27,6 +27,8 @@ class EmployeeResource extends JsonResource
                     ? $this->user->getRoleNames()
                     : null;
             }),
+            'work_arrangement' => $this->work_arrangement ?? 'onsite',
+            'home_location_status' => $this->homeLocationStatus(),
             'branch' => $this->whenLoaded('branch', fn () => [
                 'id' => $this->branch->id,
                 'name' => $this->branch->name,

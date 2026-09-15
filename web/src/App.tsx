@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { FraudFlagsPage } from './pages/FraudFlagsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
+import { HomeLocationsPage } from './pages/HomeLocationsPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { ShiftsPage } from './pages/ShiftsPage';
 import { SchedulesPage } from './pages/SchedulesPage';
@@ -86,6 +87,18 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR']}>
                 <EmployeesPage />
+              </RequireRole>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/home-locations"
+        element={
+          <RequireAuth>
+            <Layout>
+              <RequireRole roles={['Super Admin', 'HR']}>
+                <HomeLocationsPage />
               </RequireRole>
             </Layout>
           </RequireAuth>

@@ -27,6 +27,16 @@ class UserResource extends JsonResource
                 'department' => $employee->department,
                 'position' => $employee->position,
                 'date_hired' => $employee->date_hired,
+                'work_arrangement' => $employee->work_arrangement ?? 'onsite',
+                'home_location_status' => $employee->homeLocationStatus(),
+                'home_location' => ($primary = $employee->primaryHomeLocation()) ? [
+                    'id' => $primary->id,
+                    'label' => $primary->label,
+                    'latitude' => $primary->latitude,
+                    'longitude' => $primary->longitude,
+                    'radius_meters' => $primary->radius_meters,
+                    'status' => $primary->status,
+                ] : null,
                 'branch' => $employee->relationLoaded('branch') ? [
                     'id' => $employee->branch->id,
                     'name' => $employee->branch->name,

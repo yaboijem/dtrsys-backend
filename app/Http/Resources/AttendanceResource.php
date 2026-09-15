@@ -33,6 +33,8 @@ class AttendanceResource extends JsonResource
                 'accuracy_meters' => $this->gpsLocation->accuracy_meters,
                 'distance_from_branch_meters' => $this->gpsLocation->distance_from_branch_meters,
                 'is_within_radius' => $this->gpsLocation->is_within_radius,
+                'verified_against_type' => $this->gpsLocation->verified_against_type,
+                'verified_against_id' => $this->gpsLocation->verified_against_id,
             ]),
             'photo' => $this->whenLoaded('photo', fn () => [
                 'path' => $this->photo->path,

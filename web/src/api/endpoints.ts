@@ -7,6 +7,7 @@ import type {
   DashboardSummary,
   Employee,
   FraudFlag,
+  HomeLocation,
   LoginResponse,
   MfaRequiredResponse,
   Paginated,
@@ -107,6 +108,7 @@ export interface EmployeePayload {
   password?: string;
   role: string;
   branch_id: number;
+  work_arrangement?: 'onsite' | 'wfh';
   first_name: string;
   middle_name?: string | null;
   last_name: string;
@@ -210,4 +212,24 @@ export function getAppSettings(token: string): Promise<AppSettings> {
 
 export function updateAppSettings(payload: { breaks_enabled: boolean }, token: string): Promise<AppSettings> {
   return api.patch<{ data: AppSettings }>('/api/admin/settings', payload, token).then((r) => r.data);
+}
+
+export function listHomeLocations(params: PaginationParams, token: string): Promise<Paginated<HomeLocation>> {
+  return api.get<RawPaginated<HomeLocation>>('/api/admin/home-locations', params, token).then(toPaginated);
+}
+
+export function reviewHomeLocation(
+  id: number,
+  body: {
+    action: 'approve' | 'reject' | 'link';
+    radius_meters?: number;
+    review_note?: string;
+    link_home_location_id?: number;
+    employee_id?: number;
+  },
+  token: string,
+): Promise<HomeLocation> {
+  return api
+    .patch<{ data: HomeLocation }>(`/api/admin/home-locations/${id}`, body, token)
+    .then((r) => r.data);
 }

@@ -193,12 +193,12 @@ class SyncService
             throw new \InvalidArgumentException('device is not registered to this employee.');
         }
 
-        $gps = $this->gpsService->verify(
-            $employee->branch,
-            $latitude,
-            $longitude,
-            isset($record['accuracy_meters']) ? (float) $record['accuracy_meters'] : null,
-        );
+        // Soft out-of-radius (store flag); missing WFH home still hard-fails via resolveGpsVerification.
+        $gps = $this->attendanceService->resolveGpsVerification($employee, [
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'accuracy_meters' => $record['accuracy_meters'] ?? null,
+        ]);
 
         $workMinutes = null;
         $breakMinutes = null;
@@ -258,6 +258,8 @@ class SyncService
             'accuracy_meters' => $attendance->gps_accuracy_meters,
             'distance_from_branch_meters' => $gps['distance_meters'],
             'is_within_radius' => $gps['is_within_radius'],
+            'verified_against_type' => $gps['verified_against_type'] ?? null,
+            'verified_against_id' => $gps['verified_against_id'] ?? null,
             'captured_at' => $timestamp,
         ]);
 

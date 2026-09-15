@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Jobs\NotifyFraudFlagJob;
 use App\Models\DeviceChangeRequest;
+use App\Models\Employee;
 use App\Models\FraudFlag;
+use App\Models\HomeLocation;
 use App\Models\User;
 use App\Notifications\GenericNotification;
 
@@ -33,6 +35,35 @@ class NotificationService
             'Device change request '.$request->status,
             "Your device change request was {$request->status}.",
             ['device_change_request_id' => $request->id],
+        );
+    }
+
+    public function homeLocationReviewed(HomeLocation $home, Employee $employee, string $action): void
+    {
+        $user = $employee->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $statusWord = match ($action) {
+            'approve' => 'approved',
+            'reject' => 'rejected',
+            'link' => 'linked to a shared home pin',
+            default => $action,
+        };
+
+        $this->send(
+            $user,
+            'Home location '.$statusWord,
+            $action === 'reject' && $home->review_note
+                ? "Your home location was rejected. Notes: {$home->review_note}"
+                : "Your home location was {$statusWord}.",
+            [
+                'home_location_id' => $home->id,
+                'action' => $action,
+                'status' => $home->status,
+            ],
         );
     }
 

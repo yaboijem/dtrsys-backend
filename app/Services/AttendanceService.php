@@ -6,6 +6,7 @@ use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
+use App\Exceptions\HomeLocationRequiredException;
 use App\Jobs\VerifyAttendancePhotoJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
@@ -266,20 +267,62 @@ class AttendanceService
         ]);
     }
 
-    private function verifyGps(Employee $employee, array $data): array
+    public function resolveGpsVerification(Employee $employee, array $data): array
     {
+        if ($employee->isWfh()) {
+            $home = $employee->primaryHomeLocation();
+
+            if (! $home) {
+                $hasPending = $employee->homeLocations()
+                    ->where('home_locations.status', 'pending')
+                    ->exists();
+
+                throw new HomeLocationRequiredException(
+                    $hasPending
+                        ? 'Your home location is pending HR approval.'
+                        : 'Set and get approval for your home location before clocking in.',
+                    $hasPending ? 'home_location_pending' : 'home_location_required',
+                );
+            }
+
+            $result = $this->gpsService->verifyCoordinates(
+                (float) $home->latitude,
+                (float) $home->longitude,
+                (float) $home->radius_meters,
+                isset($data['latitude']) ? (float) $data['latitude'] : null,
+                isset($data['longitude']) ? (float) $data['longitude'] : null,
+                isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null,
+            );
+
+            $result['verified_against_type'] = 'home_location';
+            $result['verified_against_id'] = $home->id;
+
+            return $result;
+        }
+
         $result = $this->gpsService->verify(
             $employee->branch,
-            $data['latitude'] ?? null,
-            $data['longitude'] ?? null,
-            $data['accuracy_meters'] ?? null,
+            isset($data['latitude']) ? (float) $data['latitude'] : null,
+            isset($data['longitude']) ? (float) $data['longitude'] : null,
+            isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null,
         );
 
+        $result['verified_against_type'] = 'branch';
+        $result['verified_against_id'] = $employee->branch_id;
+
+        return $result;
+    }
+
+    private function verifyGps(Employee $employee, array $data): array
+    {
+        $result = $this->resolveGpsVerification($employee, $data);
+
         if (! $result['is_within_radius']) {
-            throw new GpsOutOfRangeException(
-                'You are outside the allowed GPS radius for your assigned branch.',
-                $result,
-            );
+            $message = ($result['verified_against_type'] ?? null) === 'home_location'
+                ? 'You are outside the allowed GPS radius for your approved home location.'
+                : 'You are outside the allowed GPS radius for your assigned branch.';
+
+            throw new GpsOutOfRangeException($message, $result);
         }
 
         return $result;
@@ -344,6 +387,8 @@ class AttendanceService
             'accuracy_meters' => $attendance->gps_accuracy_meters,
             'distance_from_branch_meters' => $gps['distance_meters'],
             'is_within_radius' => $gps['is_within_radius'],
+            'verified_against_type' => $gps['verified_against_type'] ?? null,
+            'verified_against_id' => $gps['verified_against_id'] ?? null,
             'captured_at' => $attendance->timestamp,
         ]);
     }

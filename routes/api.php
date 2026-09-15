@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
+use App\Http\Controllers\Api\Admin\HomeLocationController as AdminHomeLocationController;
 use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\Admin\ShiftController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\DeviceChangeRequestController;
+use App\Http\Controllers\Api\HomeLocationController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\SettingsController;
@@ -64,11 +66,17 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     Route::get('/employee/consent', [ConsentController::class, 'index']);
     Route::post('/employee/consent', [ConsentController::class, 'update']);
+
+    Route::get('/home-location', [HomeLocationController::class, 'show']);
+    Route::post('/home-location', [HomeLocationController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->group(function () {
     Route::get('/device-change-requests', [AdminDeviceChangeRequestController::class, 'index']);
     Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
+
+    Route::get('/home-locations', [AdminHomeLocationController::class, 'index']);
+    Route::patch('/home-locations/{homeLocation}', [AdminHomeLocationController::class, 'review']);
 
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
 

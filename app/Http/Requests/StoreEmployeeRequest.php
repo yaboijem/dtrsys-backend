@@ -29,6 +29,7 @@ class StoreEmployeeRequest extends FormRequest
             'password' => ['required', 'string', 'min:8'],
             'role' => ['required', Rule::in(self::ROLES)],
             'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'work_arrangement' => ['sometimes', Rule::in(['onsite', 'wfh'])],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],

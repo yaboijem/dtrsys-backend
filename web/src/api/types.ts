@@ -157,6 +157,8 @@ export interface Employee {
   position: string;
   date_hired: string | null;
   is_active: boolean;
+  work_arrangement?: 'onsite' | 'wfh';
+  home_location_status?: 'none' | 'pending' | 'approved';
   roles: string[] | null;
   branch: BranchRef | null;
   active_device: {
@@ -166,6 +168,27 @@ export interface Employee {
     is_shared: boolean;
   } | null;
   reference_photo_path: string | null;
+}
+
+export interface HomeLocation {
+  id: number;
+  label: string | null;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  address_text: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'retired';
+  created_by: number;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string | null;
+  employees?: Array<{
+    id: number;
+    full_name: string;
+    employee_id: string | null;
+    is_primary: boolean;
+  }>;
 }
 
 export interface Branch {

@@ -23,6 +23,7 @@ class EmployeeFactory extends Factory
                 'email' => fake()->unique()->safeEmail(),
             ]),
             'branch_id' => Branch::factory(),
+            'work_arrangement' => 'onsite',
             'first_name' => $firstName,
             'last_name' => $lastName,
             'department' => fake()->randomElement(['IT', 'Sales', 'HR', 'Operations']),

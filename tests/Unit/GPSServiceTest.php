@@ -72,4 +72,35 @@ class GPSServiceTest extends TestCase
 
         $this->assertEqualsWithDelta(12.0, $speed, 0.01);
     }
+
+    #[Test]
+    public function it_verifies_location_against_raw_coordinates(): void
+    {
+        $result = (new GPSService)->verifyCoordinates(
+            14.554729,
+            121.024445,
+            200,
+            14.554800,
+            121.024500,
+            10,
+        );
+
+        $this->assertTrue($result['is_within_radius']);
+        $this->assertLessThan(100, $result['distance_meters']);
+    }
+
+    #[Test]
+    public function it_rejects_outside_raw_coordinate_radius(): void
+    {
+        $result = (new GPSService)->verifyCoordinates(
+            14.554729,
+            121.024445,
+            200,
+            14.55,
+            121.02,
+            null,
+        );
+
+        $this->assertFalse($result['is_within_radius']);
+    }
 }

@@ -30,6 +30,7 @@ interface FormState {
   password: string;
   role: string;
   branch_id: string;
+  work_arrangement: 'onsite' | 'wfh';
   first_name: string;
   middle_name: string;
   last_name: string;
@@ -47,6 +48,7 @@ function emptyForm(): FormState {
     password: '',
     role: 'Employee',
     branch_id: '',
+    work_arrangement: 'onsite',
     first_name: '',
     middle_name: '',
     last_name: '',
@@ -146,6 +148,7 @@ export function EmployeesPage() {
       password: '',
       role: employee.roles?.[0] ?? 'Employee',
       branch_id: employee.branch ? String(employee.branch.id) : '',
+      work_arrangement: employee.work_arrangement === 'wfh' ? 'wfh' : 'onsite',
       first_name: employee.first_name,
       middle_name: employee.middle_name ?? '',
       last_name: employee.last_name,
@@ -171,6 +174,7 @@ export function EmployeesPage() {
         email: form.email.trim(),
         role: form.role,
         branch_id: Number(form.branch_id),
+        work_arrangement: form.work_arrangement,
         first_name: form.first_name.trim(),
         middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
@@ -317,6 +321,9 @@ export function EmployeesPage() {
                   render: (r) => (
                     <div className="flex flex-wrap gap-1">
                       <Badge tone="teal">{branchName(r.branch?.id)}</Badge>
+                      <Badge tone={r.work_arrangement === 'wfh' ? 'violet' : 'gray'}>
+                        {r.work_arrangement === 'wfh' ? 'WFH' : 'Onsite'}
+                      </Badge>
                       {r.department ? <Badge tone="gray">{r.department}</Badge> : null}
                       <Badge tone={r.roles?.[0] === 'Super Admin' ? 'violet' : 'blue'}>{r.roles?.[0] ?? '—'}</Badge>
                     </div>
@@ -396,6 +403,15 @@ export function EmployeesPage() {
                   {b.name}
                 </option>
               ))}
+            </Select>
+          </Field>
+          <Field label="Work arrangement" error={fieldErrors.work_arrangement?.[0]}>
+            <Select
+              value={form.work_arrangement}
+              onChange={(e) => setForm({ ...form, work_arrangement: e.target.value as 'onsite' | 'wfh' })}
+            >
+              <option value="onsite">Onsite</option>
+              <option value="wfh">WFH</option>
             </Select>
           </Field>
           <Field label="First name" required error={fieldErrors.first_name?.[0]}>

@@ -5,6 +5,7 @@ use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\DeviceBlockedException;
 use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
+use App\Exceptions\HomeLocationRequiredException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -62,6 +63,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'code' => 'gps_out_of_range',
                 'details' => $e->details,
+            ], 422);
+        });
+
+        $exceptions->render(function (HomeLocationRequiredException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => $e->errorCode,
             ], 422);
         });
 

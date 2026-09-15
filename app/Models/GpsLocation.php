@@ -15,6 +15,8 @@ class GpsLocation extends Model
         'accuracy_meters',
         'distance_from_branch_meters',
         'is_within_radius',
+        'verified_against_type',
+        'verified_against_id',
         'captured_at',
     ];
 

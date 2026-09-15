@@ -417,10 +417,23 @@ export function Home() {
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const details = (err.details ?? {}) as GpsOutOfRangeDetails;
+          const target = details.verified_against_type === 'home_location' ? 'home' : 'branch';
           setResult({
             kind: 'error',
             title: 'Outside GPS radius',
-            detail: `${err.message}${details.distance_meters !== undefined ? ` (${distanceLabel(details.distance_meters)} from branch)` : ''}`,
+            detail: `${err.message}${details.distance_meters !== undefined ? ` (${distanceLabel(details.distance_meters)} from ${target})` : ''}`,
+          });
+        } else if (err.code === 'home_location_required') {
+          setResult({
+            kind: 'error',
+            title: 'Home location required',
+            detail: 'Go to More → Home location and submit your home pin for HR approval.',
+          });
+        } else if (err.code === 'home_location_pending') {
+          setResult({
+            kind: 'error',
+            title: 'Home location pending',
+            detail: 'Your home pin is waiting for HR approval. You cannot punch until it is approved.',
           });
         } else if (err.code === 'attendance_conflict') {
           setResult({ kind: 'error', title: 'Conflict', detail: err.message });
@@ -547,10 +560,23 @@ export function Home() {
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const d = (err.details ?? {}) as GpsOutOfRangeDetails;
+          const target = d.verified_against_type === 'home_location' ? 'home' : 'branch';
           setResult({
             kind: 'error',
             title: 'Outside GPS radius',
-            detail: `${err.message}${d.distance_meters !== undefined ? ` (${distanceLabel(d.distance_meters)} from branch)` : ''}`,
+            detail: `${err.message}${d.distance_meters !== undefined ? ` (${distanceLabel(d.distance_meters)} from ${target})` : ''}`,
+          });
+        } else if (err.code === 'home_location_required') {
+          setResult({
+            kind: 'error',
+            title: 'Home location required',
+            detail: 'Go to More → Home location and submit your home pin for HR approval.',
+          });
+        } else if (err.code === 'home_location_pending') {
+          setResult({
+            kind: 'error',
+            title: 'Home location pending',
+            detail: 'Your home pin is waiting for HR approval.',
           });
         } else if (err.code === 'attendance_conflict') {
           setResult({ kind: 'error', title: 'Conflict', detail: err.message });

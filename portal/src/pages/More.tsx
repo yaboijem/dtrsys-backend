@@ -188,6 +188,30 @@ export function More() {
           </div>
           <ChevronRight size={18} color={colors.muted} />
         </button>
+
+        <button
+          type="button"
+          onClick={() => navigate('/more/home-location')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: 48,
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            padding: '8px 0',
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: fontSize.md, fontWeight: 700, color: colors.ink }}>Home location</div>
+            <div style={{ fontSize: fontSize.sm, marginTop: 2, color: colors.muted }}>
+              WFH geofence — submit and track HR approval
+            </div>
+          </div>
+          <ChevronRight size={18} color={colors.muted} />
+        </button>
       </SectionCard>
 
       <SectionCard title="Appearance">
