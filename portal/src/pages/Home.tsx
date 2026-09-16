@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Camera, Clock, CloudSun, Coffee, MapPin, Moon, Sun, Timer, WifiOff } from 'lucide-react';
+import { Camera, CloudSun, Coffee, LogIn, LogOut, MapPin, Moon, Sun, WifiOff } from 'lucide-react';
 
 import { ApiError } from '../api/client';
 import { Attendance, Paginated, PunchType, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
@@ -28,6 +28,7 @@ import { compressDataUrl } from '../lib/image';
 import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { coerceAttendance, deriveAttendanceState, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
+import { useProfilePhoto } from '../lib/useProfilePhoto';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
@@ -80,13 +81,13 @@ interface FlushResultView {
   synced: number;
   failed: number;
   duplicates: number;
-  faceIssues: number;
 }
 
 export function Home() {
   const colors = useThemeColors();
   const { api, token, user, deviceId } = useAuth();
   const { refreshUnread } = useUnread();
+  const { src: photoSrc } = useProfilePhoto(user?.employee_id);
 
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
@@ -287,7 +288,6 @@ export function Home() {
           synced: res.synced,
           failed: res.failed,
           duplicates: res.duplicates,
-          faceIssues: res.faceIssues,
         });
         if (res.syncedItems.length > 0) {
           setSyncedLocal((prev) => [...prev, ...res.syncedItems]);
@@ -411,7 +411,7 @@ export function Home() {
         setResult({
           kind: 'success',
           title: 'Queued offline',
-          detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nNo face verification was possible offline.\nQueued offline — will sync when you're back online.`,
+          detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nQueued offline — will sync when you're back online.`,
         });
         void loadToday();
       } else if (err instanceof ApiError) {
@@ -439,8 +439,6 @@ export function Home() {
           setResult({ kind: 'error', title: 'Conflict', detail: err.message });
           // Server is source of truth — resync button state after conflict/spam.
           await loadToday();
-        } else if (err.code === 'face_verification_failed') {
-          setResult({ kind: 'error', title: 'Face verification failed', detail: 'Retake your selfie with better lighting and look directly at the camera.' });
         } else if (err.code === 'unauthenticated') {
           setResult({ kind: 'error', title: 'Session expired', detail: 'Log in again.' });
         } else {
@@ -654,7 +652,7 @@ export function Home() {
   return (
     <Screen>
       <div className="portal-card portal-card-pad" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Avatar name={displayName} size={48} />
+        <Avatar name={displayName} size={48} src={photoSrc} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: fontSize.lg, fontWeight: 800, color: colors.ink, letterSpacing: '-0.02em' }}>
             Hello, {firstName}
@@ -772,7 +770,7 @@ export function Home() {
           <div style={{ fontSize: fontSize.sm, color: colors.muted }}>Loading…</div>
         ) : schedule ? (
           <>
-            <div className="metric-grid-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(() => {
                 const sky = shiftSkyKind(schedule.shift?.start_time, schedule.shift?.end_time);
                 const skyStyle = shiftSkyStyle(sky);
@@ -805,35 +803,91 @@ export function Home() {
                   </div>
                 );
               })()}
-              {(
-                [
-                  {
-                    icon: <Timer size={14} />,
-                    label: 'Grace Period',
-                    value: schedule.shift?.grace_minutes != null ? `${schedule.shift.grace_minutes} min` : '—',
-                  },
-                  { icon: <Clock size={14} />, label: 'Start', value: formatClockTime(schedule.shift?.start_time) },
-                  { icon: <Clock size={14} />, label: 'End', value: formatClockTime(schedule.shift?.end_time) },
-                ] as const
-              ).map((m) => (
-                <div
-                  key={m.label}
-                  style={{
-                    borderRadius: 12,
-                    border: `1px solid ${colors.border}`,
-                    padding: '10px 12px',
-                    background: 'color-mix(in srgb, var(--muted) 6%, var(--card))',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.muted, fontSize: 11, fontWeight: 700 }}>
-                    {m.icon}
-                    {m.label}
+              <div className="metric-grid-2">
+                {(
+                  [
+                    {
+                      icon: LogIn,
+                      label: 'Start',
+                      value: formatClockTime(schedule.shift?.start_time),
+                      plate: colors.plates.success,
+                    },
+                    {
+                      icon: LogOut,
+                      label: 'End',
+                      value: formatClockTime(schedule.shift?.end_time),
+                      plate: colors.plates.warning,
+                    },
+                  ] as const
+                ).map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <div
+                      key={m.label}
+                      style={{
+                        borderRadius: 12,
+                        border: `1px solid ${m.plate.border}`,
+                        padding: '10px 12px',
+                        background: m.plate.bg,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          color: m.plate.text,
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        <Icon size={14} color={m.plate.text} />
+                        {m.label}
+                      </div>
+                      <div className="tnum" style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: m.plate.text }}>
+                        {m.value}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {(() => {
+                const plate = colors.plates.info;
+                return (
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      border: `1px solid ${plate.border}`,
+                      padding: '10px 12px',
+                      background: plate.bg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: plate.text,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Coffee size={14} color={plate.text} />
+                      Breaktime
+                    </div>
+                    <div className="tnum" style={{ fontSize: 14, fontWeight: 700, color: plate.text, textAlign: 'right' }}>
+                      {schedule.shift?.break_start && schedule.shift?.break_end
+                        ? `${formatClockTime(schedule.shift.break_start)} – ${formatClockTime(schedule.shift.break_end)}`
+                        : '—'}
+                    </div>
                   </div>
-                  <div className="tnum" style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: colors.ink }}>
-                    {m.value}
-                  </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
             {isOpen && !onBreak ? (
               <div style={{ marginTop: 14 }}>
@@ -995,11 +1049,6 @@ export function Home() {
           {flushResult ? (
             <div style={{ marginTop: spacing.md, fontSize: fontSize.sm, color: colors.ink }}>
               Synced: {flushResult.synced} · Failed: {flushResult.failed} · Duplicates: {flushResult.duplicates}
-              {flushResult.faceIssues > 0 ? (
-                <div style={{ marginTop: 4, color: colors.dangerText, fontWeight: 600 }}>
-                  Face not detected in {flushResult.faceIssues} selfie(s).
-                </div>
-              ) : null}
             </div>
           ) : null}
         </SectionCard>
