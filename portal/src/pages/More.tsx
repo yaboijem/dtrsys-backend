@@ -34,7 +34,7 @@ export function More() {
   const colors = useThemeColors();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { src: photoSrc, error: photoError, clearError, setFromFile, remove } = useProfilePhoto(
+  const { src: photoSrc, error: photoError, clearError, setFromDataUrl, remove } = useProfilePhoto(
     user?.employee_id,
   );
 
@@ -65,9 +65,9 @@ export function More() {
             size={52}
             src={photoSrc}
             editable
-            onPickFile={(file) => {
+            onSavePhoto={(dataUrl) => {
               clearError();
-              void setFromFile(file);
+              void setFromDataUrl(dataUrl);
             }}
             onRemove={remove}
           />

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   fileToProfilePhotoDataUrl,
   getProfilePhoto,
+  normalizeProfilePhotoDataUrl,
   removeProfilePhoto,
   setProfilePhoto,
   subscribeProfilePhoto,
@@ -23,6 +24,21 @@ export function useProfilePhoto(employeeId: string | null | undefined) {
   }, [id]);
 
   const clearError = useCallback(() => setError(null), []);
+
+  const setFromDataUrl = useCallback(
+    async (dataUrl: string) => {
+      if (!id) return;
+      setError(null);
+      try {
+        const normalized = await normalizeProfilePhotoDataUrl(dataUrl);
+        setProfilePhoto(id, normalized);
+        setSrc(normalized);
+      } catch {
+        setError("Couldn't use that image");
+      }
+    },
+    [id],
+  );
 
   const setFromFile = useCallback(
     async (file: File) => {
@@ -46,5 +62,5 @@ export function useProfilePhoto(employeeId: string | null | undefined) {
     setSrc(null);
   }, [id]);
 
-  return { src, error, clearError, setFromFile, remove };
+  return { src, error, clearError, setFromFile, setFromDataUrl, remove };
 }

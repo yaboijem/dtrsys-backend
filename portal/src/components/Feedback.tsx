@@ -1,6 +1,10 @@
 import { Camera } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+import { readFileAsDataUrl } from '../lib/profilePhoto';
 import { BannerTone, fontSize, microLabel, radius, spacing, useThemeColors } from '../theme';
+import { ProfilePhotoEditor } from './ProfilePhotoEditor';
 
 export function Banner({
   kind = 'info',
@@ -139,20 +143,20 @@ export function Avatar({
   size = 44,
   src = null,
   editable = false,
-  onPickFile,
+  onSavePhoto,
   onRemove,
 }: {
   name?: string | null;
   size?: number;
   src?: string | null;
   editable?: boolean;
-  onPickFile?: (file: File) => void;
+  onSavePhoto?: (dataUrl: string) => void;
   onRemove?: () => void;
 }) {
   const colors = useThemeColors();
   const inputRef = useRef<HTMLInputElement>(null);
-  const rootRef = useRef<HTMLSpanElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editorSrc, setEditorSrc] = useState<string | null>(null);
 
   const initials =
     (name ?? '?')
@@ -171,20 +175,11 @@ export function Avatar({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMenuOpen(false);
     };
-    document.addEventListener('mousedown', onDoc);
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen]);
 
   const openPicker = () => {
@@ -193,7 +188,7 @@ export function Avatar({
   };
 
   const onCameraClick = () => {
-    if (src) setMenuOpen((v) => !v);
+    if (src) setMenuOpen(true);
     else openPicker();
   };
 
@@ -214,9 +209,22 @@ export function Avatar({
     position: 'relative',
   };
 
+  const sheetBtn: React.CSSProperties = {
+    display: 'block',
+    width: '100%',
+    minHeight: 48,
+    textAlign: 'center',
+    background: colors.card,
+    border: 'none',
+    borderRadius: radius.md,
+    padding: '0 16px',
+    cursor: 'pointer',
+    fontSize: fontSize.md,
+    fontWeight: 700,
+  };
+
   return (
     <span
-      ref={rootRef}
       style={{
         position: 'relative',
         width: size,
@@ -247,13 +255,18 @@ export function Avatar({
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
-              if (file) onPickFile?.(file);
+              if (!file) return;
+              void readFileAsDataUrl(file)
+                .then((dataUrl) => setEditorSrc(dataUrl))
+                .catch(() => {
+                  /* parent can show error if save fails later */
+                });
             }}
           />
           <button
             type="button"
             aria-label="Profile photo"
-            aria-haspopup={src ? 'menu' : undefined}
+            aria-haspopup={src ? 'dialog' : undefined}
             aria-expanded={src ? menuOpen : undefined}
             onClick={onCameraClick}
             style={{
@@ -277,71 +290,101 @@ export function Avatar({
           >
             <Camera size={iconSize} strokeWidth={2.25} aria-hidden />
           </button>
-          {menuOpen && src ? (
-            <div
-              role="menu"
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginTop: 8,
-                minWidth: 160,
-                zIndex: 20,
-                background: colors.card,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14)',
-                padding: 4,
-              }}
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={openPicker}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  minHeight: 44,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  borderRadius: radius.sm,
-                  padding: '0 12px',
-                  cursor: 'pointer',
-                  fontSize: fontSize.sm,
-                  fontWeight: 600,
-                  color: colors.ink,
-                }}
-              >
-                Change photo
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onRemove?.();
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  minHeight: 44,
-                  textAlign: 'left',
-                  background: 'none',
-                  border: 'none',
-                  borderRadius: radius.sm,
-                  padding: '0 12px',
-                  cursor: 'pointer',
-                  fontSize: fontSize.sm,
-                  fontWeight: 600,
-                  color: colors.dangerText ?? colors.plates.error.text,
-                }}
-              >
-                Remove photo
-              </button>
-            </div>
-          ) : null}
+
+          {menuOpen && src
+            ? createPortal(
+                <div
+                  role="presentation"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 85,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    background: colors.overlay,
+                    padding: spacing.md,
+                    paddingBottom: `max(${spacing.md}px, env(safe-area-inset-bottom))`,
+                  }}
+                >
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Profile photo actions"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '100%',
+                      maxWidth: 420,
+                      margin: '0 auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: spacing.sm,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: colors.card,
+                        borderRadius: radius.lg,
+                        border: `1px solid ${colors.border}`,
+                        overflow: 'hidden',
+                        boxShadow: '0 8px 28px rgba(15,23,42,0.18)',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={openPicker}
+                        style={{
+                          ...sheetBtn,
+                          borderRadius: 0,
+                          borderBottom: `1px solid ${colors.border}`,
+                          color: colors.ink,
+                        }}
+                      >
+                        Change photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onRemove?.();
+                        }}
+                        style={{
+                          ...sheetBtn,
+                          borderRadius: 0,
+                          color: colors.dangerText,
+                        }}
+                      >
+                        Remove photo
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen(false)}
+                      style={{
+                        ...sheetBtn,
+                        border: `1px solid ${colors.border}`,
+                        boxShadow: '0 4px 16px rgba(15,23,42,0.12)',
+                        color: colors.ink,
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
+
+          <ProfilePhotoEditor
+            open={!!editorSrc}
+            imageSrc={editorSrc}
+            onCancel={() => setEditorSrc(null)}
+            onConfirm={(dataUrl) => {
+              setEditorSrc(null);
+              onSavePhoto?.(dataUrl);
+            }}
+          />
         </>
       ) : null}
     </span>

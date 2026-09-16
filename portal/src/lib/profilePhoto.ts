@@ -58,7 +58,19 @@ export async function fileToProfilePhotoDataUrl(file: File): Promise<string> {
   return compressed;
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
+/** Save an already-cropped JPEG/PNG data URL (re-compress if needed). */
+export async function normalizeProfilePhotoDataUrl(dataUrl: string): Promise<string> {
+  if (!dataUrl.startsWith('data:image/')) {
+    throw new Error('invalid_image');
+  }
+  const compressed = await compressDataUrl(dataUrl, MAX_EDGE, QUALITY);
+  if (!compressed.startsWith('data:image/')) {
+    throw new Error('image_decode_failed');
+  }
+  return compressed;
+}
+
+export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
