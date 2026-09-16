@@ -11,6 +11,5 @@ export const STORAGE_KEYS = {
   deviceId: 'dtr_device_id',
   offlineQueue: 'dtr_offline_queue',
   theme: 'dtr_theme',
+  profilePhotoPrefix: 'dtr_profile_photo_',
 } as const;
-
-export const DEV_OTP_ENABLED = import.meta.env.DEV;
