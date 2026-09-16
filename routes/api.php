@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\DepartmentController;
 use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\HomeLocationController as AdminHomeLocationController;
+use App\Http\Controllers\Api\Admin\PositionController;
 use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\Admin\ShiftController;
@@ -103,5 +105,7 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager|Departmen
     Route::get('/attendance/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/schedules', [ScheduleAdminController::class, 'index']);
+    Route::apiResource('departments', DepartmentController::class);
+    Route::apiResource('positions', PositionController::class);
 });
 
