@@ -483,6 +483,7 @@ export function EmployeesPage() {
                         <div className="truncate font-medium text-text">{r.full_name}</div>
                         <div className="truncate text-xs text-muted">{r.position || '—'}</div>
                         <div className="font-mono text-[11px] tnum text-muted">{r.employee_id}</div>
+                        <div className="truncate text-xs text-muted">{r.roles?.[0] ?? '—'}</div>
                       </div>
                     </div>
                   ),
@@ -500,8 +501,6 @@ export function EmployeesPage() {
                             ? 'Hybrid'
                             : 'Onsite'}
                       </Badge>
-                      {r.department ? <Badge tone="gray">{r.department}</Badge> : null}
-                      <Badge tone={r.roles?.[0] === 'Super Admin' ? 'violet' : 'blue'}>{r.roles?.[0] ?? '—'}</Badge>
                     </div>
                   ),
                 },
