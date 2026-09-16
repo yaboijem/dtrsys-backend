@@ -3,7 +3,9 @@
 namespace Database\Factories;
 
 use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -26,8 +28,8 @@ class EmployeeFactory extends Factory
             'work_arrangement' => 'onsite',
             'first_name' => $firstName,
             'last_name' => $lastName,
-            'department' => fake()->randomElement(['IT', 'Sales', 'HR', 'Operations']),
-            'position' => fake()->jobTitle(),
+            'department_id' => Department::factory(),
+            'position_id' => Position::factory(),
             'date_hired' => fake()->date(),
             'reference_photo_path' => null,
         ];

@@ -22,8 +22,8 @@ class Employee extends Model
         'first_name',
         'middle_name',
         'last_name',
-        'department',
-        'position',
+        'department_id',
+        'position_id',
         'date_hired',
         'reference_photo_path',
     ];
@@ -40,6 +40,16 @@ class Employee extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(Position::class);
     }
 
     public function attendanceRecords(): HasMany
