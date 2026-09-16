@@ -87,15 +87,14 @@ export function EmployeesPage() {
   const { notify } = useToast();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
-  const [applied, setApplied] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<Employee[] | null>(null);
-  const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const PAGE_SIZE = 20;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -141,11 +140,16 @@ export function EmployeesPage() {
 
   const loadDirectory = useCallback(async () => {
     if (!token) return;
+    setLoading(true);
+    setError(null);
     try {
       const result = await listEmployees({ per_page: 100 }, token);
       setDirectory(result.data);
-    } catch {
+    } catch (err) {
       setDirectory([]);
+      setError(err instanceof ApiError ? err.message : 'Failed to load employees.');
+    } finally {
+      setLoading(false);
     }
   }, [token]);
 
@@ -155,30 +159,40 @@ export function EmployeesPage() {
     void loadDirectory();
   }, [loadBranches, loadMasterData, loadDirectory]);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params: Record<string, string | number | boolean | undefined> = { page, per_page: 20 };
-      if (applied.search) params.search = applied.search;
-      if (applied.branch_id) params.branch_id = applied.branch_id;
-      if (applied.department_id) params.department_id = applied.department_id;
-      const result = await listEmployees(params, token);
-      setData(result.data);
-      setPaginated(result);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load employees.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token, page, applied]);
+  /** Live client-side filter — typing updates the table without hitting the DB. */
+  const filteredDirectory = useMemo(() => {
+    return directory.filter((e) => {
+      if (filters.search.trim() && !matchesEmployeeQuery(e, filters.search)) return false;
+      if (filters.branch_id && String(e.branch?.id ?? '') !== filters.branch_id) return false;
+      if (filters.department_id && String(e.department_id ?? '') !== filters.department_id) return false;
+      return true;
+    });
+  }, [directory, filters]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    setPage(1);
+  }, [filters.search, filters.branch_id, filters.department_id]);
 
-  const dirty = useMemo(() => JSON.stringify(filters) !== JSON.stringify(applied), [filters, applied]);
+  const paginated = useMemo((): Paginated<Employee> => {
+    const total = filteredDirectory.length;
+    const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE) || 1);
+    const current = Math.min(Math.max(1, page), lastPage);
+    const start = (current - 1) * PAGE_SIZE;
+    const slice = filteredDirectory.slice(start, start + PAGE_SIZE);
+    return {
+      data: slice,
+      current_page: current,
+      per_page: PAGE_SIZE,
+      total,
+      last_page: lastPage,
+      from: total === 0 ? null : start + 1,
+      to: total === 0 ? null : start + slice.length,
+      next_page_url: current < lastPage ? 'next' : null,
+      prev_page_url: current > 1 ? 'prev' : null,
+    };
+  }, [filteredDirectory, page, PAGE_SIZE]);
+
+  const data = paginated.data;
 
   const suggestions = useMemo(() => {
     const q = filters.search.trim();
@@ -197,18 +211,10 @@ export function EmployeesPage() {
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, []);
 
-  function applyFilters(next?: Filters) {
-    const f = next ?? filters;
-    setPage(1);
-    setApplied(f);
-    setFilters(f);
+  function pickSuggestion(employee: Employee) {
+    setFilters({ ...filters, search: employee.full_name });
     setSuggestOpen(false);
     setActiveSuggest(-1);
-  }
-
-  function pickSuggestion(employee: Employee) {
-    const next: Filters = { ...filters, search: employee.full_name };
-    applyFilters(next);
   }
 
   function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -230,7 +236,7 @@ export function EmployeesPage() {
         pickSuggestion(suggestions[activeSuggest]);
         return;
       }
-      applyFilters();
+      setSuggestOpen(false);
       return;
     }
     if (e.key === 'Escape') {
@@ -317,7 +323,6 @@ export function EmployeesPage() {
       }
       setModalOpen(false);
       setPhotoFile(null);
-      void load();
       void loadDirectory();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -338,7 +343,7 @@ export function EmployeesPage() {
       const updated = await uploadReferencePhoto(editing.id, photoFile, token);
       setEditing(updated);
       setPhotoFile(null);
-      setData((prev) => (prev ? prev.map((e) => (e.id === updated.id ? updated : e)) : prev));
+      setDirectory((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
       notify('success', 'Reference photo updated.');
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Failed to upload the photo.');
@@ -354,7 +359,6 @@ export function EmployeesPage() {
       await deactivateEmployee(deactivating.id, token);
       notify('success', `${deactivating.full_name} deactivated.`);
       setDeactivating(null);
-      void load();
       void loadDirectory();
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Failed to deactivate the employee.');
@@ -431,7 +435,11 @@ export function EmployeesPage() {
               </ul>
             ) : null}
           </div>
-          <Select value={filters.branch_id} onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })} className="lg:w-44">
+          <Select
+            value={filters.branch_id}
+            onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
+            className="lg:w-44"
+          >
             <option value="">All branches</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
@@ -450,20 +458,17 @@ export function EmployeesPage() {
               searchPlaceholder="Search departments…"
             />
           </div>
-          <Button onClick={() => applyFilters()} disabled={!dirty} className="shrink-0 lg:self-auto">
-            Apply
-          </Button>
         </div>
       </Card>
 
       <Card className="shadow-sm">
         {error ? (
-          <ErrorState message={error} onRetry={load} />
+          <ErrorState message={error} onRetry={loadDirectory} />
         ) : (
           <>
             <DataTable<Employee>
-              loading={loading && !data}
-              rows={data ?? []}
+              loading={loading && directory.length === 0}
+              rows={data}
               keyOf={(r) => r.id}
               emptyTitle="No employees found"
               emptyDescription="Adjust the search or filters and try again."
@@ -538,7 +543,9 @@ export function EmployeesPage() {
                 },
               ]}
             />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+            {paginated.total > 0 && (
+              <PaginationBar page={paginated.current_page} paginated={paginated} onPageChange={setPage} />
+            )}
           </>
         )}
       </Card>
