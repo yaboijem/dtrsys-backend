@@ -31,4 +31,31 @@ class NominatimGeocoderTest extends TestCase
         $this->assertSame('Pampanga', $result['province']);
         $this->assertStringContainsString('Angeles', $result['display_name']);
     }
+
+    #[Test]
+    public function reverse_does_not_cache_failures(): void
+    {
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::sequence()
+                ->push('error', 500)
+                ->push([
+                    'display_name' => 'London Street, Angeles, Pampanga',
+                    'address' => [
+                        'road' => 'London Street',
+                        'city' => 'Angeles',
+                        'state' => 'Pampanga',
+                    ],
+                ], 200),
+        ]);
+
+        $geocoder = new NominatimGeocoder;
+
+        $this->assertNull($geocoder->reverse(15.17, 120.59));
+
+        $result = $geocoder->reverse(15.17, 120.59);
+        $this->assertNotNull($result);
+        $this->assertSame('London Street', $result['street']);
+        $this->assertSame('Angeles', $result['city']);
+        $this->assertSame('Pampanga', $result['province']);
+    }
 }

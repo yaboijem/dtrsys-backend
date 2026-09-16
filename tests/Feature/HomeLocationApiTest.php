@@ -7,6 +7,7 @@ use App\Models\HomeLocation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -22,7 +23,6 @@ class HomeLocationApiTest extends TestCase
 
         Role::findOrCreate('Employee', 'web');
         Role::findOrCreate('HR', 'web');
-        config(['dtr.attendance.async_face_verification' => false]);
     }
 
     private function makeWfhEmployee(): Employee
@@ -241,5 +241,51 @@ class HomeLocationApiTest extends TestCase
             'branch_id' => $employee->branch_id,
         ])->assertOk()
             ->assertJsonPath('data.work_arrangement', 'wfh');
+    }
+
+    #[Test]
+    public function admin_list_backfills_street_city_province_when_missing(): void
+    {
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([
+                'display_name' => 'London Street, Angeles, Central Luzon, Philippines',
+                'address' => [
+                    'road' => 'London Street',
+                    'city' => 'Angeles',
+                    'region' => 'Central Luzon',
+                ],
+            ], 200),
+        ]);
+
+        $employee = $this->makeWfhEmployee();
+        $home = HomeLocation::factory()->pending()->create([
+            'created_by' => $employee->user_id,
+            'latitude' => 15.1710831,
+            'longitude' => 120.5986795,
+            'street' => null,
+            'city' => null,
+            'province' => null,
+            'address_text' => null,
+        ]);
+        $employee->homeLocations()->attach($home->id, [
+            'is_primary' => false,
+            'assigned_at' => now(),
+        ]);
+
+        $hr = $this->makeHr();
+        $this->actingAs($hr, 'sanctum')
+            ->getJson('/api/admin/home-locations?status=pending')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $home->id)
+            ->assertJsonPath('data.0.street', 'London Street')
+            ->assertJsonPath('data.0.city', 'Angeles')
+            ->assertJsonPath('data.0.province', 'Central Luzon');
+
+        $this->assertDatabaseHas('home_locations', [
+            'id' => $home->id,
+            'street' => 'London Street',
+            'city' => 'Angeles',
+            'province' => 'Central Luzon',
+        ]);
     }
 }

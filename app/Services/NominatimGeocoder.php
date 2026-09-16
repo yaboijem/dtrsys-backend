@@ -16,60 +16,82 @@ class NominatimGeocoder
         $cacheKey = sprintf('nominatim:reverse:%.5f:%.5f', $lat, $lng);
         $ttl = (int) config('dtr.nominatim.cache_seconds', 86400);
 
-        return Cache::remember($cacheKey, $ttl, function () use ($lat, $lng) {
-            try {
-                $response = Http::timeout(8)
-                    ->withHeaders([
-                        'User-Agent' => (string) config('dtr.nominatim.user_agent', 'DTRSys/1.0'),
-                        'Accept-Language' => 'en',
-                    ])
-                    ->get(rtrim((string) config('dtr.nominatim.base_url'), '/').'/reverse', [
-                        'lat' => $lat,
-                        'lon' => $lng,
-                        'format' => 'jsonv2',
-                        'addressdetails' => 1,
-                    ]);
-            } catch (Throwable) {
-                return null;
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $resolved = $this->fetchReverse($lat, $lng);
+        // Never cache failures — transient SSL/network errors must not stick for a day.
+        if ($resolved !== null) {
+            Cache::put($cacheKey, $resolved, $ttl);
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @return array{display_name: string, street: ?string, city: ?string, province: ?string}|null
+     */
+    private function fetchReverse(float $lat, float $lng): ?array
+    {
+        try {
+            $request = Http::timeout(8)
+                ->withHeaders([
+                    'User-Agent' => (string) config('dtr.nominatim.user_agent', 'DTRSys/1.0'),
+                    'Accept-Language' => 'en',
+                ]);
+
+            if (! (bool) config('dtr.nominatim.verify_ssl', true)) {
+                $request = $request->withOptions(['verify' => false]);
             }
 
-            if (! $response->successful()) {
-                return null;
-            }
-
-            $json = $response->json();
-            if (! is_array($json)) {
-                return null;
-            }
-
-            $address = is_array($json['address'] ?? null) ? $json['address'] : [];
-
-            $street = $this->firstFilled($address, [
-                'road', 'pedestrian', 'path', 'residential', 'neighbourhood', 'suburb', 'quarter',
+            $response = $request->get(rtrim((string) config('dtr.nominatim.base_url'), '/').'/reverse', [
+                'lat' => $lat,
+                'lon' => $lng,
+                'format' => 'jsonv2',
+                'addressdetails' => 1,
             ]);
-            $city = $this->firstFilled($address, [
-                'city', 'town', 'municipality', 'city_district', 'village', 'hamlet',
-            ]);
-            $province = $this->firstFilled($address, [
-                'state', 'province', 'region', 'county',
-            ]);
+        } catch (Throwable) {
+            return null;
+        }
 
-            $display = is_string($json['display_name'] ?? null) ? $json['display_name'] : null;
-            if (! $display) {
-                $display = collect([$street, $city, $province])->filter()->implode(', ') ?: null;
-            }
+        if (! $response->successful()) {
+            return null;
+        }
 
-            if (! $display && ! $street && ! $city && ! $province) {
-                return null;
-            }
+        $json = $response->json();
+        if (! is_array($json)) {
+            return null;
+        }
 
-            return [
-                'display_name' => $display ?? '',
-                'street' => $street,
-                'city' => $city,
-                'province' => $province,
-            ];
-        });
+        $address = is_array($json['address'] ?? null) ? $json['address'] : [];
+
+        $street = $this->firstFilled($address, [
+            'road', 'pedestrian', 'path', 'residential', 'neighbourhood', 'suburb', 'quarter',
+        ]);
+        $city = $this->firstFilled($address, [
+            'city', 'town', 'municipality', 'city_district', 'village', 'hamlet',
+        ]);
+        $province = $this->firstFilled($address, [
+            'state', 'province', 'region', 'county',
+        ]);
+
+        $display = is_string($json['display_name'] ?? null) ? $json['display_name'] : null;
+        if (! $display) {
+            $display = collect([$street, $city, $province])->filter()->implode(', ') ?: null;
+        }
+
+        if (! $display && ! $street && ! $city && ! $province) {
+            return null;
+        }
+
+        return [
+            'display_name' => $display ?? '',
+            'street' => $street,
+            'city' => $city,
+            'province' => $province,
+        ];
     }
 
     /**

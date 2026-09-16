@@ -31,6 +31,10 @@ class HomeLocationController extends Controller
             ->latest()
             ->paginate(min($request->integer('per_page', 20), 100));
 
+        $homes->getCollection()->transform(
+            fn (HomeLocation $home) => $this->homeLocationService->ensureAddressParts($home)
+        );
+
         return HomeLocationResource::collection($homes);
     }
 
