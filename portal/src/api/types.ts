@@ -51,8 +51,6 @@ export interface GpsLocation {
 
 export interface AttendancePhoto {
   path: string;
-  is_verified: boolean;
-  liveness_status: string;
 }
 
 export interface FraudFlag {
@@ -130,19 +128,6 @@ export interface LoginSuccess {
   user: User;
 }
 
-export interface MfaChallenge {
-  mfa_required: true;
-  mfa_setup_required: boolean;
-  mfa_token: string;
-}
-
-export type LoginResult = LoginSuccess | MfaChallenge;
-
-export interface MfaStatus {
-  mfa_enabled: boolean;
-  mfa_required_by_role: boolean;
-}
-
 export interface SyncRecordResult {
   index: number;
   status: 'created' | 'duplicate' | 'failed';
@@ -150,8 +135,6 @@ export interface SyncRecordResult {
   message?: string;
   photo?: {
     present: boolean;
-    is_verified?: boolean;
-    face_detected?: boolean | null;
     flags?: string[];
   };
 }

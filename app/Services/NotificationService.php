@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Jobs\NotifyFraudFlagJob;
-use App\Models\DeviceChangeRequest;
 use App\Models\Employee;
 use App\Models\FraudFlag;
 use App\Models\HomeLocation;
@@ -20,22 +19,6 @@ class NotificationService
     public function fraudFlagCreated(FraudFlag $flag): void
     {
         NotifyFraudFlagJob::dispatch($flag->id);
-    }
-
-    public function deviceChangeRequestReviewed(DeviceChangeRequest $request): void
-    {
-        $user = $request->employee?->user;
-
-        if (! $user) {
-            return;
-        }
-
-        $this->send(
-            $user,
-            'Device change request '.$request->status,
-            "Your device change request was {$request->status}.",
-            ['device_change_request_id' => $request->id],
-        );
     }
 
     public function homeLocationReviewed(HomeLocation $home, Employee $employee, string $action): void

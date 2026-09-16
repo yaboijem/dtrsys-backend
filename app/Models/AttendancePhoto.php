@@ -18,15 +18,10 @@ class AttendancePhoto extends Model
     protected $fillable = [
         'attendance_id',
         'path',
-        'is_verified',
-        'verification_result',
-        'liveness_status',
         'captured_at',
     ];
 
     protected $casts = [
-        'is_verified' => 'boolean',
-        'verification_result' => 'array',
         'captured_at' => 'datetime',
     ];
 

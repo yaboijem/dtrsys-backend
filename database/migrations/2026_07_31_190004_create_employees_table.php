@@ -18,7 +18,6 @@ return new class extends Migration
             $table->string('department')->nullable();
             $table->string('position')->nullable();
             $table->date('date_hired')->nullable();
-            $table->string('reference_photo_path')->nullable();
             $table->timestamps();
 
             $table->index(['branch_id', 'department']);

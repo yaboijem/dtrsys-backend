@@ -13,7 +13,6 @@ import {
   Network,
   PanelLeftClose,
   PanelLeft,
-  ShieldCheck,
   Users,
   X,
 } from 'lucide-react';
@@ -164,9 +163,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const brand = (
     <div className={cn('flex items-center border-b border-deep-border', collapsed ? 'justify-center px-2 py-4' : 'gap-2.5 px-4 py-4')}>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-deep-2 ring-1 ring-deep-border">
-        <ShieldCheck size={18} className="text-teal-300" />
-      </div>
+      <img src="/logo-48.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 rounded-lg" />
       {!collapsed && (
         <div className="min-w-0">
           <div className="truncate text-sm font-bold leading-tight text-slate-100">DTR Admin</div>

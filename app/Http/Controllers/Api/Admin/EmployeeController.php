@@ -5,18 +5,14 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
-use App\Http\Requests\UploadReferencePhotoRequest;
 use App\Http\Resources\EmployeeResource;
 use App\Models\Employee;
 use App\Models\User;
 use App\Services\AuditService;
-use App\Services\ImageService;
-use App\Services\PhotoStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\Response;
 
 class EmployeeController extends Controller
 {
@@ -62,8 +58,15 @@ class EmployeeController extends Controller
             })
             ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
             ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
+            ->when($request->filled('is_active'), function ($q) use ($request) {
+                $active = filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($active === null) {
+                    return;
+                }
+                $q->whereHas('user', fn ($uq) => $uq->where('is_active', $active));
+            })
             ->orderBy('last_name')
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate(min(max($request->integer('per_page', 20), 1), 100));
 
         return EmployeeResource::collection($employees);
     }
@@ -209,41 +212,6 @@ class EmployeeController extends Controller
         );
 
         return response()->json(['message' => 'Employee account deactivated.']);
-    }
-
-    public function referencePhoto(UploadReferencePhotoRequest $request, Employee $employee): EmployeeResource
-    {
-        $oldPath = $employee->reference_photo_path;
-
-        $path = app(ImageService::class)->compressAndStore(
-            $request->file('photo'),
-            'reference-photos',
-            config('dtr.attendance.photo_disk'),
-        );
-
-        $employee->update(['reference_photo_path' => $path]);
-
-        $this->auditService->record(
-            $request->user(),
-            'employee.reference_photo_updated',
-            $employee,
-            $oldPath ? ['reference_photo_path' => $oldPath] : null,
-            ['reference_photo_path' => $path],
-        );
-
-        return new EmployeeResource($employee->load(['user.roles', 'branch', 'department', 'position']));
-    }
-
-    public function referencePhotoStream(Request $request, Employee $employee): Response
-    {
-        $path = $employee->reference_photo_path;
-        $storage = app(PhotoStorage::class);
-
-        if (! $path || ! $storage->exists($path)) {
-            abort(404, 'No reference photo found for this employee.');
-        }
-
-        return $storage->response($path, 'reference_'.$employee->id.'.jpg');
     }
 
     private function composeName(string $firstName, ?string $middleName, string $lastName): string

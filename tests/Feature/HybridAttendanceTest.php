@@ -21,7 +21,6 @@ class HybridAttendanceTest extends TestCase
         parent::setUp();
         Role::findOrCreate('Employee', 'web');
         Role::findOrCreate('HR', 'web');
-        config(['dtr.attendance.async_face_verification' => false]);
     }
 
     private function makeHybridEmployee(): Employee

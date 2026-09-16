@@ -2,8 +2,6 @@
 
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
-use App\Exceptions\DeviceBlockedException;
-use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
 use Illuminate\Auth\AuthenticationException;
@@ -29,14 +27,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (DeviceBlockedException $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-                'code' => 'device_not_registered',
-                'pending_device_change_request' => $e->hasPendingRequest,
-            ], 403);
-        });
-
         $exceptions->render(function (AuthenticationException $e) {
             return response()->json([
                 'message' => 'Unauthenticated. Please log in again.',
@@ -70,14 +60,6 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => $e->getMessage(),
                 'code' => $e->errorCode,
-            ], 422);
-        });
-
-        $exceptions->render(function (FaceVerificationFailedException $e) {
-            return response()->json([
-                'message' => $e->getMessage(),
-                'code' => 'face_verification_failed',
-                'details' => $e->details,
             ], 422);
         });
 

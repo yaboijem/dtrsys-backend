@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\Admin\AuditLogController;
 use App\Http\Controllers\Api\Admin\BranchController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\DepartmentController;
-use App\Http\Controllers\Api\Admin\DeviceChangeRequestController as AdminDeviceChangeRequestController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\HomeLocationController as AdminHomeLocationController;
@@ -16,7 +15,6 @@ use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsentController;
-use App\Http\Controllers\Api\DeviceChangeRequestController;
 use App\Http\Controllers\Api\HomeLocationController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ScheduleController;
@@ -40,9 +38,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::get('/auth/mfa/status', [AuthController::class, 'mfaStatus']);
     Route::post('/auth/mfa/disable', [AuthController::class, 'mfaDisable']);
-
-    Route::get('/device/change-requests', [DeviceChangeRequestController::class, 'index']);
-    Route::post('/device/change-requests', [DeviceChangeRequestController::class, 'store']);
 
     Route::middleware('throttle:attendance')->group(function () {
         Route::post('/attendance/time-in', [AttendanceController::class, 'timeIn']);
@@ -74,9 +69,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->group(function () {
-    Route::get('/device-change-requests', [AdminDeviceChangeRequestController::class, 'index']);
-    Route::patch('/device-change-requests/{deviceChangeRequest}', [AdminDeviceChangeRequestController::class, 'review']);
-
     Route::get('/home-locations', [AdminHomeLocationController::class, 'index']);
     Route::patch('/home-locations/{homeLocation}', [AdminHomeLocationController::class, 'review']);
 
@@ -91,8 +83,6 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('shifts', ShiftController::class);
     Route::apiResource('employees', EmployeeController::class);
-    Route::post('/employees/{employee}/reference-photo', [EmployeeController::class, 'referencePhoto']);
-    Route::get('/employees/{employee}/reference-photo', [EmployeeController::class, 'referencePhotoStream']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefix('admin')->group(function () {

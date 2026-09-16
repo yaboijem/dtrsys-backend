@@ -46,7 +46,6 @@ class EmployeeResource extends JsonResource
                     'is_shared' => $device->is_shared,
                 ] : null;
             }),
-            'reference_photo_path' => $this->reference_photo_path,
         ];
     }
 }

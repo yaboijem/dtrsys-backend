@@ -1,11 +1,11 @@
 # DTR System — Backend API
 
-Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with selfie face verification, automated fraud detection, offline sync, role-scoped administration, MFA, and data-privacy compliance (consent, data access/deletion requests, retention purging).
+Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with mandatory selfies, automated fraud detection, offline sync, role-scoped administration, MFA, and data-privacy compliance (consent, data access/deletion requests, retention purging).
 
 ## Feature Checklist
 
 - **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional), TOTP MFA for privileged roles (Super Admin / HR / Branch Manager / Department Head)
-- **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, automated face match against a reference photo, liveness/spoof detection, rapid clock-in and impossible location-jump fraud rules
+- **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, rapid clock-in and impossible location-jump fraud rules
 - **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
 - **Role-based access control** — Super Admin, HR, Branch Manager (own branch), Department Head (own department), Employee (own data)
 - **Admin tools** — employee/branch/shift/schedule management, attendance review with selfie streaming, dashboard summary, fraud-flag review
@@ -60,7 +60,7 @@ php artisan db:seed
 php artisan serve
 ```
 
-> Background jobs (face verification, notifications) run synchronously in local dev. In production set `QUEUE_CONNECTION=redis` and run `php artisan queue:work`.
+> Background jobs (notifications) run synchronously in local dev. In production set `QUEUE_CONNECTION=redis` and run `php artisan queue:work`.
 
 ## Demo Accounts
 
@@ -110,7 +110,7 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/attendance/time-in` | `{ selfie: file, latitude, longitude, accuracy_meters?, device_id?, is_offline? }` → 201. Runs GPS check, face match, fraud checks |
+| POST | `/attendance/time-in` | `{ selfie: file, latitude, longitude, accuracy_meters?, device_id?, is_offline? }` → 201. Runs GPS check and fraud checks |
 | POST | `/attendance/time-out` | Same payload. Completes the open punch, computes `work_minutes` (excludes break minutes). Rejects if still on break. |
 | POST | `/attendance/break-in` | `{ latitude, longitude, accuracy_meters?, device_id? }` — GPS only (no selfie). One break per open shift. |
 | POST | `/attendance/break-out` | Same GPS payload. Sets `break_minutes`, `is_overbreak` if > 60 min. |
@@ -137,7 +137,6 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | GET/POST | `/admin/employees` · GET/PUT/DELETE `/admin/employees/{employee}` | Employee CRUD (`{ employee_id, name, email, password, role, branch_id, work_arrangement?: onsite\|wfh\|hybrid, first_name, last_name, department, position, date_hired?, is_active? }`). Hybrid = branch or approved home (nearest wins); home pin required before any punch. Delete blocks accounts with attendance history |
 | GET | `/admin/home-locations` | List home pins; filter `status` (`pending`/`approved`/…) |
 | PATCH | `/admin/home-locations/{id}` | `{ action: approve\|reject\|link, radius_meters?, review_note?, link_home_location_id?, employee_id? }` |
-| POST | `/admin/employees/{employee}/reference-photo` | `{ photo: file }` (jpeg/png, ≤ 5 MB) — compressed and stored, audited |
 | POST | `/admin/schedules` | `{ employee_id, date, shift_id }` — upserts per employee+date |
 | DELETE | `/admin/schedules/{schedule}` | Removes an assignment |
 | GET | `/admin/device-change-requests` | All requests, status filter |
@@ -174,7 +173,6 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 | 409 | `attendance_conflict` | Already clocked in / no open punch |
 | 409 | `branch_has_employees` / `shift_in_use` | Referential delete blocked |
 | 422 | `gps_out_of_range` | Outside assigned branch radius (with `details`) |
-| 422 | `face_verification_failed` | Selfie did not match reference (with `details`) |
 | 422 | `no_schedule` | No assigned shift for today |
 | 429 | `too_many_attempts` | Rate limit hit |
 | 422 | (validation) | Default Laravel validation errors under `errors` |
@@ -209,7 +207,7 @@ Summary of free defaults:
 - Admin: Render **Static Site** with `VITE_API_URL` pointing at the API
 - DB: Neon PostgreSQL (`DB_URL`)
 - Photos: Cloudflare R2 (`ATTENDANCE_PHOTO_DISK=s3`)
-- No paid Redis/worker: `QUEUE_CONNECTION=sync`, `CACHE_STORE=database`, `ATTENDANCE_ASYNC_FACE=false`
+- No paid Redis/worker: `QUEUE_CONNECTION=sync`, `CACHE_STORE=database`
 
 When scaling later:
 
@@ -223,12 +221,11 @@ When scaling later:
 Before a shift-start load test or production go-live at this scale:
 
 1. **Redis up** — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `SESSION_DRIVER=redis` (if sessions used). Locks and rate limiters depend on Redis under load.
-2. **Queue workers on `attendance`** — run enough workers, e.g. `php artisan queue:work redis --queue=attendance,default --tries=3` (or Horizon supervising the same queues). Face verify and fraud fan-out land here.
+2. **Queue workers** — run enough workers, e.g. `php artisan queue:work redis --queue=default --tries=3` (or Horizon). Fraud notification fan-out lands here.
 3. **MySQL** — raise `max_connections` above `(app servers × PHP workers) + queue workers + admin headroom`. Prefer InnoDB; watch slow query log on `attendance` indexes.
 4. **Object storage** — production: `ATTENDANCE_PHOTO_DISK=s3` (or R2-compatible). Local/staging may use `public` disk; ensure disk I/O and permissions will not bottleneck selfie writes.
-5. **Async face on** — `ATTENDANCE_ASYNC_FACE=true` (or project env equivalent) so live punches return quickly and verification runs on the queue.
-6. **Telescope off** — `TELESCOPE_ENABLED=false` (do not run Telescope in production load paths; it amplifies DB/write cost).
-7. **App hardening** — `APP_DEBUG=false`, HTTPS only, adequate PHP-FPM/Octane workers (see sizing note above).
+5. **Telescope off** — `TELESCOPE_ENABLED=false` (do not run Telescope in production load paths; it amplifies DB/write cost).
+6. **App hardening** — `APP_DEBUG=false`, HTTPS only, adequate PHP-FPM/Octane workers (see sizing note above).
 
 ### Load test (k6)
 

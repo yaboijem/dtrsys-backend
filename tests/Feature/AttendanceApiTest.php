@@ -24,9 +24,6 @@ class AttendanceApiTest extends TestCase
         parent::setUp();
 
         Role::findOrCreate('Employee', 'web');
-
-        // Classic API tests expect synchronous face verification (verified photo / mismatch rollback).
-        config(['dtr.attendance.async_face_verification' => false]);
     }
 
     private function makeEmployee(): Employee
@@ -60,9 +57,9 @@ class AttendanceApiTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.type', 'time_in')
-            ->assertJsonPath('data.photo.is_verified', true)
             ->assertJsonPath('data.gps_location.is_within_radius', true)
-            ->assertJsonPath('data.branch.name', $employee->branch->name);
+            ->assertJsonPath('data.branch.name', $employee->branch->name)
+            ->assertJsonStructure(['data' => ['photo' => ['path']]]);
 
         $this->assertDatabaseHas('attendance', [
             'employee_id' => $employee->id,
@@ -111,22 +108,6 @@ class AttendanceApiTest extends TestCase
             'selfie' => UploadedFile::fake()->image('selfie.jpg'),
         ])->assertUnprocessable()
             ->assertJsonPath('code', 'gps_out_of_range');
-    }
-
-    #[Test]
-    public function face_mismatch_returns_422_and_rolls_back(): void
-    {
-        Storage::fake('public');
-        config(['dtr.face_verification.force_mismatch' => true]);
-        $employee = $this->makeEmployee();
-
-        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
-            ...$this->punchPayload($employee->branch),
-            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
-        ])->assertUnprocessable()
-            ->assertJsonPath('code', 'face_verification_failed');
-
-        $this->assertDatabaseCount('attendance', 0);
     }
 
     #[Test]

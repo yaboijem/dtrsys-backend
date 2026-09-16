@@ -1,17 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiClient, ApiError } from '../api/client';
-import { LoginResult, LoginSuccess, User } from '../api/types';
-import { APP_VERSION, DEFAULT_API_URL, DEV_OTP_ENABLED, DEFAULT_DEVICE_ID, STORAGE_KEYS } from '../config';
+import { LoginSuccess, User } from '../api/types';
+import { APP_VERSION, DEFAULT_API_URL, DEFAULT_DEVICE_ID, STORAGE_KEYS } from '../config';
 import { clearUserDataCache } from '../lib/dataCache';
 
 type AuthStatus = 'restoring' | 'guest' | 'authed';
-
-export interface MfaPending {
-  mfaToken: string;
-  employeeId: string;
-  setupRequired: boolean;
-}
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -19,12 +13,8 @@ interface AuthContextValue {
   token: string | null;
   deviceId: string;
   serverUrl: string;
-  mfa: MfaPending | null;
   api: ApiClient;
-  devOtpEnabled: boolean;
-  login: (employeeId: string, password: string) => Promise<'authed' | 'mfa_required'>;
-  verifyMfa: (code: string) => Promise<void>;
-  fetchDevOtp: () => Promise<string>;
+  login: (employeeId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   setDeviceId: (id: string) => Promise<void>;
@@ -39,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [deviceId, setDeviceIdState] = useState(DEFAULT_DEVICE_ID);
   const [serverUrl, setServerUrlState] = useState(DEFAULT_API_URL);
-  const [mfa, setMfa] = useState<MfaPending | null>(null);
 
   const apiRef = useRef(new ApiClient(DEFAULT_API_URL));
   const deviceIdRef = useRef(deviceId);
@@ -112,54 +101,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const login = useCallback(async (employeeId: string, password: string): Promise<'authed' | 'mfa_required'> => {
-    const result = await apiRef.current.post<LoginResult>('/api/auth/login', {
-      employee_id: employeeId,
-      password,
-      device_id: deviceIdRef.current,
-      platform: 'web',
-      app_version: APP_VERSION,
-    });
-
-    if (typeof result !== 'object' || result === null) {
-      throw new ApiError(
-        'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
-        0,
-        'invalid_response',
-      );
-    }
-
-    if ('mfa_required' in result) {
-      setMfa({
-        mfaToken: result.mfa_token,
-        employeeId,
-        setupRequired: result.mfa_setup_required,
-      });
-      return 'mfa_required';
-    }
-
-    await completeLogin(result.token, result.user);
-    return 'authed';
-  }, []);
-
   const completeLogin = useCallback(async (newToken: string, newUser: User) => {
     setToken(newToken);
     setUser(newUser);
-    setMfa(null);
     setStatus('authed');
     localStorage.setItem(STORAGE_KEYS.token, newToken);
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(newUser));
   }, []);
 
-  const verifyMfa = useCallback(
-    async (code: string) => {
-      if (!mfa) {
-        throw new ApiError('No pending MFA challenge.', 400);
-      }
-      const result = await apiRef.current.post<LoginSuccess>(
-        '/api/auth/mfa/verify',
-        { mfa_token: mfa.mfaToken, code },
-      );
+  const login = useCallback(
+    async (employeeId: string, password: string): Promise<void> => {
+      const result = await apiRef.current.post<LoginSuccess & { mfa_required?: boolean }>('/api/auth/login', {
+        employee_id: employeeId,
+        password,
+        device_id: deviceIdRef.current,
+        platform: 'web',
+        app_version: APP_VERSION,
+      });
+
       if (typeof result !== 'object' || result === null) {
         throw new ApiError(
           'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
@@ -167,21 +126,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'invalid_response',
         );
       }
+
+      if ('mfa_required' in result && result.mfa_required) {
+        throw new ApiError('This account requires MFA, which is not supported in the employee portal.', 403, 'mfa_unsupported');
+      }
+
+      if (!('token' in result) || !result.token || !result.user) {
+        throw new ApiError(
+          'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
+          0,
+          'invalid_response',
+        );
+      }
+
       await completeLogin(result.token, result.user);
     },
-    [mfa, completeLogin],
+    [completeLogin],
   );
-
-  const fetchDevOtp = useCallback(async () => {
-    if (!mfa) {
-      throw new ApiError('No pending MFA challenge.', 400);
-    }
-    const result = await apiRef.current.get<{ code: string | null }>(`/dev/otp/${encodeURIComponent(mfa.employeeId)}`);
-    if (!result.code) {
-      throw new ApiError('No TOTP secret configured for this account.', 404);
-    }
-    return result.code;
-  }, [mfa]);
 
   const logout = useCallback(async () => {
     const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
@@ -193,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setToken(null);
     setUser(null);
-    setMfa(null);
     setStatus('guest');
     localStorage.removeItem(STORAGE_KEYS.token);
     localStorage.removeItem(STORAGE_KEYS.user);
@@ -229,18 +189,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       deviceId,
       serverUrl,
-      mfa,
       api: apiRef.current,
-      devOtpEnabled: DEV_OTP_ENABLED,
       login,
-      verifyMfa,
-      fetchDevOtp,
       logout,
       refreshMe,
       setDeviceId,
       setServerUrl,
     }),
-    [status, user, deviceId, serverUrl, mfa, login, verifyMfa, fetchDevOtp, logout, refreshMe, setDeviceId, setServerUrl],
+    [status, user, token, deviceId, serverUrl, login, logout, refreshMe, setDeviceId, setServerUrl],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

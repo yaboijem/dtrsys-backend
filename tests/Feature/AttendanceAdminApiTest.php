@@ -174,8 +174,6 @@ class AttendanceAdminApiTest extends TestCase
         AttendancePhoto::create([
             'attendance_id' => $punch->id,
             'path' => 'attendance/selfie.jpg',
-            'is_verified' => true,
-            'liveness_status' => 'passed',
             'captured_at' => now(),
         ]);
 

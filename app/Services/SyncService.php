@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
-use App\Jobs\VerifyAttendancePhotoJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Device;
@@ -264,9 +263,7 @@ class SyncService
         ]);
 
         if ($selfie) {
-            // Offline punches are always kept; face verification runs asynchronously.
-            $photo = $this->attendanceService->storePhotoOnly($employee, $attendance, $selfie);
-            VerifyAttendancePhotoJob::dispatch($photo->id);
+            $this->attendanceService->storePhotoOnly($employee, $attendance, $selfie);
         }
 
         $this->fraudDetectionService->evaluate($attendance->load(['photo', 'gpsLocation']));
@@ -341,8 +338,6 @@ class SyncService
 
         return [
             'present' => true,
-            'is_verified' => (bool) $photo->is_verified,
-            'face_detected' => data_get($photo->verification_result, 'face_detected'),
             'flags' => $attendance->fraudFlags->pluck('type')->all(),
         ];
     }

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Exceptions\DeviceBlockedException;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -38,14 +37,7 @@ class AuthService
             ]);
         }
 
-        $result = $this->deviceService->resolveForLogin($employee, $deviceData['device_id'] ?? null, $deviceData);
-
-        if ($result['status'] === DeviceService::STATUS_BLOCKED) {
-            throw new DeviceBlockedException(
-                $result['reason'],
-                isset($result['pending_request']) && $result['pending_request'] !== false,
-            );
-        }
+        $this->deviceService->resolveForLogin($employee, $deviceData['device_id'] ?? null, $deviceData);
 
         $token = $user->createToken('mobile')->plainTextToken;
 
@@ -150,17 +142,10 @@ class AuthService
     {
         $deviceData = $payload['device'] ?? [];
 
-        $result = $this->deviceService->resolveForLogin(
+        $this->deviceService->resolveForLogin(
             $user->employee,
             $deviceData['device_id'] ?? null,
             $deviceData,
         );
-
-        if ($result['status'] === DeviceService::STATUS_BLOCKED) {
-            throw new DeviceBlockedException(
-                $result['reason'],
-                isset($result['pending_request']) && $result['pending_request'] !== false,
-            );
-        }
     }
 }

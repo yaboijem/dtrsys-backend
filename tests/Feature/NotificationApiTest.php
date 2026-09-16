@@ -36,18 +36,18 @@ class NotificationApiTest extends TestCase
         $employee = $this->makeUser('Employee');
         $service = app(NotificationService::class);
 
-        $service->send($employee->user, 'Request approved', 'Your device change request was approved.', ['device_change_request_id' => 1]);
-        $service->send($employee->user, 'Request rejected', 'Your device change request was rejected.', ['device_change_request_id' => 2]);
+        $service->send($employee->user, 'Request approved', 'Your request was approved.', ['request_id' => 1]);
+        $service->send($employee->user, 'Request rejected', 'Your request was rejected.', ['request_id' => 2]);
 
         $second = $employee->user->notifications()->get()
-            ->first(fn ($n) => ($n->data['data']['device_change_request_id'] ?? null) === 2);
+            ->first(fn ($n) => ($n->data['data']['request_id'] ?? null) === 2);
         $second->forceFill(['created_at' => $second->created_at->addSecond()])->save();
 
         $this->actingAs($employee->user, 'sanctum')->getJson('/api/notifications')
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.title', 'Request rejected')
-            ->assertJsonPath('data.0.payload.device_change_request_id', 2)
+            ->assertJsonPath('data.0.payload.request_id', 2)
             ->assertJsonPath('data.1.title', 'Request approved')
             ->assertJsonPath('data.0.read_at', null);
     }

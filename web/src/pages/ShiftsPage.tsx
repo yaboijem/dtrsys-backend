@@ -306,22 +306,21 @@ export function ShiftsPage() {
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.name}` : 'Add shift'}>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Shift name" required error={fieldErrors.name?.[0]}>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Morning shift" />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Shift name" required error={fieldErrors.name?.[0]}>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Morning shift" />
+          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Start time" required error={fieldErrors.start_time?.[0]}>
+              <Input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
             </Field>
-          </div>
-          <Field label="Start time" required error={fieldErrors.start_time?.[0]}>
-            <Input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
-          </Field>
-          <Field label="End time" required error={fieldErrors.end_time?.[0]}>
-            <Input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
-          </Field>
-          <Field label="Grace period (minutes)" error={fieldErrors.grace_minutes?.[0]}>
-            <Input type="number" min="0" max="240" value={form.grace_minutes} onChange={(e) => setForm({ ...form, grace_minutes: e.target.value })} />
-          </Field>
-          <div className="flex items-end gap-3">
+            <Field label="End time" required error={fieldErrors.end_time?.[0]}>
+              <Input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} />
+            </Field>
+            <Field label="Grace period (minutes)" error={fieldErrors.grace_minutes?.[0]}>
+              <Input type="number" min="0" max="240" value={form.grace_minutes} onChange={(e) => setForm({ ...form, grace_minutes: e.target.value })} />
+            </Field>
+            <div className="hidden sm:block" aria-hidden />
             <Field label="Break start" error={fieldErrors.break_start?.[0]}>
               <Input type="time" value={form.break_start} onChange={(e) => setForm({ ...form, break_start: e.target.value })} />
             </Field>
@@ -329,11 +328,11 @@ export function ShiftsPage() {
               <Input type="time" value={form.break_end} onChange={(e) => setForm({ ...form, break_end: e.target.value })} />
             </Field>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-bg px-3.5 py-3">
             <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Shift active" />
-            <span className="text-sm text-text">Shift active</span>
+            <span className="text-sm font-medium text-text">Shift active</span>
           </div>
-          <div className="mt-4 flex justify-end gap-2 sm:col-span-2">
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>

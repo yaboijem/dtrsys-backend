@@ -70,9 +70,9 @@ export type AttendanceSource = 'online' | 'sync';
 export type FraudFlagType =
   | 'gps_spoof'
   | 'impossible_jump'
-  | 'face_mismatch'
   | 'rapid_clock'
   | 'out_of_radius'
+  | 'face_mismatch'
   | 'no_face';
 export type FraudFlagSeverity = 'low' | 'medium' | 'high';
 export type FraudFlagStatus = 'open' | 'reviewed' | 'dismissed';
@@ -99,7 +99,7 @@ export interface AttendanceAdmin {
   };
   branch: BranchRef;
   device: { id: number; device_id: string; name: string | null } | null;
-  photo: { path: string; is_verified: boolean; liveness_status: string | null } | null;
+  photo: { path: string } | null;
   gps_location: {
     latitude: number;
     longitude: number;
@@ -135,7 +135,7 @@ export interface FraudFlag {
     is_offline: boolean;
     branch: string | null;
     employee: { id: number; employee_id: string; name: string; department: string } | null;
-    photo: { path: string | null; is_verified: boolean | null; liveness_status: string | null } | null;
+    photo: { path: string | null } | null;
     gps_location: {
       is_within_radius: boolean | null;
       distance_from_branch_meters: number | null;
@@ -171,7 +171,6 @@ export interface Employee {
     name: string | null;
     is_shared: boolean;
   } | null;
-  reference_photo_path: string | null;
 }
 
 export interface HomeLocation {

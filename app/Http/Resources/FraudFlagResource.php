@@ -40,8 +40,6 @@ class FraudFlagResource extends JsonResource
                 ] : null,
                 'photo' => $this->attendance->relationLoaded('photo') ? [
                     'path' => $this->attendance->photo?->path,
-                    'is_verified' => $this->attendance->photo?->is_verified,
-                    'liveness_status' => $this->attendance->photo?->liveness_status,
                 ] : null,
                 'gps_location' => $this->attendance->relationLoaded('gpsLocation') ? [
                     'is_within_radius' => $this->attendance->gpsLocation?->is_within_radius,

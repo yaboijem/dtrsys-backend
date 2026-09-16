@@ -112,8 +112,6 @@ class AuthTest extends TestCase
             'device_id' => 'registered-device',
             'is_active' => true,
         ]);
-
-        $this->assertDatabaseCount('device_change_requests', 0);
     }
 
     public function test_login_keeps_existing_devices_active_when_adding_another(): void

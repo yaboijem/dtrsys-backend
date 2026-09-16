@@ -38,8 +38,6 @@ class AttendanceResource extends JsonResource
             ]),
             'photo' => $this->whenLoaded('photo', fn () => [
                 'path' => $this->photo->path,
-                'is_verified' => $this->photo->is_verified,
-                'liveness_status' => $this->photo->liveness_status,
             ]),
             'fraud_flags' => $this->whenLoaded('fraudFlags', fn () => $this->fraudFlags->map(fn ($flag) => [
                 'type' => $flag->type,

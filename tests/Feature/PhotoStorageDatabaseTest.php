@@ -61,8 +61,6 @@ class PhotoStorageDatabaseTest extends TestCase
 
         $attendance->photo()->create([
             'path' => $path,
-            'is_verified' => false,
-            'liveness_status' => 'pending',
             'captured_at' => now(),
         ]);
 
@@ -76,7 +74,7 @@ class PhotoStorageDatabaseTest extends TestCase
     public function photo_blob_count_matches_store(): void
     {
         $file = UploadedFile::fake()->image('a.png', 100, 100);
-        app(PhotoStorage::class)->store($file, 'reference-photos');
+        app(PhotoStorage::class)->store($file, 'attendance-photos');
 
         $this->assertSame(1, PhotoBlob::query()->count());
     }

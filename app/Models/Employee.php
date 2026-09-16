@@ -25,7 +25,6 @@ class Employee extends Model
         'department_id',
         'position_id',
         'date_hired',
-        'reference_photo_path',
     ];
 
     protected $casts = [
@@ -75,11 +74,6 @@ class Employee extends Model
     public function consents(): HasMany
     {
         return $this->hasMany(Consent::class);
-    }
-
-    public function deviceChangeRequests(): HasMany
-    {
-        return $this->hasMany(DeviceChangeRequest::class);
     }
 
     public function homeLocationAssignments(): HasMany

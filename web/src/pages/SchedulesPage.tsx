@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, List, ListFilter, Plus, Trash2 } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { createSchedule, deleteSchedule, listBranches, listEmployees, listSchedules, listShifts } from '../api/endpoints';
-import type { Branch, Employee, Paginated, ScheduleAdmin, Shift } from '../api/types';
+import { createSchedule, deleteSchedule, listBranches, listSchedules, listShifts } from '../api/endpoints';
+import type { Branch, Paginated, ScheduleAdmin, Shift } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmployeePicker } from '../components/EmployeePicker';
 import { PageHeader } from '../components/PageHeader';
@@ -43,7 +43,6 @@ export function SchedulesPage() {
   const [view, setView] = useState<'list' | 'week'>('list');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(toLocalDateInput()));
 
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
 
@@ -93,14 +92,10 @@ export function SchedulesPage() {
   const loadOptions = useCallback(async () => {
     if (!token) return;
     try {
-      const [empRes, shiftRes] = await Promise.all([
-        listEmployees({ per_page: 100, is_active: '1' }, token),
-        listShifts({ per_page: 100, is_active: '1' }, token),
-      ]);
-      setEmployees(empRes.data);
+      const shiftRes = await listShifts({ per_page: 100, is_active: '1' }, token);
       setShifts(shiftRes.data);
     } catch {
-      notify('error', 'Could not load employees or shifts.');
+      notify('error', 'Could not load shifts.');
     }
   }, [token, notify]);
 
@@ -270,7 +265,7 @@ export function SchedulesPage() {
           )}
           <Field label="Employee">
             <EmployeePicker
-              employees={employees}
+              token={token}
               value={filters.employee_id}
               onChange={(employee_id) => applyFilter({ employee_id })}
               emptyLabel="All employees"
@@ -434,7 +429,7 @@ export function SchedulesPage() {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3">
           <Field label="Employee" required error={fieldErrors.employee_id?.[0]}>
             <EmployeePicker
-              employees={employees}
+              token={token}
               value={form.employee_id}
               onChange={(employee_id) => setForm({ ...form, employee_id })}
               emptyLabel="Select employee"
@@ -483,7 +478,7 @@ export function SchedulesPage() {
           <Field label="Employees" required>
             <EmployeePicker
               multiple
-              employees={employees}
+              token={token}
               value={bulkForm.employee_ids}
               onChange={(employee_ids) => setBulkForm({ ...bulkForm, employee_ids })}
               placeholder="Type to search and select employees…"

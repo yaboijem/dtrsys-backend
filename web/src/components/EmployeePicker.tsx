@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
 
+import { listEmployees } from '../api/endpoints';
 import type { Employee } from '../api/types';
 import { cn } from '../lib/cn';
 
@@ -17,7 +18,11 @@ function matchesQuery(e: Employee, q: string): boolean {
 }
 
 type BaseProps = {
-  employees: Employee[];
+  /** Static list (legacy). Prefer `token` for server search at 500+ scale. */
+  employees?: Employee[];
+  /** When set, search hits the admin employees API. */
+  token?: string | null;
+  activeOnly?: boolean;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -40,16 +45,63 @@ type MultiProps = BaseProps & {
 export type EmployeePickerProps = SingleProps | MultiProps;
 
 export function EmployeePicker(props: EmployeePickerProps) {
-  const { employees, placeholder = 'Search employees…', disabled, className } = props;
+  const {
+    employees: staticEmployees = [],
+    token,
+    activeOnly = true,
+    placeholder = 'Search employees…',
+    disabled,
+    className,
+  } = props;
   const multiple = props.multiple === true;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [remote, setRemote] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [cache, setCache] = useState<Record<string, Employee>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const serverMode = Boolean(token);
+
+  useEffect(() => {
+    if (!serverMode || !token) return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      setLoading(true);
+      void listEmployees(
+        {
+          per_page: 50,
+          search: query.trim() || undefined,
+          ...(activeOnly ? { is_active: '1' } : {}),
+        },
+        token,
+      )
+        .then((result) => {
+          if (cancelled) return;
+          setRemote(result.data);
+          setCache((prev) => {
+            const next = { ...prev };
+            for (const e of result.data) next[String(e.id)] = e;
+            return next;
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setRemote([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [serverMode, token, query, activeOnly, open]);
 
   const filtered = useMemo(() => {
+    if (serverMode) return remote;
     const q = query.trim().toLowerCase();
-    return employees.filter((e) => matchesQuery(e, q));
-  }, [employees, query]);
+    return staticEmployees.filter((e) => matchesQuery(e, q));
+  }, [serverMode, remote, staticEmployees, query]);
 
   useEffect(() => {
     if (open) {
@@ -58,12 +110,13 @@ export function EmployeePicker(props: EmployeePickerProps) {
     }
   }, [open]);
 
-  const selectedSingle = !multiple
-    ? employees.find((e) => String(e.id) === props.value)
-    : undefined;
+  const resolveById = (id: string): Employee | undefined =>
+    cache[id] ?? staticEmployees.find((e) => String(e.id) === id) ?? remote.find((e) => String(e.id) === id);
+
+  const selectedSingle = !multiple ? resolveById(props.value) : undefined;
 
   const selectedMulti = multiple
-    ? employees.filter((e) => props.value.includes(String(e.id)))
+    ? props.value.map((id) => resolveById(id)).filter((e): e is Employee => Boolean(e))
     : [];
 
   const triggerLabel = multiple
@@ -160,7 +213,9 @@ export function EmployeePicker(props: EmployeePickerProps) {
                 {(props as SingleProps).emptyLabel ?? 'All employees'}
               </button>
             ) : null}
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="px-2.5 py-6 text-center text-xs text-muted">Searching…</div>
+            ) : filtered.length === 0 ? (
               <div className="px-2.5 py-6 text-center text-xs text-muted">No employees match.</div>
             ) : (
               filtered.map((e) => {

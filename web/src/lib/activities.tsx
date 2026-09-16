@@ -27,11 +27,10 @@ const ACTION_DEFS: Record<string, ActivityDef> = {
   'attendance.deleted': { label: 'deleted an attendance record', icon: <XCircle size={15} />, tone: 'bg-red-50 text-danger' },
   'attendance.restored': { label: 'restored an attendance record', icon: <Clock size={15} />, tone: 'bg-teal-50 text-primary' },
   'device.updated': { label: 'updated a device', icon: <Smartphone size={15} />, tone: 'bg-violet-50 text-violet-700' },
-  'device_change_request.reviewed': { label: 'reviewed a device change request', icon: <Smartphone size={15} />, tone: 'bg-violet-50 text-violet-700' },
+
   'employee.created': { label: 'created an employee', icon: <Users size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'employee.updated': { label: 'updated an employee', icon: <UserCog size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'employee.deactivated': { label: 'deactivated an employee', icon: <XCircle size={15} />, tone: 'bg-red-50 text-danger' },
-  'employee.reference_photo_updated': { label: 'updated a reference photo', icon: <Users size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'branch.created': { label: 'created a branch', icon: <Building2 size={15} />, tone: 'bg-blue-50 text-blue-700' },
   'branch.updated': { label: 'updated a branch', icon: <Building2 size={15} />, tone: 'bg-blue-50 text-blue-700' },
   'branch.deleted': { label: 'deleted a branch', icon: <AlertTriangle size={15} />, tone: 'bg-red-50 text-danger' },

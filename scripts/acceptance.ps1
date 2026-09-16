@@ -186,14 +186,7 @@ try {
     Invoke-RestMethod -Uri "$BaseUrl/api/admin/audit-logs?per_page=5" -Headers $hr | Out-Null
     Report 'PASS' 'audit logs list'
 
-    # --- 11. Reference photo upload (compression path) ---
-    $ref = Send-Multipart "$BaseUrl/api/admin/employees/3/reference-photo" $hr $selfie 'photo' 'ref.png'
-    if ($ref.Status -eq 200 -and $ref.Body -match '"reference_photo_path":"([^"]+)"') {
-        if ($Matches[1] -match '\.jpg$') { Report 'PASS' 'reference photo upload (compressed jpg)' }
-        else { Report 'FAIL' 'reference photo upload' "not jpg: $($Matches[1])" }
-    } else { Report 'FAIL' 'reference photo upload' "status=$($ref.Status)" }
-
-    # --- 12. Reports (async daily export) ---
+    # --- 11. Reports (async daily export) ---
     $from = ServerDate 7
     $to = ServerDate 0
     $report = JsonPost "$BaseUrl/api/admin/reports" @{ type = 'daily'; date_from = $from; date_to = $to } $hr
@@ -204,7 +197,7 @@ try {
     if ($dl.StatusCode -eq 200 -and $dl.Content -match 'employee_id') { Report 'PASS' 'report request + download' }
     else { Report 'FAIL' 'report request + download' }
 
-    # --- 13. Payroll export ---
+    # --- 12. Payroll export ---
     $payroll = JsonPost "$BaseUrl/api/admin/payroll-exports" @{ date_from = $from; date_to = $to } $hr
     if ($payroll.data.id) { Report 'PASS' 'payroll export request' } else { Report 'FAIL' 'payroll export request' }
     Tinker "Artisan::call('queue:work', ['--stop-when-empty' => true]);" | Out-Null
@@ -212,7 +205,7 @@ try {
     if ($payDl.StatusCode -eq 200 -and $payDl.Content -match 'employee_id') { Report 'PASS' 'payroll export download' }
     else { Report 'FAIL' 'payroll export download' }
 
-    # --- 14. Branch Manager scoping (MGR001 + MFA) ---
+    # --- 13. Branch Manager scoping (MGR001 + MFA) ---
     $mgLogin = JsonPost "$BaseUrl/api/auth/login" @{ employee_id = 'MGR001'; password = 'password'; device_id = 'device-mgr001' }
     if ($mgLogin.token) {
         Report 'PASS' 'MGR001 login (no MFA required)'
@@ -229,7 +222,7 @@ try {
     if ($badBranches.Count -eq 0) { Report 'PASS' 'BM attendance scope (Makati only)' }
     else { Report 'FAIL' 'BM attendance scope' "$($badBranches.Count) records outside own branch" }
 
-    # --- 15. Employee cannot access admin routes ---
+    # --- 14. Employee cannot access admin routes ---
     try {
         Invoke-RestMethod -Uri "$BaseUrl/api/admin/dashboard/summary" -Headers @{ Authorization = "Bearer $empToken" } -ErrorAction Stop | Out-Null
         Report 'FAIL' 'employee blocked from admin'
@@ -238,11 +231,11 @@ try {
         else { Report 'FAIL' 'employee blocked from admin' }
     }
 
-    # --- 16. Logout ---
+    # --- 15. Logout ---
     JsonPost "$BaseUrl/api/auth/logout" @{} @{ Authorization = "Bearer $empToken" } | Out-Null
     Report 'PASS' 'logout'
 
-    # --- 17. Retention purge dry-run ---
+    # --- 16. Retention purge dry-run ---
     $dry = Tinker "Artisan::call('dtr:purge-old-data', ['--dry-run' => true]); echo Artisan::output();"
     if ($dry -match 'Would delete') { Report 'PASS' 'retention purge dry-run' $dry.Trim() }
     else { Report 'FAIL' 'retention purge dry-run' }

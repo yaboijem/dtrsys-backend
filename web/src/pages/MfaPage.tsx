@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { verifyMfa } from '../api/endpoints';
 import { useAuth } from '../auth/AuthContext';
@@ -56,9 +55,7 @@ export function MfaPage() {
     <div className="flex min-h-full items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6">
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-deep ring-1 ring-deep-border">
-            <ShieldCheck size={22} className="text-cyan-300" />
-          </div>
+          <img src="/logo-48.png" alt="DTR" width={44} height={44} className="h-11 w-11 rounded-lg" />
           <h1 className="text-lg font-bold text-text">Two-factor authentication</h1>
           <p className="text-center text-xs text-muted">
             {recoveryMode ? 'Enter one of your recovery codes to sign in.' : 'Enter the 6-digit code from your authenticator app.'}

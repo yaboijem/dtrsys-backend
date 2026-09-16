@@ -348,8 +348,6 @@ function DetailRow({ label, children, dark = false }: { label: string; children:
 const DETAIL_LABELS: Record<string, string> = {
   distance_meters: 'Distance from branch',
   accuracy_meters: 'GPS accuracy',
-  confidence: 'Match confidence',
-  liveness_passed: 'Liveness check',
   duration_minutes: 'Time between punches',
   estimated_speed_kmh: 'Estimated speed',
   previous_punch_at: 'Previous punch',
@@ -438,42 +436,17 @@ function FlagReview({
       </div>
 
       <div className="overflow-hidden rounded-md border border-deep-border">
-        <div className="grid grid-cols-1 divide-y divide-deep-border sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
-          <div>
-            <div className="bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-400">Selfie</div>
-            {attendance.photo?.path ? (
-              <PhotoViewer
-                url={`/api/admin/attendance/${attendance.id}/photo`}
-                token={token}
-                alt={`Selfie of ${attendance.employee?.name ?? 'employee'}`}
-                className="h-56 w-full"
-                dark
-              />
-            ) : (
-              <div className="flex h-40 items-center justify-center bg-deep-2 text-xs text-slate-400">No selfie captured</div>
-            )}
-          </div>
-          <div>
-            <div className="bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-400">Reference photo</div>
-            {attendance.employee?.id ? (
-              <PhotoViewer
-                url={`/api/admin/employees/${attendance.employee.id}/reference-photo`}
-                token={token}
-                alt={`Reference photo of ${attendance.employee.name}`}
-                className="h-56 w-full"
-                fallbackText="No reference photo on file"
-                dark
-              />
-            ) : (
-              <div className="flex h-40 items-center justify-center bg-deep-2 text-xs text-slate-400">No reference photo on file</div>
-            )}
-          </div>
-        </div>
-        {typeof attendance.photo?.is_verified === 'boolean' && (
-          <div className="flex items-center gap-2 border-t border-deep-border bg-white/5 px-3 py-2">
-            <Badge tone={attendance.photo.is_verified ? 'green' : 'red'} onDark>{attendance.photo.is_verified ? 'Verified' : 'Not verified'}</Badge>
-            {attendance.photo.liveness_status && <Badge tone="gray" onDark>{attendance.photo.liveness_status}</Badge>}
-          </div>
+        <div className="bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-400">Selfie</div>
+        {attendance.photo?.path ? (
+          <PhotoViewer
+            url={`/api/admin/attendance/${attendance.id}/photo`}
+            token={token}
+            alt={`Selfie of ${attendance.employee?.name ?? 'employee'}`}
+            className="h-56 w-full"
+            dark
+          />
+        ) : (
+          <div className="flex h-40 items-center justify-center bg-deep-2 text-xs text-slate-400">No selfie captured</div>
         )}
       </div>
 

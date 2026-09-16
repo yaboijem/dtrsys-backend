@@ -25,14 +25,6 @@ class FraudDetectionService
             $flags[] = $flag;
         }
 
-        if ($flag = $this->checkFaceMismatch($attendance)) {
-            $flags[] = $flag;
-        }
-
-        if ($flag = $this->checkNoFace($attendance)) {
-            $flags[] = $flag;
-        }
-
         if ($flag = $this->checkImpossibleJump($attendance)) {
             $flags[] = $flag;
         }
@@ -57,38 +49,6 @@ class FraudDetectionService
         return $this->flag($attendance, 'out_of_radius', 'medium', [
             'distance_meters' => $attendance->gpsLocation->distance_from_branch_meters,
             'accuracy_meters' => $attendance->gpsLocation->accuracy_meters,
-        ]);
-    }
-
-    private function checkFaceMismatch(Attendance $attendance): ?FraudFlag
-    {
-        $photo = $attendance->photo;
-
-        if (! $photo || $photo->is_verified || $photo->liveness_status === 'pending') {
-            return null;
-        }
-
-        return $this->flag($attendance, 'face_mismatch', 'high', [
-            'confidence' => data_get($photo->verification_result, 'confidence'),
-            'liveness_passed' => data_get($photo->verification_result, 'liveness_passed'),
-        ]);
-    }
-
-    private function checkNoFace(Attendance $attendance): ?FraudFlag
-    {
-        $photo = $attendance->photo;
-
-        if (! $photo || $photo->liveness_status === 'pending') {
-            return null;
-        }
-
-        if (data_get($photo->verification_result, 'face_detected') !== false) {
-            return null;
-        }
-
-        return $this->flag($attendance, 'no_face', 'high', [
-            'confidence' => data_get($photo->verification_result, 'confidence'),
-            'liveness_passed' => data_get($photo->verification_result, 'liveness_passed'),
         ]);
     }
 

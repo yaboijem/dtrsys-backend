@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
-use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
-use App\Jobs\VerifyAttendancePhotoJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
@@ -27,7 +25,6 @@ class AttendanceService
     public function __construct(
         private readonly GPSService $gpsService,
         private readonly ScheduleService $scheduleService,
-        private readonly FaceVerificationService $faceVerificationService,
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly NotificationService $notificationService,
         private readonly ImageService $imageService,
@@ -413,18 +410,7 @@ class AttendanceService
         return AttendancePhoto::create([
             'attendance_id' => $attendance->id,
             'path' => $path,
-            'is_verified' => false,
-            'liveness_status' => 'pending',
             'captured_at' => now(),
-        ]);
-    }
-
-    public function applyFaceResult(AttendancePhoto $photo, FaceVerificationResult $result): void
-    {
-        $photo->update([
-            'is_verified' => $result->matched && $result->livenessPassed && $result->faceDetected,
-            'verification_result' => $result->toArray(),
-            'liveness_status' => $result->livenessPassed ? 'passed' : 'failed',
         ]);
     }
 
@@ -434,25 +420,7 @@ class AttendanceService
             return null;
         }
 
-        $photo = $this->storePhotoOnly($employee, $attendance, $selfie);
-
-        if (config('dtr.attendance.async_face_verification')) {
-            VerifyAttendancePhotoJob::dispatch($photo->id);
-
-            return $photo;
-        }
-
-        $result = $this->faceVerificationService->verify($employee, $photo->path);
-        $this->applyFaceResult($photo, $result);
-
-        if (! $result->matched || ! $result->livenessPassed || ! $result->faceDetected) {
-            throw new FaceVerificationFailedException(
-                'Face verification failed. Please try again.',
-                $result->toArray(),
-            );
-        }
-
-        return $photo;
+        return $this->storePhotoOnly($employee, $attendance, $selfie);
     }
 
     private function storeGpsLocation(Attendance $attendance, Employee $employee, array $gps): void

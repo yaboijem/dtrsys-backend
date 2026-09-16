@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\Attendance;
-use App\Models\AttendancePhoto;
 use App\Models\Employee;
 use App\Models\GpsLocation;
 use App\Services\FraudDetectionService;
@@ -40,27 +39,6 @@ class FraudDetectionServiceTest extends TestCase
 
         $this->assertCount(1, $flags);
         $this->assertSame('out_of_radius', $flags[0]->type);
-    }
-
-    #[Test]
-    public function it_flags_face_mismatches(): void
-    {
-        $employee = Employee::factory()->create();
-        $attendance = Attendance::factory()->create(['employee_id' => $employee->id]);
-        AttendancePhoto::create([
-            'attendance_id' => $attendance->id,
-            'path' => 'attendance/photo.jpg',
-            'is_verified' => false,
-            'verification_result' => ['matched' => false, 'confidence' => 0.21],
-            'liveness_status' => 'passed',
-            'captured_at' => $attendance->timestamp,
-        ]);
-
-        $flags = $this->service()->evaluate($attendance->fresh());
-
-        $this->assertCount(1, $flags);
-        $this->assertSame('face_mismatch', $flags[0]->type);
-        $this->assertSame('high', $flags[0]->severity);
     }
 
     #[Test]

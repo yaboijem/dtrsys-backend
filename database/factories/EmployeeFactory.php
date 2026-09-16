@@ -31,7 +31,6 @@ class EmployeeFactory extends Factory
             'department_id' => Department::factory(),
             'position_id' => Position::factory(),
             'date_hired' => fake()->date(),
-            'reference_photo_path' => null,
         ];
     }
 }

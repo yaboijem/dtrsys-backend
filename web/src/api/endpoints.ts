@@ -134,12 +134,6 @@ export function deactivateEmployee(id: number, token: string): Promise<{ message
   return api.delete<{ message: string }>(`/api/admin/employees/${id}`, token);
 }
 
-export function uploadReferencePhoto(id: number, file: File, token: string): Promise<Employee> {
-  const form = new FormData();
-  form.append('photo', file);
-  return api.postForm<Employee>(`/api/admin/employees/${id}/reference-photo`, form, token);
-}
-
 export function listBranches(params: PaginationParams, token: string): Promise<Paginated<Branch>> {
   return api.get<RawPaginated<Branch>>('/api/admin/branches', params, token).then(toPaginated);
 }

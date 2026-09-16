@@ -119,7 +119,6 @@ class EmployeeNameSyncTest extends TestCase
     public function recent_activity_prefers_employee_full_name_over_stale_user_name(): void
     {
         Storage::fake('public');
-        config(['dtr.attendance.async_face_verification' => false]);
         $hr = $this->makeHr();
         $employee = $this->makeEmployee();
 

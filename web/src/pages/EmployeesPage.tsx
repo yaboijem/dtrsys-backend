@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
@@ -11,7 +11,6 @@ import {
   listEmployees,
   listPositions,
   updateEmployee,
-  uploadReferencePhoto,
 } from '../api/endpoints';
 import type { Branch, Department, Employee, Paginated, Position } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -21,7 +20,6 @@ import { Avatar, Badge, Button, Card, ErrorState, Field, Input, Select, Toggle }
 import { DataTable, PaginationBar } from '../components/DataTable';
 import { DropdownItem, DropdownMenu } from '../components/DropdownMenu';
 import { ConfirmDialog, Modal } from '../components/Modal';
-import { PhotoViewer } from '../components/PhotoViewer';
 import { useToast } from '../components/Toast';
 import { formatDate } from '../lib/format';
 
@@ -73,26 +71,20 @@ function composeFullName(firstName: string, middleName: string, lastName: string
   return [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
 }
 
-function matchesEmployeeQuery(e: Employee, raw: string): boolean {
-  const q = raw.trim().toLowerCase();
-  if (!q) return false;
-  const hay = `${e.full_name} ${e.employee_id ?? ''} ${e.email ?? ''} ${e.department ?? ''} ${e.position ?? ''}`.toLowerCase();
-  if (hay.includes(q)) return true;
-  const terms = q.split(/\s+/).filter(Boolean);
-  return terms.length > 1 && terms.every((t) => hay.includes(t));
-}
-
 export function EmployeesPage() {
   const { token, user, refreshUser } = useAuth();
   const { notify } = useToast();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
+  const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<Employee[]>([]);
+  const [paginated, setPaginated] = useState<Paginated<Employee> | null>(null);
 
   const PAGE_SIZE = 20;
 
@@ -101,17 +93,9 @@ export function EmployeesPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const [deactivating, setDeactivating] = useState<Employee | null>(null);
   const [deactivateBusy, setDeactivateBusy] = useState(false);
-
-  /** One-time in-memory directory for typeahead — no DB hit while typing. */
-  const [directory, setDirectory] = useState<Employee[]>([]);
-  const [suggestOpen, setSuggestOpen] = useState(false);
-  const [activeSuggest, setActiveSuggest] = useState(-1);
-  const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -138,118 +122,54 @@ export function EmployeesPage() {
     }
   }, [token]);
 
-  const loadDirectory = useCallback(async () => {
+  const loadEmployees = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await listEmployees({ per_page: 100 }, token);
-      setDirectory(result.data);
+      const result = await listEmployees(
+        {
+          page,
+          per_page: PAGE_SIZE,
+          search: filters.search.trim() || undefined,
+          branch_id: filters.branch_id || undefined,
+          department_id: filters.department_id || undefined,
+        },
+        token,
+      );
+      setRows(result.data);
+      setPaginated(result);
     } catch (err) {
-      setDirectory([]);
+      setRows([]);
+      setPaginated(null);
       setError(err instanceof ApiError ? err.message : 'Failed to load employees.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, page, filters.search, filters.branch_id, filters.department_id, PAGE_SIZE]);
 
   useEffect(() => {
     void loadBranches();
     void loadMasterData();
-    void loadDirectory();
-  }, [loadBranches, loadMasterData, loadDirectory]);
-
-  /** Live client-side filter — typing updates the table without hitting the DB. */
-  const filteredDirectory = useMemo(() => {
-    return directory.filter((e) => {
-      if (filters.search.trim() && !matchesEmployeeQuery(e, filters.search)) return false;
-      if (filters.branch_id && String(e.branch?.id ?? '') !== filters.branch_id) return false;
-      if (filters.department_id && String(e.department_id ?? '') !== filters.department_id) return false;
-      return true;
-    });
-  }, [directory, filters]);
+  }, [loadBranches, loadMasterData]);
 
   useEffect(() => {
-    setPage(1);
-  }, [filters.search, filters.branch_id, filters.department_id]);
+    void loadEmployees();
+  }, [loadEmployees]);
 
-  const paginated = useMemo((): Paginated<Employee> => {
-    const total = filteredDirectory.length;
-    const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE) || 1);
-    const current = Math.min(Math.max(1, page), lastPage);
-    const start = (current - 1) * PAGE_SIZE;
-    const slice = filteredDirectory.slice(start, start + PAGE_SIZE);
-    return {
-      data: slice,
-      current_page: current,
-      per_page: PAGE_SIZE,
-      total,
-      last_page: lastPage,
-      from: total === 0 ? null : start + 1,
-      to: total === 0 ? null : start + slice.length,
-      next_page_url: current < lastPage ? 'next' : null,
-      prev_page_url: current > 1 ? 'prev' : null,
-    };
-  }, [filteredDirectory, page, PAGE_SIZE]);
-
-  const data = paginated.data;
-
-  const suggestions = useMemo(() => {
-    const q = filters.search.trim();
-    if (q.length < 1) return [];
-    return directory.filter((e) => matchesEmployeeQuery(e, q)).slice(0, 8);
-  }, [directory, filters.search]);
-
+  // Debounce search box → server filter (supports 500+ employees).
   useEffect(() => {
-    function onDocMouseDown(ev: MouseEvent) {
-      if (!searchWrapRef.current?.contains(ev.target as Node)) {
-        setSuggestOpen(false);
-        setActiveSuggest(-1);
-      }
-    }
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, []);
-
-  function pickSuggestion(employee: Employee) {
-    setFilters({ ...filters, search: employee.full_name });
-    setSuggestOpen(false);
-    setActiveSuggest(-1);
-  }
-
-  function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown' && suggestions.length > 0) {
-      e.preventDefault();
-      setSuggestOpen(true);
-      setActiveSuggest((i) => (i + 1) % suggestions.length);
-      return;
-    }
-    if (e.key === 'ArrowUp' && suggestions.length > 0) {
-      e.preventDefault();
-      setSuggestOpen(true);
-      setActiveSuggest((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
-      return;
-    }
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (suggestOpen && activeSuggest >= 0 && suggestions[activeSuggest]) {
-        pickSuggestion(suggestions[activeSuggest]);
-        return;
-      }
-      setSuggestOpen(false);
-      return;
-    }
-    if (e.key === 'Escape') {
-      setSuggestOpen(false);
-      setActiveSuggest(-1);
-    }
-  }
+    const t = window.setTimeout(() => {
+      setPage(1);
+      setFilters((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput }));
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
 
   function openCreate() {
     setEditing(null);
     setForm(emptyForm());
     setFieldErrors({});
-    setPhotoFile(null);
     setModalOpen(true);
   }
 
@@ -275,7 +195,6 @@ export function EmployeesPage() {
       is_active: employee.is_active,
     });
     setFieldErrors({});
-    setPhotoFile(null);
     setModalOpen(true);
   }
 
@@ -322,8 +241,7 @@ export function EmployeesPage() {
         notify('success', 'Employee created.');
       }
       setModalOpen(false);
-      setPhotoFile(null);
-      void loadDirectory();
+      void loadEmployees();
     } catch (err) {
       if (err instanceof ApiError) {
         setFieldErrors(err.errors ?? {});
@@ -336,22 +254,6 @@ export function EmployeesPage() {
     }
   }
 
-  async function handlePhotoUpload() {
-    if (!token || !editing || !photoFile) return;
-    setPhotoUploading(true);
-    try {
-      const updated = await uploadReferencePhoto(editing.id, photoFile, token);
-      setEditing(updated);
-      setPhotoFile(null);
-      setDirectory((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-      notify('success', 'Reference photo updated.');
-    } catch (err) {
-      notify('error', err instanceof ApiError ? err.message : 'Failed to upload the photo.');
-    } finally {
-      setPhotoUploading(false);
-    }
-  }
-
   async function handleDeactivate() {
     if (!token || !deactivating) return;
     setDeactivateBusy(true);
@@ -359,7 +261,7 @@ export function EmployeesPage() {
       await deactivateEmployee(deactivating.id, token);
       notify('success', `${deactivating.full_name} deactivated.`);
       setDeactivating(null);
-      void loadDirectory();
+      void loadEmployees();
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Failed to deactivate the employee.');
     } finally {
@@ -368,12 +270,19 @@ export function EmployeesPage() {
   }
 
   const branchName = (id: number | null | undefined) => branches.find((b) => b.id === id)?.name ?? '—';
+  const totalLabel = paginated ? `${paginated.total} total` : null;
 
   return (
     <div>
       <PageHeader
         title="Employees"
-        description="Manage accounts, roles and reference photos"
+        description={
+          loading && !paginated
+            ? 'Manage accounts and roles'
+            : totalLabel
+              ? `${totalLabel} · Manage accounts and roles`
+              : 'Manage accounts and roles'
+        }
         actions={
           <Button onClick={openCreate}>
             <Plus size={15} />
@@ -384,60 +293,22 @@ export function EmployeesPage() {
 
       <Card className="mb-4 p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
-          <div className="relative min-w-0 flex-1" ref={searchWrapRef}>
+          <div className="relative min-w-0 flex-1">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted" />
             <Input
-              value={filters.search}
-              onChange={(e) => {
-                setFilters({ ...filters, search: e.target.value });
-                setSuggestOpen(true);
-                setActiveSuggest(-1);
-              }}
-              onFocus={() => setSuggestOpen(true)}
-              onKeyDown={onSearchKeyDown}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search name or employee ID…"
               className="pl-9"
               autoComplete="off"
-              role="combobox"
-              aria-expanded={suggestOpen && suggestions.length > 0}
-              aria-autocomplete="list"
-              aria-controls="employee-search-suggestions"
             />
-            {suggestOpen && filters.search.trim() && suggestions.length > 0 ? (
-              <ul
-                id="employee-search-suggestions"
-                role="listbox"
-                className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg"
-              >
-                {suggestions.map((e, i) => (
-                  <li key={e.id} role="option" aria-selected={i === activeSuggest}>
-                    <button
-                      type="button"
-                      className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                        i === activeSuggest ? 'bg-teal-50 text-primary' : 'text-text'
-                      }`}
-                      onMouseDown={(ev) => {
-                        ev.preventDefault();
-                        pickSuggestion(e);
-                      }}
-                      onMouseEnter={() => setActiveSuggest(i)}
-                    >
-                      <Avatar name={e.full_name} size="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium">{e.full_name}</span>
-                        <span className="block truncate text-[11px] text-muted">
-                          {[e.employee_id, e.department, e.position].filter(Boolean).join(' · ')}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </div>
           <Select
             value={filters.branch_id}
-            onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })}
+            onChange={(e) => {
+              setPage(1);
+              setFilters({ ...filters, branch_id: e.target.value });
+            }}
             className="lg:w-44"
           >
             <option value="">All branches</option>
@@ -451,7 +322,10 @@ export function EmployeesPage() {
             <SearchableSelect
               options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
               value={filters.department_id}
-              onChange={(department_id) => setFilters({ ...filters, department_id })}
+              onChange={(department_id) => {
+                setPage(1);
+                setFilters({ ...filters, department_id });
+              }}
               placeholder="All departments"
               emptyLabel="All departments"
               allowEmpty
@@ -463,12 +337,12 @@ export function EmployeesPage() {
 
       <Card className="shadow-sm">
         {error ? (
-          <ErrorState message={error} onRetry={loadDirectory} />
+          <ErrorState message={error} onRetry={loadEmployees} />
         ) : (
           <>
             <DataTable<Employee>
-              loading={loading && directory.length === 0}
-              rows={data}
+              loading={loading && rows.length === 0}
+              rows={rows}
               keyOf={(r) => r.id}
               emptyTitle="No employees found"
               emptyDescription="Adjust the search or filters and try again."
@@ -542,8 +416,8 @@ export function EmployeesPage() {
                 },
               ]}
             />
-            {paginated.total > 0 && (
-              <PaginationBar page={paginated.current_page} paginated={paginated} onPageChange={setPage} />
+            {paginated && paginated.total > 0 && (
+              <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />
             )}
           </>
         )}
@@ -677,26 +551,6 @@ export function EmployeesPage() {
               </Field>
             </div>
           </section>
-
-          {editing && (
-            <section className="space-y-3 border-t border-border pt-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Reference photo</h3>
-              <div className="flex items-start gap-4">
-                <PhotoViewer
-                  url={`/api/admin/employees/${editing.id}/reference-photo`}
-                  token={token ?? ''}
-                  alt="Reference photo"
-                  className="h-28 w-28 shrink-0 rounded-md border border-border"
-                />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
-                  <Button variant="secondary" onClick={handlePhotoUpload} disabled={!photoFile || photoUploading} loading={photoUploading}>
-                    Upload photo
-                  </Button>
-                </div>
-              </div>
-            </section>
-          )}
 
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>

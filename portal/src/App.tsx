@@ -9,7 +9,6 @@ import { useThemeColors } from './theme';
 
 // ── Pages ──────────────────────────────────────────────────────────────────────
 import { Login } from './pages/Login';
-import { Mfa } from './pages/Mfa';
 import { Home } from './pages/Home';
 import { History } from './pages/History';
 import { Notifications } from './pages/Notifications';
@@ -70,7 +69,6 @@ export default function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
-              <Route path="/mfa" element={<Mfa />} />
 
               {/* Protected routes */}
               <Route element={<AuthGuard />}>

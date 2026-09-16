@@ -8,16 +8,15 @@ import { Banner } from '../components/Feedback';
 import { LabeledInput } from '../components/Inputs';
 import { Screen } from '../components/Screen';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { DEV_OTP_ENABLED } from '../config';
 import { errorMessage } from '../lib/format';
 import { cardShadow, fontSize, microLabel, radius, spacing, useIsDark, useThemeColors } from '../theme';
 
 export function Login() {
   const colors = useThemeColors();
   const isDark = useIsDark();
-  const { login, deviceId, serverUrl } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [employeeId, setEmployeeId] = useState(DEV_OTP_ENABLED ? 'EMP001' : '');
+  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,12 +45,8 @@ export function Login() {
     }
     setLoading(true);
     try {
-      const outcome = await login(employeeId.trim(), password);
-      if (outcome === 'mfa_required') {
-        navigate('/mfa');
-      } else {
-        navigate('/home');
-      }
+      await login(employeeId.trim(), password);
+      navigate('/home');
     } catch (err) {
       if (err instanceof ApiError && (err.status === 0 || err.code === 'network_error')) {
         setError(
@@ -104,20 +99,13 @@ export function Login() {
             justifyContent: 'center',
           }}
         >
-          <div
-            style={{
-              borderRadius: radius.md,
-              paddingLeft: spacing.lg,
-              paddingRight: spacing.lg,
-              paddingTop: spacing.sm,
-              paddingBottom: spacing.sm,
-              backgroundColor: colors.primary,
-            }}
-          >
-            <span style={{ fontSize: fontSize.xl, fontWeight: 800, letterSpacing: 3, color: colors.bandText }}>
-              DTR
-            </span>
-          </div>
+          <img
+            src="/icons/logo-mark.png"
+            alt="DTR"
+            width={72}
+            height={72}
+            style={{ display: 'block' }}
+          />
         </div>
         <div style={{ fontSize: fontSize.xxl, fontWeight: '800', marginTop: spacing.lg, textAlign: 'center', color: colors.ink }}>
           Daily Time Record
@@ -154,17 +142,6 @@ export function Login() {
       </div>
 
       {error ? <Banner kind="error" title="Login failed" detail={error} /> : null}
-
-      {DEV_OTP_ENABLED ? (
-        <div>
-          <div style={{ marginTop: spacing.sm, textAlign: 'center', fontSize: fontSize.sm, color: colors.muted }}>
-            Device: {deviceId} · Server: {serverUrl}
-          </div>
-          <div style={{ marginTop: spacing.sm, textAlign: 'center', fontSize: fontSize.sm, color: colors.muted }}>
-            Device ID and server URL can be changed after login, or via app config.
-          </div>
-        </div>
-      ) : null}
     </Screen>
   );
 }

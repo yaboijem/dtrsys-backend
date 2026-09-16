@@ -42,9 +42,4 @@ class Device extends Model
     {
         return $this->hasMany(Attendance::class);
     }
-
-    public function deviceChangeRequests(): HasMany
-    {
-        return $this->hasMany(DeviceChangeRequest::class, 'current_device_id');
-    }
 }

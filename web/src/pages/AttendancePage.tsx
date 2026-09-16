@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, Clock, Coffee, LogIn, LogOut, MapPin, Monitor, StickyNote } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { listAttendance, listBranches, listEmployees } from '../api/endpoints';
-import type { AttendanceAdmin, AttendanceSource, AttendanceType, Branch, Employee, Paginated } from '../api/types';
+import { listAttendance, listBranches } from '../api/endpoints';
+import type { AttendanceAdmin, AttendanceSource, AttendanceType, Branch, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmployeePicker } from '../components/EmployeePicker';
 import { PageHeader } from '../components/PageHeader';
@@ -61,7 +61,6 @@ export function AttendancePage() {
   const [data, setData] = useState<AttendanceAdmin[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<AttendanceAdmin | null>(null);
@@ -85,20 +84,9 @@ export function AttendancePage() {
     }
   }, [token]);
 
-  const loadEmployees = useCallback(async () => {
-    if (!token) return;
-    try {
-      const result = await listEmployees({ per_page: 100 }, token);
-      setEmployees(result.data);
-    } catch {
-      setEmployees([]);
-    }
-  }, [token]);
-
   useEffect(() => {
     void loadBranches();
-    void loadEmployees();
-  }, [loadBranches, loadEmployees]);
+  }, [loadBranches]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -177,7 +165,7 @@ export function AttendancePage() {
             </Field>
             <Field label="Employee">
               <EmployeePicker
-                employees={employees}
+                token={token}
                 value={filters.employee_id}
                 onChange={(employee_id) => setFilters({ ...filters, employee_id })}
                 emptyLabel="All employees"
@@ -319,8 +307,7 @@ export function AttendancePage() {
                       {r.type === 'time_out' && r.is_early_timeout && <Badge tone="amber">Early out</Badge>}
                       {r.is_overbreak && <Badge tone="red">Overbreak</Badge>}
                       {r.is_offline && <Badge tone="gray">Offline</Badge>}
-                      {r.photo?.is_verified && <Badge tone="teal">Verified</Badge>}
-                      {r.photo && !r.photo.is_verified && <Badge tone="red">Unverified</Badge>}
+                      {r.photo && <Badge tone="teal">Selfie</Badge>}
                       {!r.is_late &&
                         !(r.type === 'time_out' && r.is_early_timeout) &&
                         !r.is_overbreak &&
@@ -408,36 +395,16 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
       </div>
 
       <div className="overflow-hidden rounded-md border border-border">
-        <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
-          <div>
-            <div className="bg-bg/50 px-3 py-1.5 text-xs font-medium text-muted">Selfie</div>
-            {record.photo ? (
-              <PhotoViewer
-                url={`/api/admin/attendance/${record.id}/photo`}
-                token={token}
-                alt={`Selfie of ${record.employee.name}`}
-                className="h-56 w-full"
-              />
-            ) : (
-              <div className="flex h-40 items-center justify-center bg-bg text-xs text-muted">No selfie captured for this record</div>
-            )}
-          </div>
-          <div>
-            <div className="bg-bg/50 px-3 py-1.5 text-xs font-medium text-muted">Reference photo</div>
-            <PhotoViewer
-              url={`/api/admin/employees/${record.employee.id}/reference-photo`}
-              token={token}
-              alt={`Reference photo of ${record.employee.name}`}
-              className="h-56 w-full"
-              fallbackText="No reference photo on file"
-            />
-          </div>
-        </div>
-        {record.photo && (
-          <div className="flex items-center gap-2 border-t border-border bg-bg/50 px-3 py-2">
-            <Badge tone={record.photo.is_verified ? 'green' : 'red'}>{record.photo.is_verified ? 'Verified' : 'Not verified'}</Badge>
-            {record.photo.liveness_status && <Badge tone="gray">{record.photo.liveness_status}</Badge>}
-          </div>
+        <div className="bg-bg/50 px-3 py-1.5 text-xs font-medium text-muted">Selfie</div>
+        {record.photo ? (
+          <PhotoViewer
+            url={`/api/admin/attendance/${record.id}/photo`}
+            token={token}
+            alt={`Selfie of ${record.employee.name}`}
+            className="h-56 w-full"
+          />
+        ) : (
+          <div className="flex h-40 items-center justify-center bg-bg text-xs text-muted">No selfie captured for this record</div>
         )}
       </div>
 

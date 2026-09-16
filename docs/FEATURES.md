@@ -1,19 +1,18 @@
 # DTR System — Feature Inventory
 
-**Product:** Daily Time Record (DTR) — multi-branch attendance with GPS and face verification, offline sync, role-based administration, and privacy controls.
+**Product:** Daily Time Record (DTR) — multi-branch attendance with GPS validation, offline sync, role-based administration, and privacy controls.
 
 **Surfaces:**
 
 | Surface | Stack | Path |
 |---------|--------|------|
 | Backend API | Laravel 12 (PHP 8.4) | `app/`, `routes/api.php` |
-| Employee portal | React + Vite PWA | `portal/` |
-| Employee mobile | Expo / React Native | `frontend/` |
+| Employee app | React + Vite PWA | `portal/` |
 | Web admin | React + Vite | `web/` |
 
 Timezone: **Asia/Manila**.
 
-**Out of scope (removed):** async report CSV exports, payroll CSV exports, and the Payroll Officer role.
+**Out of scope (removed):** Expo/React Native app (`frontend/`), device-change request workflow, face verification, async report CSV exports, payroll CSV exports, and the Payroll Officer role.
 
 ---
 
@@ -53,9 +52,7 @@ Timezone: **Asia/Manila**.
 | **Break In** | GPS only (no selfie); one break per open shift |
 | **Break Out** | GPS; sets `break_minutes`; `is_overbreak` if break exceeds 60 minutes |
 | GPS validation | Haversine vs assigned branch lat/lng + `radius_meters`; optional accuracy |
-| Face verification | Selfie vs employee reference photo; liveness/spoof signals; mock or real provider |
 | Photo pipeline | Compress ≤1024px JPEG, strip EXIF; store on local or S3-compatible disk |
-| Async face | Optional queue job (`VerifyAttendancePhotoJob`) so live punches return quickly |
 | Employee locking | Per-employee lock prevents concurrent punch races |
 | Client UUID | Optional online idempotency; required for offline sync dedupe |
 | Schedule gate | Punch requires an assigned shift for the day (`no_schedule`) |
@@ -83,7 +80,7 @@ Timezone: **Asia/Manila**.
 | Batch sync | Up to 100 records with optional photos per request |
 | Client UUID | Idempotent dedupe by `client_uuid` |
 | Ordered apply | Timestamp-ordered transitions (time_in → break → time_out) |
-| Re-validation | GPS, face, and fraud checks re-run on sync |
+| Re-validation | GPS and fraud checks re-run on sync |
 | Sync trail | `sync_logs` records outcomes |
 | Portal queue | IndexedDB (legacy localStorage fallback); selfie attached; auto-flush on reconnect; manual “Sync now” |
 | Mobile queue | Parallel offline queue on Expo app |
@@ -98,8 +95,6 @@ Automated flags evaluated on punches (live and sync):
 |-----------|---------|
 | Out of radius | GPS outside branch or approved home geofence |
 | Home location required / pending | WFH punch blocked until HR-approved home pin |
-| Face mismatch | Selfie did not match reference |
-| No face | Face not detected in selfie |
 | Impossible jump | Unrealistic travel speed between punches |
 | Rapid clock | Suspiciously fast clock cycles |
 | GPS spoof | Spoof / accuracy signals |
@@ -142,7 +137,6 @@ Automated flags evaluated on punches (live and sync):
 | **Branches** | CRUD (name, code, address, lat/lng, radius, active). Delete blocked while employees exist | Super Admin, HR |
 | **Shifts** | CRUD. Delete blocked while assigned | Super Admin, HR |
 | **Employees** | CRUD (employee_id, name, email, password, role, branch, department, position, hire date, active). Deactivate account; optional device name / shared flag on update | Super Admin, HR |
-| **Reference photo** | Upload + stream for face matching | Super Admin, HR |
 | **Device change requests** | List + approve/reject (legacy API; multi-device login no longer requires approval) | Super Admin, HR |
 
 ### API (prefix `/api/admin`)
@@ -152,7 +146,6 @@ Automated flags evaluated on punches (live and sync):
 | `branches` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
 | `shifts` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
 | `employees` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
-| `employees/{id}/reference-photo` | POST (upload), GET (stream) |
 | `device-change-requests` | GET, PATCH/{id} |
 | `audit-logs` | GET |
 
@@ -160,8 +153,6 @@ Employee self-service (legacy):
 
 | Method | Path |
 |--------|------|
-| GET | `/api/device/change-requests` |
-| POST | `/api/device/change-requests` |
 
 ---
 
@@ -272,30 +263,15 @@ Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PwaChrome`.
 
 ---
 
-## 12. Employee mobile (`frontend/`)
-
-Expo / React Native app parallel to the portal:
-
-- Login, MFA  
-- Home (punch + schedule + offline queue)  
-- History  
-- Notifications  
-- More (profile, consent, config as implemented)  
-- Consent  
-
-Designed for field use: one-handed targets, offline-first punches, high contrast.
-
----
-
-## 13. Web admin (`web/`)
+## 12. Web admin (`web/`)
 
 | Page | Roles | Notable UI |
 |------|--------|------------|
 | Login / MFA | Privileged users | — |
 | Dashboard | Super Admin, HR, Branch Manager, Department Head | Metrics + day-over-day deltas; fraud severity; recent audit activity |
 | Attendance | Super Admin, HR, Branch Manager, Department Head | Filters; searchable **EmployeePicker**; selfie / map drawer |
-| Fraud flags | Super Admin, HR, Branch Manager | Resolve / dismiss; drawer with selfie + reference photo; severity filters |
-| Employees | Super Admin, HR | Search; create/edit; **work arrangement** (onsite/WFH/hybrid); reference photo; deactivate; device name / shared |
+| Fraud flags | Super Admin, HR, Branch Manager | Resolve / dismiss; drawer with selfie; severity filters |
+| Employees | Super Admin, HR | Search; create/edit; **work arrangement** (onsite/WFH/hybrid); deactivate; device name / shared |
 | Home locations | Super Admin, HR | Pending WFH home pins; approve/reject/link shared pin |
 | Branches | Super Admin, HR | CRUD + map location picker |
 | Shifts | Super Admin, HR | CRUD |
@@ -309,7 +285,7 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 
 | Area | Details |
 |------|---------|
-| Queue jobs | `VerifyAttendancePhotoJob`, `NotifyFraudFlagJob` |
+| Queue jobs | `NotifyFraudFlagJob` |
 | Cache / locks | Database default; Redis supported for scale |
 | Media disk | Local or S3/R2-compatible (`ATTENDANCE_PHOTO_DISK`) |
 | Security | HTTPS, rate limits, `APP_DEBUG=false` in production |
@@ -328,7 +304,6 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 | `DeviceService` | Device resolve/register on login |
 | `AttendanceService` | Time in/out, break in/out, late/work minutes, photo capture |
 | `GPSService` | Distance and geofence verify |
-| `FaceVerificationService` (+ mock) | Selfie match |
 | `FraudDetectionService` | Automated fraud rules |
 | `SyncService` | Offline batch apply |
 | `ScheduleService` | Shift for date / week |
@@ -355,7 +330,7 @@ Employees (portal PWA / mobile Expo)
         │                      │
 Admins (web)  ─────────────────┘
         │
-Background workers: face verify, fraud notify, break checks
+Background workers: fraud notify, break checks
 ```
 
 Portal is also deployable as the Laravel public SPA shell (`public/index.html` via `scripts/deploy-portal.mjs`).
@@ -375,7 +350,6 @@ Portal is also deployable as the Laravel public SPA shell (`public/index.html` v
 | 409 | `attendance_conflict` | Invalid punch state |
 | 409 | `branch_has_employees` / `shift_in_use` | Referential delete blocked |
 | 422 | `gps_out_of_range` | Outside branch radius |
-| 422 | `face_verification_failed` | Selfie mismatch |
 | 422 | `no_schedule` | No shift for today |
 | 429 | `too_many_attempts` | Rate limit |
 

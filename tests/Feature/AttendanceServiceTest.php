@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Exceptions\AttendanceConflictException;
-use App\Exceptions\FaceVerificationFailedException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Models\Branch;
 use App\Models\Device;
@@ -20,14 +19,6 @@ use Tests\TestCase;
 class AttendanceServiceTest extends TestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Service-level tests assert sync face verify + mismatch rollback behavior.
-        config(['dtr.attendance.async_face_verification' => false]);
-    }
 
     private function makeEmployeeWithBranch(): array
     {
@@ -69,8 +60,6 @@ class AttendanceServiceTest extends TestCase
 
         $this->assertDatabaseHas('attendance_photos', [
             'attendance_id' => $attendance->id,
-            'is_verified' => true,
-            'liveness_status' => 'passed',
         ]);
 
         $this->assertDatabaseHas('gps_locations', [
@@ -136,28 +125,6 @@ class AttendanceServiceTest extends TestCase
             'longitude' => (float) $employee->branch->longitude - 1,
             'accuracy_meters' => 10,
         ]);
-    }
-
-    #[Test]
-    public function face_mismatch_rolls_back_the_punch(): void
-    {
-        Storage::fake('public');
-        config(['dtr.face_verification.force_mismatch' => true]);
-        [$employee] = $this->makeEmployeeWithBranch();
-
-        try {
-            app(AttendanceService::class)->timeIn($employee->user, [
-                ...$this->punchData($employee->branch),
-                'selfie' => UploadedFile::fake()->image('selfie.jpg'),
-            ]);
-            $this->fail('Expected FaceVerificationFailedException');
-        } catch (FaceVerificationFailedException $e) {
-            $this->assertSame('face_verification_failed', 'face_verification_failed');
-        }
-
-        $this->assertDatabaseCount('attendance', 0);
-        $this->assertDatabaseCount('attendance_photos', 0);
-        $this->assertDatabaseCount('gps_locations', 0);
     }
 
     #[Test]

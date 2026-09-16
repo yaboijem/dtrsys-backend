@@ -3,18 +3,19 @@ import type { FraudFlagSeverity, FraudFlagStatus, FraudFlagType } from '../api/t
 export const FLAG_LABELS: Record<FraudFlagType, string> = {
   gps_spoof: 'GPS spoofing',
   impossible_jump: 'Impossible travel',
-  face_mismatch: 'Face mismatch',
   rapid_clock: 'Rapid clock in/out',
   out_of_radius: 'Out of radius',
+  // legacy (no longer generated)
+  face_mismatch: 'Face mismatch',
   no_face: 'No face detected',
 };
 
 export const FLAG_TONES: Record<FraudFlagType, 'red' | 'amber' | 'violet' | 'blue' | 'gray'> = {
   gps_spoof: 'red',
   impossible_jump: 'violet',
-  face_mismatch: 'red',
   rapid_clock: 'amber',
   out_of_radius: 'amber',
+  face_mismatch: 'red',
   no_face: 'red',
 };
 

@@ -41,8 +41,6 @@ class AttendanceAdminResource extends JsonResource
             ] : null),
             'photo' => $this->whenLoaded('photo', fn () => $this->photo ? [
                 'path' => $this->photo->path,
-                'is_verified' => $this->photo->is_verified,
-                'liveness_status' => $this->photo->liveness_status,
             ] : null),
             'gps_location' => $this->whenLoaded('gpsLocation', fn () => $this->gpsLocation ? [
                 'latitude' => $this->gpsLocation->latitude,

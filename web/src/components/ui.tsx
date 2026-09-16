@@ -296,10 +296,4 @@ export function Toggle({
   );
 }
 
-export function CodeTag({ children }: { children: ReactNode }) {
-  return (
-    <code className="rounded-md border border-border bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] tnum text-slate-700">
-      {children}
-    </code>
-  );
-}
+

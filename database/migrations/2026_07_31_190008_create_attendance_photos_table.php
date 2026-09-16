@@ -13,9 +13,6 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('attendance_id')->constrained('attendance')->cascadeOnDelete();
             $table->string('path');
-            $table->boolean('is_verified')->default(false);
-            $table->json('verification_result')->nullable();
-            $table->enum('liveness_status', ['not_checked', 'pending', 'passed', 'failed'])->default('not_checked');
             $table->dateTime('captured_at');
             $table->timestamps();
         });

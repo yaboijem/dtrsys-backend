@@ -9,8 +9,6 @@ class DeviceService
 {
     public const STATUS_REGISTERED = 'registered';
 
-    public const STATUS_BLOCKED = 'blocked';
-
     /**
      * Resolve or register a device for login. Never blocks — any employee may use any device_id.
      * If the device row exists under another employee, ownership is reassigned to the logging-in employee.

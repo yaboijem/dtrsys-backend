@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { login } from '../api/endpoints';
 import type { MfaRequiredResponse } from '../api/types';
@@ -53,9 +52,7 @@ export function LoginPage() {
     <div className="flex min-h-full items-center justify-center bg-bg p-4 sm:p-6">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="mb-7 flex flex-col items-center gap-2.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-deep shadow-sm ring-1 ring-deep-border">
-            <ShieldCheck size={22} className="text-teal-300" />
-          </div>
+          <img src="/logo.png" alt="DTR" width={48} height={48} className="h-12 w-12 rounded-xl shadow-sm" />
           <h1 className="text-xl font-bold tracking-tight text-text">DTR Admin</h1>
           <p className="text-sm text-muted">Sign in with your employee account</p>
         </div>
