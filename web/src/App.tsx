@@ -11,6 +11,7 @@ import { FraudFlagsPage } from './pages/FraudFlagsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { HomeLocationsPage } from './pages/HomeLocationsPage';
 import { BranchesPage } from './pages/BranchesPage';
+import { OrgStructurePage } from './pages/OrgStructurePage';
 import { ShiftsPage } from './pages/ShiftsPage';
 import { SchedulesPage } from './pages/SchedulesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -99,6 +100,18 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR']}>
                 <HomeLocationsPage />
+              </RequireRole>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/org-structure"
+        element={
+          <RequireAuth>
+            <Layout>
+              <RequireRole roles={['Super Admin', 'HR', 'Branch Manager', 'Department Head']}>
+                <OrgStructurePage />
               </RequireRole>
             </Layout>
           </RequireAuth>

@@ -29,8 +29,10 @@ export interface User {
     middle_name: string | null;
     last_name: string;
     full_name: string;
-    department: string;
-    position: string;
+    department_id?: number | null;
+    position_id?: number | null;
+    department: string | null;
+    position: string | null;
     date_hired: string | null;
     branch: (BranchRef & { latitude: number; longitude: number; radius_meters: number }) | null;
   } | null;
@@ -153,8 +155,10 @@ export interface Employee {
   first_name: string;
   middle_name: string | null;
   last_name: string;
-  department: string;
-  position: string;
+  department_id: number | null;
+  position_id: number | null;
+  department: string | null;
+  position: string | null;
   date_hired: string | null;
   is_active: boolean;
   work_arrangement?: 'onsite' | 'wfh' | 'hybrid';
@@ -203,6 +207,20 @@ export interface Branch {
   employee_count: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface Department {
+  id: number;
+  name: string;
+  employees_count?: number;
+  created_at?: string;
+}
+
+export interface Position {
+  id: number;
+  name: string;
+  employees_count?: number;
+  created_at?: string;
 }
 
 export interface Shift {

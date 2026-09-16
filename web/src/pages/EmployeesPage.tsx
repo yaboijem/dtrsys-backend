@@ -3,10 +3,20 @@ import type { FormEvent } from 'react';
 import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { createEmployee, deactivateEmployee, listBranches, listEmployees, updateEmployee, uploadReferencePhoto } from '../api/endpoints';
-import type { Branch, Employee, Paginated } from '../api/types';
+import {
+  createEmployee,
+  deactivateEmployee,
+  listBranches,
+  listDepartments,
+  listEmployees,
+  listPositions,
+  updateEmployee,
+  uploadReferencePhoto,
+} from '../api/endpoints';
+import type { Branch, Department, Employee, Paginated, Position } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { Avatar, Badge, Button, Card, ErrorState, Field, Input, Select, Toggle } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
 import { DropdownItem, DropdownMenu } from '../components/DropdownMenu';
@@ -20,7 +30,7 @@ const ROLES = ['Super Admin', 'HR', 'Branch Manager', 'Department Head', 'Employ
 interface Filters {
   search: string;
   branch_id: string;
-  department: string;
+  department_id: string;
 }
 
 interface FormState {
@@ -34,8 +44,8 @@ interface FormState {
   first_name: string;
   middle_name: string;
   last_name: string;
-  department: string;
-  position: string;
+  department_id: string;
+  position_id: string;
   date_hired: string;
   is_active: boolean;
 }
@@ -52,8 +62,8 @@ function emptyForm(): FormState {
     first_name: '',
     middle_name: '',
     last_name: '',
-    department: '',
-    position: '',
+    department_id: '',
+    position_id: '',
     date_hired: '',
     is_active: true,
   };
@@ -67,12 +77,14 @@ export function EmployeesPage() {
   const { token, user, refreshUser } = useAuth();
   const { notify } = useToast();
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department: '' });
-  const [applied, setApplied] = useState<Filters>({ search: '', branch_id: '', department: '' });
+  const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
+  const [applied, setApplied] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Employee[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -97,9 +109,25 @@ export function EmployeesPage() {
     }
   }, [token]);
 
+  const loadMasterData = useCallback(async () => {
+    if (!token) return;
+    try {
+      const [deptResult, posResult] = await Promise.all([
+        listDepartments({ per_page: 100 }, token),
+        listPositions({ per_page: 100 }, token),
+      ]);
+      setDepartments(deptResult.data);
+      setPositions(posResult.data);
+    } catch {
+      setDepartments([]);
+      setPositions([]);
+    }
+  }, [token]);
+
   useEffect(() => {
     void loadBranches();
-  }, [loadBranches]);
+    void loadMasterData();
+  }, [loadBranches, loadMasterData]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -109,7 +137,7 @@ export function EmployeesPage() {
       const params: Record<string, string | number | boolean | undefined> = { page, per_page: 20 };
       if (applied.search) params.search = applied.search;
       if (applied.branch_id) params.branch_id = applied.branch_id;
-      if (applied.department) params.department = applied.department;
+      if (applied.department_id) params.department_id = applied.department_id;
       const result = await listEmployees(params, token);
       setData(result.data);
       setPaginated(result);
@@ -155,8 +183,8 @@ export function EmployeesPage() {
       first_name: employee.first_name,
       middle_name: employee.middle_name ?? '',
       last_name: employee.last_name,
-      department: employee.department,
-      position: employee.position,
+      department_id: employee.department_id != null ? String(employee.department_id) : '',
+      position_id: employee.position_id != null ? String(employee.position_id) : '',
       date_hired: employee.date_hired ?? '',
       is_active: employee.is_active,
     });
@@ -171,6 +199,14 @@ export function EmployeesPage() {
     setSaving(true);
     setFieldErrors({});
     try {
+      if (!form.department_id || !form.position_id) {
+        setFieldErrors({
+          ...(!form.department_id ? { department_id: ['Department is required.'] } : {}),
+          ...(!form.position_id ? { position_id: ['Position is required.'] } : {}),
+        });
+        setSaving(false);
+        return;
+      }
       const payload = {
         employee_id: form.employee_id.trim(),
         name: form.name.trim(),
@@ -181,8 +217,8 @@ export function EmployeesPage() {
         first_name: form.first_name.trim(),
         middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
-        department: form.department.trim(),
-        position: form.position.trim(),
+        department_id: Number(form.department_id),
+        position_id: Number(form.position_id),
         date_hired: form.date_hired || null,
         is_active: form.is_active,
         ...(form.password ? { password: form.password } : {}),
@@ -280,12 +316,17 @@ export function EmployeesPage() {
               </option>
             ))}
           </Select>
-          <Input
-            value={filters.department}
-            onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-            placeholder="Department"
-            className="lg:w-40"
-          />
+          <div className="lg:w-48">
+            <SearchableSelect
+              options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
+              value={filters.department_id}
+              onChange={(department_id) => setFilters({ ...filters, department_id })}
+              placeholder="All departments"
+              emptyLabel="All departments"
+              allowEmpty
+              searchPlaceholder="Search departments…"
+            />
+          </div>
           <Button onClick={applyFilters} disabled={!dirty}>
             Apply
           </Button>
@@ -446,11 +487,35 @@ export function EmployeesPage() {
               }
             />
           </Field>
-          <Field label="Department" required error={fieldErrors.department?.[0]}>
-            <Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+          <Field label="Department" required error={fieldErrors.department_id?.[0]}>
+            <SearchableSelect
+              options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
+              value={form.department_id}
+              onChange={(department_id) => setForm({ ...form, department_id })}
+              placeholder="Select department"
+              searchPlaceholder="Search departments…"
+              allowEmpty={false}
+              noneMatchLabel={
+                departments.length === 0
+                  ? 'No departments yet — add them under Org structure.'
+                  : 'No matches.'
+              }
+            />
           </Field>
-          <Field label="Position" required error={fieldErrors.position?.[0]}>
-            <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
+          <Field label="Position" required error={fieldErrors.position_id?.[0]}>
+            <SearchableSelect
+              options={positions.map((p) => ({ value: String(p.id), label: p.name }))}
+              value={form.position_id}
+              onChange={(position_id) => setForm({ ...form, position_id })}
+              placeholder="Select position"
+              searchPlaceholder="Search positions…"
+              allowEmpty={false}
+              noneMatchLabel={
+                positions.length === 0
+                  ? 'No positions yet — add them under Org structure.'
+                  : 'No matches.'
+              }
+            />
           </Field>
           <Field label="Date hired" error={fieldErrors.date_hired?.[0]}>
             <Input type="date" value={form.date_hired} onChange={(e) => setForm({ ...form, date_hired: e.target.value })} />

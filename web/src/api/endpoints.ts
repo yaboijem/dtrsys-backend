@@ -5,7 +5,9 @@ import type {
   AuditLog,
   Branch,
   DashboardSummary,
+  Department,
   Employee,
+  Position,
   FraudFlag,
   HomeLocation,
   LoginResponse,
@@ -112,8 +114,8 @@ export interface EmployeePayload {
   first_name: string;
   middle_name?: string | null;
   last_name: string;
-  department: string;
-  position: string;
+  department_id: number;
+  position_id: number;
   date_hired?: string | null;
   is_active: boolean;
   device_name?: string | null;
@@ -162,6 +164,42 @@ export function updateBranch(id: number, payload: Partial<BranchPayload>, token:
 
 export function deleteBranch(id: number, token: string): Promise<{ message: string }> {
   return api.delete<{ message: string }>(`/api/admin/branches/${id}`, token);
+}
+
+export function listDepartments(params: PaginationParams, token: string): Promise<Paginated<Department>> {
+  return api.get<RawPaginated<Department>>('/api/admin/departments', params, token).then(toPaginated);
+}
+
+export interface NamePayload {
+  name: string;
+}
+
+export function createDepartment(payload: NamePayload, token: string): Promise<Department> {
+  return api.post<Department>('/api/admin/departments', payload, token);
+}
+
+export function updateDepartment(id: number, payload: Partial<NamePayload>, token: string): Promise<Department> {
+  return api.patch<Department>(`/api/admin/departments/${id}`, payload, token);
+}
+
+export function deleteDepartment(id: number, token: string): Promise<{ message: string }> {
+  return api.delete<{ message: string }>(`/api/admin/departments/${id}`, token);
+}
+
+export function listPositions(params: PaginationParams, token: string): Promise<Paginated<Position>> {
+  return api.get<RawPaginated<Position>>('/api/admin/positions', params, token).then(toPaginated);
+}
+
+export function createPosition(payload: NamePayload, token: string): Promise<Position> {
+  return api.post<Position>('/api/admin/positions', payload, token);
+}
+
+export function updatePosition(id: number, payload: Partial<NamePayload>, token: string): Promise<Position> {
+  return api.patch<Position>(`/api/admin/positions/${id}`, payload, token);
+}
+
+export function deletePosition(id: number, token: string): Promise<{ message: string }> {
+  return api.delete<{ message: string }>(`/api/admin/positions/${id}`, token);
 }
 
 export function listShifts(params: PaginationParams, token: string): Promise<Paginated<Shift>> {
