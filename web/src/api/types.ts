@@ -181,6 +181,9 @@ export interface HomeLocation {
   longitude: number;
   radius_meters: number;
   address_text: string | null;
+  street: string | null;
+  city: string | null;
+  province: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'retired';
   created_by: number;
   reviewed_by: number | null;

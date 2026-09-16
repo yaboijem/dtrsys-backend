@@ -96,3 +96,18 @@ export function startOfWeek(isoDate: string): string {
   d.setDate(d.getDate() + diff);
   return toLocalDateInput(d);
 }
+
+export function formatHomeAddress(parts: {
+  street?: string | null;
+  city?: string | null;
+  province?: string | null;
+  address_text?: string | null;
+}): string {
+  const joined = [parts.street, parts.city, parts.province]
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter(Boolean)
+    .join(', ');
+  if (joined) return joined;
+  const fallback = typeof parts.address_text === 'string' ? parts.address_text.trim() : '';
+  return fallback || '—';
+}
