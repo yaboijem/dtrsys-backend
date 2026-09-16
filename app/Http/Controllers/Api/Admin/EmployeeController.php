@@ -29,11 +29,35 @@ class EmployeeController extends Controller
         $employees = Employee::query()
             ->with(['user.roles', 'branch', 'devices', 'department', 'position'])
             ->when($request->filled('search'), function ($q) use ($request) {
-                $search = $request->input('search');
-                $q->where(function ($q) use ($search) {
+                $search = trim((string) $request->input('search'));
+                $terms = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+                $q->where(function ($q) use ($search, $terms) {
                     $q->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($q) => $q->where('employee_id', 'like', "%{$search}%"));
+                        ->orWhereHas('user', function ($q) use ($search) {
+                            $q->where('employee_id', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+
+                    // Multi-word names: every token must hit a name part (e.g. "Juan Dela Cruz")
+                    if (count($terms) > 1) {
+                        $q->orWhere(function ($q) use ($terms) {
+                            foreach ($terms as $term) {
+                                $q->where(function ($q) use ($term) {
+                                    $q->where('first_name', 'like', "%{$term}%")
+                                        ->orWhere('middle_name', 'like', "%{$term}%")
+                                        ->orWhere('last_name', 'like', "%{$term}%")
+                                        ->orWhereHas('user', function ($q) use ($term) {
+                                            $q->where('employee_id', 'like', "%{$term}%")
+                                                ->orWhere('name', 'like', "%{$term}%");
+                                        });
+                                });
+                            }
+                        });
+                    }
                 });
             })
             ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))

@@ -171,6 +171,31 @@ class AdminCrudTest extends TestCase
         $this->assertDatabaseHas('employees', ['department_id' => $payload['department_id']]);
     }
 
+    public function test_employee_search_matches_full_name(): void
+    {
+        $admin = $this->makeAdmin();
+        $employee = Employee::factory()->create([
+            'first_name' => 'Juan',
+            'middle_name' => null,
+            'last_name' => 'Dela Cruz',
+        ]);
+        $employee->user->update([
+            'name' => 'Juan Dela Cruz',
+            'employee_id' => 'EMP-JUAN',
+        ]);
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->getJson('/api/admin/employees?search='.urlencode('Juan Dela Cruz'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $employee->id);
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->getJson('/api/admin/employees?search=Juan')
+            ->assertOk()
+            ->assertJsonFragment(['id' => $employee->id]);
+    }
+
     public function test_duplicate_employee_id_is_rejected(): void
     {
         $admin = $this->makeAdmin();
