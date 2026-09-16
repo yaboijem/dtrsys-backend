@@ -137,8 +137,6 @@ Automated flags evaluated on punches (live and sync):
 | **Branches** | CRUD (name, code, address, lat/lng, radius, active). Delete blocked while employees exist | Super Admin, HR |
 | **Shifts** | CRUD. Delete blocked while assigned | Super Admin, HR |
 | **Employees** | CRUD (employee_id, name, email, password, role, branch, department, position, hire date, active). Deactivate account; optional device name / shared flag on update | Super Admin, HR |
-| **Device change requests** | List + approve/reject (legacy API; multi-device login no longer requires approval) | Super Admin, HR |
-
 ### API (prefix `/api/admin`)
 
 | Resource | Methods |
@@ -146,13 +144,8 @@ Automated flags evaluated on punches (live and sync):
 | `branches` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
 | `shifts` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
 | `employees` | GET, POST, GET/{id}, PUT/{id}, DELETE/{id} |
-| `device-change-requests` | GET, PATCH/{id} |
+| `home-locations` | GET, PATCH/{id} |
 | `audit-logs` | GET |
-
-Employee self-service (legacy):
-
-| Method | Path |
-|--------|------|
 
 ---
 
@@ -313,17 +306,17 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 
 ### Domain models
 
-`User`, `Employee`, `Branch`, `Shift`, `Schedule`, `Attendance`, `AttendancePhoto`, `GpsLocation`, `Device`, `DeviceChangeRequest`, `FraudFlag`, `Consent`, `AuditLog`, `SyncLog`.
+`User`, `Employee`, `Branch`, `Shift`, `Schedule`, `Attendance`, `AttendancePhoto`, `GpsLocation`, `Device`, `HomeLocation`, `FraudFlag`, `Consent`, `AuditLog`, `SyncLog`, `PhotoBlob`.
 
 ---
 
 ## 15. Architecture snapshot
 
 ```
-Employees (portal PWA / mobile Expo)
+Employees (portal PWA)
         │
         ▼
-   Sanctum API  ──► Attendance / GPS / Face / Fraud / Sync services
+   Sanctum API  ──► Attendance / GPS / Fraud / Sync / HomeLocation services
         │                      │
         │                      ▼
         │                   MySQL (+ Redis optional)

@@ -41,7 +41,7 @@ Name: DTR / Daily Time Record. Visual identity: the Deep Dive palette — abyssa
 
 ## Evidence on Hand
 
-No real marketing assets, screenshots, or testimonials exist. Employee-facing copy in `frontend/src/screens` and `frontend/src/components` is the source of factual product language. Do not fabricate claims about verification accuracy or payroll outcomes.
+No real marketing assets, screenshots, or testimonials exist. Employee-facing copy in `portal/src/pages` and `portal/src/components` is the source of factual product language. Do not fabricate claims about verification accuracy or payroll outcomes.
 
 ## Product Principles
 

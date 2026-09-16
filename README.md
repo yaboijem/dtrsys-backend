@@ -117,8 +117,6 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type` (`time_in`/`time_out`/`break_in`/`break_out`), `per_page` |
 | POST | `/attendance/sync` | `{ device_id?, records: [{ client_uuid, type, timestamp, latitude, longitude, ... }] }` (max 100). Deduplicates by `client_uuid`, validates each record, re-runs fraud rules |
 | GET | `/schedule/today` | Today's shift for the employee |
-| GET | `/device/change-requests` | Legacy list of own device change requests (unused by clients) |
-| POST | `/device/change-requests` | Legacy create (`new_device_id`, `reason`) — multi-device login no longer requires approval |
 | GET | `/notifications` | Inbox, `unread_only` + `per_page` filters |
 | GET | `/notifications/unread-count` | `{ count }` |
 | POST | `/notifications/{id}/read` | Marks one notification read (own only) |
@@ -139,8 +137,6 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 | PATCH | `/admin/home-locations/{id}` | `{ action: approve\|reject\|link, radius_meters?, review_note?, link_home_location_id?, employee_id? }` |
 | POST | `/admin/schedules` | `{ employee_id, date, shift_id }` — upserts per employee+date |
 | DELETE | `/admin/schedules/{schedule}` | Removes an assignment |
-| GET | `/admin/device-change-requests` | All requests, status filter |
-| PATCH | `/admin/device-change-requests/{id}` | `{ status: "approved"|"rejected", notes? }` — approves and links the device |
 | GET | `/admin/audit-logs` | Audit trail, filters (`action`, `model_type`, `model_id`, `user_id`, `from`, `to`) |
 
 ### 4. Admin — Super Admin, HR, Branch Manager
@@ -156,7 +152,7 @@ Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authent
 |---|---|---|
 | GET | `/admin/attendance` | Attendance records scoped to own branch (BM) / department (DH); filters `branch_id`, `department`, `from`, `to`, `status`, `has_open_flags`, `per_page` |
 | GET | `/admin/attendance/{id}/photo` | Streams the punch selfie (access-checked) |
-| GET | `/admin/dashboard/summary` | `{ time_ins, late, absent, open_fraud_flags, pending_device_change_requests }` |
+| GET | `/admin/dashboard/summary` | `{ time_ins_today, late_ins_today, early_time_outs_today, absent_today, open_fraud_flags, open_fraud_by_severity, … }` |
 | GET | `/admin/schedules` | Schedules scoped by role, date filters |
 
 ## Error Codes

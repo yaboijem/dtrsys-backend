@@ -63,7 +63,7 @@ export function EmployeePicker(props: EmployeePickerProps) {
   const serverMode = Boolean(token);
 
   useEffect(() => {
-    if (!serverMode || !token) return;
+    if (!serverMode || !token || !open) return;
     let cancelled = false;
     const t = window.setTimeout(() => {
       setLoading(true);
