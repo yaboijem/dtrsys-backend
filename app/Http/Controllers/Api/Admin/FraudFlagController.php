@@ -24,7 +24,7 @@ class FraudFlagController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = FraudFlag::query()
-            ->with(['attendance.employee.user', 'attendance.branch', 'attendance.photo', 'attendance.gpsLocation', 'reviewer'])
+            ->with(['attendance.employee.user', 'attendance.employee.department', 'attendance.branch', 'attendance.photo', 'attendance.gpsLocation', 'reviewer'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
             ->when($request->filled('severity'), fn ($q) => $q->where('severity', $request->input('severity')))
@@ -85,7 +85,7 @@ class FraudFlagController extends Controller
         }
 
         if ($user->hasRole('Department Head')) {
-            return $attendance->employee?->department === $user->employee?->department;
+            return (int) $attendance->employee?->department_id === (int) $user->employee?->department_id;
         }
 
         return false;

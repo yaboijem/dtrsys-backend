@@ -18,8 +18,10 @@ class EmployeeResource extends JsonResource
             'first_name' => $this->first_name,
             'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
-            'department' => $this->department,
-            'position' => $this->position,
+            'department_id' => $this->department_id,
+            'position_id' => $this->position_id,
+            'department' => $this->department?->name,
+            'position' => $this->position?->name,
             'date_hired' => $this->date_hired?->toDateString(),
             'is_active' => $this->whenLoaded('user', fn () => $this->user->is_active),
             'roles' => $this->whenLoaded('user', function () {

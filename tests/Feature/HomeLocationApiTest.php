@@ -236,8 +236,8 @@ class HomeLocationApiTest extends TestCase
             'last_name' => $employee->last_name,
             'email' => $employee->user->email,
             'employee_id' => $employee->user->employee_id,
-            'department' => $employee->department,
-            'position' => $employee->position,
+            'department_id' => $employee->department_id,
+            'position_id' => $employee->position_id,
             'branch_id' => $employee->branch_id,
         ])->assertOk()
             ->assertJsonPath('data.work_arrangement', 'wfh');

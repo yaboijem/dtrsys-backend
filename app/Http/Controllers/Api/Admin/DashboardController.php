@@ -65,7 +65,7 @@ class DashboardController extends Controller
         if ($user->hasRole('Branch Manager')) {
             $employees->where('branch_id', $user->employee?->branch_id);
         } elseif ($user->hasRole('Department Head')) {
-            $employees->where('department', $user->employee?->department);
+            $employees->where('department_id', $user->employee?->department_id);
         }
 
         return (clone $employees)->whereDoesntHave(

@@ -26,8 +26,8 @@ class AttendanceAdminResource extends JsonResource
                 'id' => $this->employee->id,
                 'employee_id' => $this->employee->user?->employee_id,
                 'name' => $this->employee->full_name,
-                'department' => $this->employee->department,
-                'position' => $this->employee->position,
+                'department' => $this->employee->department?->name,
+                'position' => $this->employee->position?->name,
             ]),
             'branch' => $this->whenLoaded('branch', fn () => [
                 'id' => $this->branch->id,

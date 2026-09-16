@@ -16,7 +16,7 @@ class ScheduleAdminResource extends JsonResource
                 'id' => $this->employee->id,
                 'employee_id' => $this->employee->user?->employee_id,
                 'name' => $this->employee->full_name,
-                'department' => $this->employee->department,
+                'department' => $this->employee->department?->name,
                 'branch_id' => $this->employee->branch_id,
             ]),
             'shift' => $this->whenLoaded('shift', fn () => [

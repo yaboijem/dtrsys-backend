@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
 use App\Models\Branch;
-
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\FraudFlag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,9 +29,10 @@ class AttendanceAdminApiTest extends TestCase
 
     private function makeUser(string $role, ?Branch $branch = null, string $department = 'IT'): Employee
     {
+        $dept = Department::firstOrCreate(['name' => $department]);
         $employee = Employee::factory()->create([
             'branch_id' => $branch?->id ?? Branch::factory(),
-            'department' => $department,
+            'department_id' => $dept->id,
         ]);
         $employee->user->update(['employee_id' => 'USR-'.strtoupper(uniqid())]);
         $employee->user->syncRoles([$role]);
@@ -41,9 +42,10 @@ class AttendanceAdminApiTest extends TestCase
 
     private function makePunch(Branch $branch, string $department = 'IT', array $overrides = []): Attendance
     {
+        $dept = Department::firstOrCreate(['name' => $department]);
         $employee = Employee::factory()->create([
             'branch_id' => $branch->id,
-            'department' => $department,
+            'department_id' => $dept->id,
         ]);
 
         return Attendance::factory()->create(array_merge([

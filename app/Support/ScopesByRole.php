@@ -30,13 +30,13 @@ trait ScopesByRole
         }
 
         if ($user->hasRole('Department Head')) {
-            $department = $user->employee?->department;
+            $departmentId = $user->employee?->department_id;
 
-            if (! $department) {
+            if (! $departmentId) {
                 return $query->whereRaw('1 = 0');
             }
 
-            return $query->whereHas('employee', fn (Builder $q) => $q->where('department', $department));
+            return $query->whereHas('employee', fn (Builder $q) => $q->where('department_id', $departmentId));
         }
 
         return $query->whereRaw('1 = 0');

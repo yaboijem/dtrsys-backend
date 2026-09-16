@@ -3,7 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -71,8 +73,8 @@ class EmployeeSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'first_name' => $firstName,
                 'last_name' => $lastName,
-                'department' => $department,
-                'position' => $position,
+                'department_id' => Department::firstOrCreate(['name' => $department])->id,
+                'position_id' => Position::firstOrCreate(['name' => $position])->id,
                 'date_hired' => now()->subYears(rand(1, 5))->subMonths(rand(0, 11)),
             ],
         );

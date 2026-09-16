@@ -27,7 +27,7 @@ class EmployeeController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $employees = Employee::query()
-            ->with(['user.roles', 'branch', 'devices'])
+            ->with(['user.roles', 'branch', 'devices', 'department', 'position'])
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
                 $q->where(function ($q) use ($search) {
@@ -37,7 +37,7 @@ class EmployeeController extends Controller
                 });
             })
             ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
-            ->when($request->filled('department'), fn ($q) => $q->where('department', $request->input('department')))
+            ->when($request->filled('department_id'), fn ($q) => $q->where('department_id', $request->integer('department_id')))
             ->orderBy('last_name')
             ->paginate(min($request->integer('per_page', 20), 100));
 
@@ -68,20 +68,20 @@ class EmployeeController extends Controller
                 'first_name' => $request->input('first_name'),
                 'middle_name' => $request->input('middle_name'),
                 'last_name' => $request->input('last_name'),
-                'department' => $request->input('department'),
-                'position' => $request->input('position'),
+                'department_id' => $request->integer('department_id'),
+                'position_id' => $request->integer('position_id'),
                 'date_hired' => $request->input('date_hired'),
             ]);
         });
 
         $this->auditService->created($request->user(), 'employee.created', $employee);
 
-        return new EmployeeResource($employee->load(['user.roles', 'branch']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'department', 'position']));
     }
 
     public function show(Employee $employee): EmployeeResource
     {
-        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices', 'department', 'position']));
     }
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): EmployeeResource
@@ -130,8 +130,8 @@ class EmployeeController extends Controller
                 'first_name',
                 'middle_name',
                 'last_name',
-                'department',
-                'position',
+                'department_id',
+                'position_id',
                 'date_hired',
             ]));
 
@@ -167,7 +167,7 @@ class EmployeeController extends Controller
 
         $this->auditService->changes($request->user(), 'employee.updated', $employee);
 
-        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'devices', 'department', 'position']));
     }
 
     public function destroy(Request $request, Employee $employee): JsonResponse
@@ -207,7 +207,7 @@ class EmployeeController extends Controller
             ['reference_photo_path' => $path],
         );
 
-        return new EmployeeResource($employee->load(['user.roles', 'branch']));
+        return new EmployeeResource($employee->load(['user.roles', 'branch', 'department', 'position']));
     }
 
     public function referencePhotoStream(Request $request, Employee $employee): Response

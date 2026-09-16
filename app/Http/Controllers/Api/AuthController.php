@@ -42,7 +42,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $result['user']->load('employee.branch');
+        $result['user']->load(['employee.branch', 'employee.department', 'employee.position']);
 
         return response()->json([
             'message' => 'Login successful.',
@@ -59,7 +59,7 @@ class AuthController extends Controller
             $request->input('recovery_code'),
         );
 
-        $result['user']->load('employee.branch');
+        $result['user']->load(['employee.branch', 'employee.department', 'employee.position']);
 
         return response()->json([
             'message' => 'Login successful.',
@@ -90,7 +90,7 @@ class AuthController extends Controller
 
         $this->auditService->record($result['user'], 'mfa.enabled', $result['user']);
 
-        $result['user']->load('employee.branch');
+        $result['user']->load(['employee.branch', 'employee.department', 'employee.position']);
 
         return response()->json([
             'message' => 'Two-factor authentication enabled. Save your recovery codes somewhere safe.',
@@ -152,6 +152,6 @@ class AuthController extends Controller
 
     public function me(Request $request): UserResource
     {
-        return new UserResource($request->user()->load('employee.branch'));
+        return new UserResource($request->user()->load(['employee.branch', 'employee.department', 'employee.position']));
     }
 }

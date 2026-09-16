@@ -19,12 +19,12 @@ class AttendanceAdminController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Attendance::query()
-            ->with(['employee.user', 'branch', 'device', 'photo', 'gpsLocation', 'fraudFlags'])
+            ->with(['employee.user', 'employee.department', 'employee.position', 'branch', 'device', 'photo', 'gpsLocation', 'fraudFlags'])
             ->when($request->filled('date'), fn ($q) => $q->whereDate('timestamp', $request->input('date')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('timestamp', '>=', $request->input('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('timestamp', '<=', $request->input('date_to')))
             ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
-            ->when($request->filled('department'), fn ($q) => $q->whereHas('employee', fn ($q) => $q->where('department', $request->input('department'))))
+            ->when($request->filled('department_id'), fn ($q) => $q->whereHas('employee', fn ($q) => $q->where('department_id', $request->integer('department_id'))))
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->integer('employee_id')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
             ->when($request->filled('is_late'), fn ($q) => $q->where('is_late', $request->boolean('is_late')))
@@ -69,7 +69,7 @@ class AttendanceAdminController extends Controller
         }
 
         if ($user->hasRole('Department Head')) {
-            return $attendance->employee?->department === $user->employee?->department;
+            return (int) $attendance->employee?->department_id === (int) $user->employee?->department_id;
         }
 
         return false;

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Schedule;
 use App\Models\Shift;
@@ -26,9 +27,10 @@ class ScheduleAdminApiTest extends TestCase
 
     private function makeUser(string $role, ?Branch $branch = null, string $department = 'IT'): Employee
     {
+        $dept = Department::firstOrCreate(['name' => $department]);
         $employee = Employee::factory()->create([
             'branch_id' => $branch?->id ?? Branch::factory(),
-            'department' => $department,
+            'department_id' => $dept->id,
         ]);
         $employee->user->update(['employee_id' => 'USR-'.strtoupper(uniqid())]);
         $employee->user->syncRoles([$role]);
@@ -164,12 +166,15 @@ class ScheduleAdminApiTest extends TestCase
         $branch = Branch::factory()->create();
         $dh = $this->makeUser('Department Head', $branch, 'IT');
 
+        $it = Department::firstOrCreate(['name' => 'IT']);
+        $sales = Department::firstOrCreate(['name' => 'Sales']);
+
         $scheduleIT = Schedule::factory()->create([
-            'employee_id' => Employee::factory()->create(['branch_id' => $branch->id, 'department' => 'IT'])->id,
+            'employee_id' => Employee::factory()->create(['branch_id' => $branch->id, 'department_id' => $it->id])->id,
             'date' => now()->addDay(),
         ]);
         Schedule::factory()->create([
-            'employee_id' => Employee::factory()->create(['branch_id' => $branch->id, 'department' => 'Sales'])->id,
+            'employee_id' => Employee::factory()->create(['branch_id' => $branch->id, 'department_id' => $sales->id])->id,
             'date' => now()->addDay(),
         ]);
 

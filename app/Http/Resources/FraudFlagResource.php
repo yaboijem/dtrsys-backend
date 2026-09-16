@@ -36,7 +36,7 @@ class FraudFlagResource extends JsonResource
                     'id' => $this->attendance->employee->id,
                     'employee_id' => $this->attendance->employee->user?->employee_id,
                     'name' => $this->attendance->employee->full_name,
-                    'department' => $this->attendance->employee->department,
+                    'department' => $this->attendance->employee->department?->name,
                 ] : null,
                 'photo' => $this->attendance->relationLoaded('photo') ? [
                     'path' => $this->attendance->photo?->path,

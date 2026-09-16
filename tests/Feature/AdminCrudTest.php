@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\Schedule;
 use App\Models\Shift;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,8 +72,8 @@ class AdminCrudTest extends TestCase
             'first_name' => 'Juan',
             'middle_name' => 'P',
             'last_name' => 'Dela Cruz',
-            'department' => 'IT',
-            'position' => 'Software Engineer',
+            'department_id' => Department::firstOrCreate(['name' => 'IT'])->id,
+            'position_id' => Position::firstOrCreate(['name' => 'Software Engineer'])->id,
             'date_hired' => now()->toDateString(),
             'is_active' => true,
         ], $overrides);
@@ -155,15 +157,18 @@ class AdminCrudTest extends TestCase
     public function test_hr_can_create_employee_with_account_and_role(): void
     {
         $admin = $this->makeAdmin();
+        $payload = $this->employeePayload();
 
         $this->actingAs($admin->user, 'sanctum')
-            ->postJson('/api/admin/employees', $this->employeePayload())
+            ->postJson('/api/admin/employees', $payload)
             ->assertCreated()
             ->assertJsonPath('data.employee_id', 'NEW-EMP-001')
-            ->assertJsonPath('data.roles', ['Employee']);
+            ->assertJsonPath('data.roles', ['Employee'])
+            ->assertJsonPath('data.department', 'IT')
+            ->assertJsonPath('data.department_id', $payload['department_id']);
 
         $this->assertDatabaseHas('users', ['employee_id' => 'NEW-EMP-001']);
-        $this->assertDatabaseHas('employees', ['department' => 'IT']);
+        $this->assertDatabaseHas('employees', ['department_id' => $payload['department_id']]);
     }
 
     public function test_duplicate_employee_id_is_rejected(): void

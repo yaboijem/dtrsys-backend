@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\FraudFlag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,9 +27,10 @@ class FraudFlagReviewTest extends TestCase
 
     private function makeUser(string $role, ?Branch $branch = null, string $department = 'IT'): Employee
     {
+        $dept = Department::firstOrCreate(['name' => $department]);
         $employee = Employee::factory()->create([
             'branch_id' => $branch?->id ?? Branch::factory(),
-            'department' => $department,
+            'department_id' => $dept->id,
         ]);
         $employee->user->update(['employee_id' => 'USR-'.strtoupper(uniqid())]);
         $employee->user->syncRoles([$role]);
@@ -38,9 +40,10 @@ class FraudFlagReviewTest extends TestCase
 
     private function makeFlag(Branch $branch, string $department = 'IT'): FraudFlag
     {
+        $dept = Department::firstOrCreate(['name' => $department]);
         $employee = Employee::factory()->create([
             'branch_id' => $branch->id,
-            'department' => $department,
+            'department_id' => $dept->id,
         ]);
         $attendance = Attendance::factory()->create([
             'employee_id' => $employee->id,

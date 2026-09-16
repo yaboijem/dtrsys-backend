@@ -79,8 +79,8 @@ class EmployeeNameSyncTest extends TestCase
             'first_name' => 'Maria',
             'middle_name' => null,
             'last_name' => 'Clara',
-            'department' => 'IT',
-            'position' => 'Engineer',
+            'department_id' => \App\Models\Department::factory()->create(['name' => 'IT'])->id,
+            'position_id' => \App\Models\Position::factory()->create(['name' => 'Engineer'])->id,
             'date_hired' => now()->toDateString(),
             'is_active' => true,
         ])->assertCreated();

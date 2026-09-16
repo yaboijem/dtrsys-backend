@@ -23,7 +23,7 @@ class ScheduleAdminController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Schedule::query()
-            ->with(['employee.user', 'shift'])
+            ->with(['employee.user', 'employee.department', 'shift'])
             ->when($request->filled('employee_id'), fn ($q) => $q->where('employee_id', $request->integer('employee_id')))
             ->when($request->filled('shift_id'), fn ($q) => $q->where('shift_id', $request->integer('shift_id')))
             ->when($request->filled('branch_id'), fn ($q) => $q->whereHas('employee', fn ($q) => $q->where('branch_id', $request->integer('branch_id'))))
@@ -49,7 +49,7 @@ class ScheduleAdminController extends Controller
             $existing->update(['shift_id' => $request->integer('shift_id')]);
             $this->auditService->changes($request->user(), 'schedule.updated', $existing, $before);
 
-            return new ScheduleAdminResource($existing->load(['employee.user', 'shift']));
+            return new ScheduleAdminResource($existing->load(['employee.user', 'employee.department', 'shift']));
         }
 
         $schedule = Schedule::create([
@@ -60,7 +60,7 @@ class ScheduleAdminController extends Controller
 
         $this->auditService->created($request->user(), 'schedule.created', $schedule);
 
-        return new ScheduleAdminResource($schedule->load(['employee.user', 'shift']));
+        return new ScheduleAdminResource($schedule->load(['employee.user', 'employee.department', 'shift']));
     }
 
     public function destroy(Request $request, Schedule $schedule): JsonResponse
