@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapPin } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { listHomeLocations, reviewHomeLocation } from '../api/endpoints';
 import type { HomeLocation, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
+import { LocationMap } from '../components/LocationMap';
 import { Badge, Button, Card, ErrorState, Field, Input, Select, Textarea } from '../components/ui';
 import { DataTable, PaginationBar } from '../components/DataTable';
 import { Drawer } from '../components/Drawer';
 import { useToast } from '../components/Toast';
-import { formatDateTime } from '../lib/format';
+import { formatDateTime, formatHomeAddress } from '../lib/format';
 
 export function HomeLocationsPage() {
   const { token } = useAuth();
@@ -128,19 +128,10 @@ export function HomeLocationsPage() {
                   ),
                 },
                 {
-                  key: 'coords',
+                  key: 'location',
                   header: 'Location',
                   render: (r) => (
-                    <a
-                      href={`https://www.openstreetmap.org/?mlat=${r.latitude}&mlon=${r.longitude}#map=17/${r.latitude}/${r.longitude}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MapPin size={14} />
-                      {Number(r.latitude).toFixed(5)}, {Number(r.longitude).toFixed(5)}
-                    </a>
+                    <span className="text-sm text-text">{formatHomeAddress(r)}</span>
                   ),
                 },
                 {
@@ -174,19 +165,20 @@ export function HomeLocationsPage() {
               <div className="text-sm font-medium text-text">{employeeLabel}</div>
             </div>
             <div>
-              <div className="text-xs font-semibold text-muted">Coordinates</div>
-              <div className="font-mono text-sm tnum">
-                {selected.latitude}, {selected.longitude}
-              </div>
-              <a
-                className="mt-1 inline-block text-sm text-teal-700 hover:underline"
-                href={`https://www.openstreetmap.org/?mlat=${selected.latitude}&mlon=${selected.longitude}#map=17/${selected.latitude}/${selected.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open map
-              </a>
+              <div className="text-xs font-semibold text-muted">Location</div>
+              <div className="text-sm text-text">{formatHomeAddress(selected)}</div>
             </div>
+            <LocationMap
+              latitude={Number(selected.latitude)}
+              longitude={Number(selected.longitude)}
+              label="Home"
+              radiusMeters={
+                selected.status === 'pending'
+                  ? (radius.trim() === '' || Number.isNaN(Number(radius)) ? selected.radius_meters : Number(radius))
+                  : selected.radius_meters
+              }
+              className="h-56"
+            />
             {selected.status === 'pending' && (
               <>
                 <Field label="Radius (meters)">
