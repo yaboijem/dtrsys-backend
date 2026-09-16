@@ -28,5 +28,8 @@ Homestead.yaml
 PRODUCT.md
 Thumbs.db
 docs/superpowers/plans/
-
+.interview-questions.md
 .worktrees/
+
+.env.mysql.bak
+.env*.bak

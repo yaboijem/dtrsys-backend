@@ -5,7 +5,7 @@
 Support **WFH employees** with the same presence + identity bar as onsite:
 
 1. **Presence** — punch GPS must fall inside an **approved fixed home** geofence (not the company branch).
-2. **Identity** — existing selfie / face match / liveness and fraud rules stay required.
+2. **Identity** — existing selfie capture and fraud rules stay required.
 3. **Scale** — HR does **not** manually pin 500+ homes. Employee **self-registers**; HR **approves/rejects**. One approved pin may be **shared** by multiple employees (household).
 
 ## Decisions (locked)
@@ -32,7 +32,7 @@ Support **WFH employees** with the same presence + identity bar as onsite:
 
 - Onsite punches verify GPS against assigned **branch** (`latitude`, `longitude`, `radius_meters`) via `GPSService::verify`.
 - Attendance stores coords; `gps_locations` records distance / `is_within_radius`.
-- Face match, liveness, and fraud flags (`out_of_radius`, impossible jump, GPS spoof, etc.) already run on punch/sync.
+- Fraud flags (`out_of_radius`, impossible jump, GPS spoof, etc.) already run on punch/sync.
 - No `work_arrangement` / home pin model exists today.
 
 ## Work arrangement
@@ -121,7 +121,7 @@ Order for time-in / time-out / break (and offline sync re-validation):
    - `wfh` → require approved primary home; else error `home_location_required` (or `home_location_pending` when only pending exists).
 3. **GPS** via extended `GPSService` (same haversine + `radius + accuracy` buffer as branch).
    - Outside radius → **block** punch; record/flag `out_of_radius` consistent with onsite.
-4. **Face / liveness** (existing selfie path; breaks remain GPS-only if that is current product behavior).
+4. **Selfie capture** (existing path; breaks remain GPS-only if that is current product behavior).
 5. **Fraud rules** (existing): impossible jump, rapid clock, GPS spoof, etc.
 
 ### Offline sync
@@ -134,7 +134,7 @@ Order for time-in / time-out / break (and offline sync re-validation):
 - `home_location_required` — WFH, no approved primary
 - `home_location_pending` — only pending request, none approved
 - `out_of_radius` — outside home (or branch) fence
-- Existing face/fraud codes unchanged
+- Existing fraud codes unchanged
 
 ### GPS required
 

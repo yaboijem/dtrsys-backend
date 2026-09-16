@@ -62,7 +62,7 @@ No API shape change required for list; resource already includes `type`, `detail
 
 ## Tests
 
-Extend `FraudFlagReviewTest` (and/or job test in `AsyncFaceVerificationTest`):
+Extend `FraudFlagReviewTest` (and/or `NotifyFraudFlagJobTest`):
 
 1. Review with notes → employee has one notification; title/body/payload include status, type, notes.
 2. Dismiss without notes → employee still notified; body contains `No notes provided.`

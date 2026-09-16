@@ -35,11 +35,7 @@ logic is duplicated; only two small backend additions are required.
 
 ## Backend additions
 
-1. `GET /api/admin/employees/{employee}/reference-photo` in `EmployeeController`
-   — mirrors `AttendanceAdminController::photo` (auth'd stream via
-   `Storage::disk(config('dtr.attendance.photo_disk'))->response(...)`,
-   guards 403/404). Lives in the existing `role:Super Admin|HR` route group.
-2. Publish `config/cors.php` with `http://localhost:5173` in `allowed_origins`.
+1. Publish `config/cors.php` with `http://localhost:5173` in `allowed_origins`.
 
 ## Pages and API surface
 
@@ -49,7 +45,7 @@ logic is duplicated; only two small backend additions are required.
 | Dashboard | `/` | `GET /api/admin/dashboard/summary` |
 | Attendance | `/attendance` | `GET /api/admin/attendance` + `GET /api/admin/attendance/{id}/photo` |
 | Fraud flags | `/fraud-flags` | `GET /api/admin/fraud-flags`, `PATCH /api/admin/fraud-flags/{id}/review` |
-| Employees | `/employees` | `GET/POST /api/admin/employees`, `GET/PATCH/DELETE .../{id}`, `POST .../{id}/reference-photo`, `GET .../{id}/reference-photo` |
+| Employees | `/employees` | `GET/POST /api/admin/employees`, `GET/PATCH/DELETE .../{id}` |
 | Branches | `/branches` | `GET/POST /api/admin/branches`, `GET/PATCH/DELETE .../{id}` |
 | Shifts | `/shifts` | `GET/POST /api/admin/shifts`, `GET/PATCH/DELETE .../{id}` |
 | Schedules | `/schedules` | `GET/POST /api/admin/schedules`, `DELETE .../{id}` |
@@ -71,8 +67,7 @@ Table with `search`, `branch_id`, `department` filters. Create/edit modal:
 `employee_id`, `name`, `email`, `password` (min 8, create required / edit
 optional reset), `role` (6 roles from `StoreEmployeeRequest::ROLES`), `branch_id`,
 first/middle/last name, `department`, `position`, `date_hired`, `is_active`.
-Deactivate (DELETE) with confirmation. Reference photo upload (multipart) and
-display via the new endpoint.
+Deactivate (DELETE) with confirmation.
 
 ### Branches / Shifts / Schedules
 - Branches: `name`, `code`, `address`, `latitude`, `longitude`,
@@ -125,11 +120,9 @@ FormData support, Bearer token, timeout, typed error with `code`/`errors`).
 
 ## Testing / verification
 
-- `php -l` on changed backend files; curl smoke of the new reference-photo
-  endpoint.
+- `php -l` on changed backend files.
 - `tsc --noEmit` and `npm run build` clean in `web/`.
 - Manual pass: HR001/password + MFA code via `/dev/otp/HR001` (APP_DEBUG on)
   — dashboard, attendance + real selfie photo, fraud-flag review round-trip,
-  employee create/edit/deactivate, reference photo upload+display,
-  branch/shift/schedule CRUD.
+  employee create/edit/deactivate, branch/shift/schedule CRUD.
 - Manual pass: EMP001 (Employee role) — restricted nav + clean 403 handling.

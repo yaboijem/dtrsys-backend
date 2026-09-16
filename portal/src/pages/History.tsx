@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { MapPin, ShieldCheck } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 import { Attendance, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -310,12 +310,6 @@ export function History() {
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <MapPin size={12} />
                             {distanceLabel(item.gps_location.distance_from_branch_meters)} from branch
-                          </span>
-                        ) : null}
-                        {item.photo?.is_verified === true ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: colors.successText }}>
-                            <ShieldCheck size={12} />
-                            Face verified
                           </span>
                         ) : null}
                       </div>

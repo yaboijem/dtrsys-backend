@@ -21,7 +21,7 @@ function notifIcon(title: string | null | undefined, body: string | null | undef
   if (t.includes('device')) return Smartphone;
   if (t.includes('schedule') || t.includes('shift')) return CalendarDays;
   if (t.includes('fraud') || t.includes('flag') || t.includes('warning')) return AlertTriangle;
-  if (t.includes('mfa') || t.includes('security')) return Shield;
+  if (t.includes('security')) return Shield;
   return Bell;
 }
 

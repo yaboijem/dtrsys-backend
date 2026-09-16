@@ -9,7 +9,7 @@ import { errorMessage, formatDateTime } from '../lib/format';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
 const CONSENT_TYPES = [
-  { key: 'biometric_photos', label: 'Biometric photos', description: 'Allow capture and storage of selfies for face verification on time-in/out.' },
+  { key: 'biometric_photos', label: 'Biometric photos', description: 'Allow capture and storage of selfies on time-in/out.' },
   { key: 'gps_location', label: 'GPS location', description: 'Allow capture and storage of your location when punching in or out.' },
 ] as const;
 
@@ -66,7 +66,7 @@ export function Consent() {
 
   return (
     <Screen>
-      <BackPill to="/more" label="< Back" ariaLabel="Back to More" />
+      <BackPill to="/more" label="Back" ariaLabel="Back to More" />
 
       <h1 className="portal-page-title" style={{ color: colors.ink, marginBottom: spacing.lg }}>
         Consent

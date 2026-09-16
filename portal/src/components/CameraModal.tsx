@@ -129,7 +129,7 @@ export function CameraModal({ visible, onCapture, onClose }: CameraModalProps) {
       {error ? (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: spacing.xl }}>
           <div style={{ width: '100%', maxWidth: 400 }}>
-            <Banner kind="warning" title="Camera permission needed" detail="Time-in and time-out require a selfie photo for face verification." />
+            <Banner kind="warning" title="Camera permission needed" detail="Time-in and time-out require a selfie photo." />
             <button
               onClick={() => {
                 startStream();

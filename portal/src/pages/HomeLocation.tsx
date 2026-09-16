@@ -142,7 +142,7 @@ export function HomeLocationPage() {
 
   return (
     <Screen>
-      <BackPill to="/more" label="< Back" ariaLabel="Back to More" />
+      <BackPill to="/more" label="Back" ariaLabel="Back to More" />
 
       <h1 className="portal-page-title">Home location</h1>
 

@@ -112,7 +112,6 @@ export interface FlushResult {
   synced: number;
   failed: number;
   duplicates: number;
-  faceIssues: number;
   remaining: number;
   hadQueue: boolean;
   syncedItems: OfflinePunch[];
@@ -162,7 +161,6 @@ export async function flushOfflineQueue(
       synced: 0,
       failed: 0,
       duplicates: 0,
-      faceIssues: 0,
       remaining: 0,
       hadQueue: false,
       syncedItems: [],
@@ -177,7 +175,6 @@ export async function flushOfflineQueue(
         synced: 0,
         failed: 0,
         duplicates: 0,
-        faceIssues: 0,
         remaining: 0,
         hadQueue: false,
         syncedItems: [],
@@ -188,7 +185,6 @@ export async function flushOfflineQueue(
         synced: 0,
         failed: 0,
         duplicates: 0,
-        faceIssues: 0,
         remaining: remaining.length,
         hadQueue: true,
         syncedItems: [],
@@ -198,7 +194,6 @@ export async function flushOfflineQueue(
     let synced = 0;
     let failed = 0;
     let duplicates = 0;
-    let faceIssues = 0;
     const syncedItems: OfflinePunch[] = [];
     // Single pass: never re-prepend failures into the worklist (avoids infinite retry livelock).
     const deferred: OfflinePunch[] = [];
@@ -237,9 +232,6 @@ export async function flushOfflineQueue(
         const punch = batch[index];
         const status = result.records?.[index];
         if (status?.status === 'created' || status?.status === 'duplicate') {
-          if (status.photo?.present && status.photo.face_detected === false) {
-            faceIssues++;
-          }
           syncedItems.push(punch);
           continue;
         }
@@ -260,7 +252,6 @@ export async function flushOfflineQueue(
       synced,
       failed,
       duplicates,
-      faceIssues,
       remaining: deferred.length,
       hadQueue: true,
       syncedItems,

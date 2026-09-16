@@ -10,7 +10,7 @@ interface BackPillProps {
 
 export function BackPill({
   to = '/more',
-  label = '< Back',
+  label = 'Back',
   ariaLabel = 'Back',
 }: BackPillProps) {
   const colors = useThemeColors();

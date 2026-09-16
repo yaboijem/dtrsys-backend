@@ -16,7 +16,7 @@ Admin React   ─┘  Static Site (free)         │
 | Item | Behavior |
 |------|----------|
 | Render free web | Sleeps after ~15 min idle; cold start 30–60s |
-| No Redis / workers | `QUEUE_CONNECTION=sync`, face check inline |
+| No Redis / workers | `QUEUE_CONNECTION=sync` |
 | Photos in Neon | No R2; watch free storage (~0.5 GB) |
 | Break scheduler | Runs while the web service is awake |
 
@@ -54,12 +54,10 @@ git push -u origin Deploy-v1.0
 | `CACHE_STORE` | `database` |
 | `SESSION_DRIVER` | `database` |
 | `ATTENDANCE_PHOTO_DISK` | **`database`** |
-| `ATTENDANCE_ASYNC_FACE` | `false` |
 | `TELESCOPE_ENABLED` | `false` |
 | `ENABLE_SCHEDULER` | `true` |
 | `RUN_SEEDERS` | `false` (then `true` once — see below) |
 | `CORS_ALLOWED_ORIGINS` | admin URL after step 5 |
-| `FACE_VERIFICATION_PROVIDER` | `mock` |
 | `LOG_CHANNEL` | `stderr` |
 
 5. Deploy → open `https://<api>.onrender.com/up`  
