@@ -297,7 +297,7 @@ export function EmployeesPage() {
       />
 
       <Card className="mb-4 p-3 shadow-sm sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
           <div className="relative min-w-0 flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <Input
@@ -316,7 +316,7 @@ export function EmployeesPage() {
               </option>
             ))}
           </Select>
-          <div className="lg:w-48">
+          <div className="min-w-0 lg:w-52">
             <SearchableSelect
               options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
               value={filters.department_id}
@@ -327,7 +327,7 @@ export function EmployeesPage() {
               searchPlaceholder="Search departments…"
             />
           </div>
-          <Button onClick={applyFilters} disabled={!dirty}>
+          <Button onClick={applyFilters} disabled={!dirty} className="shrink-0 lg:self-auto">
             Apply
           </Button>
         </div>
@@ -421,7 +421,7 @@ export function EmployeesPage() {
       </Card>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.full_name}` : 'Add employee'} wide>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3.5">
           <Field label="Employee ID" required error={fieldErrors.employee_id?.[0]}>
             <Input value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} disabled={!!editing} />
           </Field>
@@ -545,7 +545,7 @@ export function EmployeesPage() {
             </div>
           )}
 
-          <div className="mt-4 flex justify-end gap-2 sm:col-span-2">
+          <div className="mt-2 flex justify-end gap-2 border-t border-border pt-4 sm:col-span-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>

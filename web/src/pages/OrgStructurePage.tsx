@@ -130,8 +130,8 @@ function MasterSection({
   }
 
   return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <Card className="overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
         <h2 className="text-sm font-semibold text-text">{title}</h2>
         <Button onClick={openCreate}>
           <Plus size={15} />
@@ -140,7 +140,9 @@ function MasterSection({
       </div>
 
       {error ? (
-        <ErrorState message={error} onRetry={load} />
+        <div className="p-4 sm:p-5">
+          <ErrorState message={error} onRetry={load} />
+        </div>
       ) : (
         <>
           <DataTable<MasterItem>
@@ -194,11 +196,11 @@ function MasterSection({
       )}
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${entityLabel.toLowerCase()}` : `Add ${entityLabel.toLowerCase()}`}>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Name" required error={fieldErrors.name?.[0]}>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
-          <div className="mt-4 flex justify-end gap-2">
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>
@@ -237,7 +239,7 @@ export function OrgStructurePage() {
         title="Org structure"
         description="Manage departments and positions used on employee records"
       />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 lg:gap-6">
         <MasterSection
           title="Departments"
           entityLabel="Department"
