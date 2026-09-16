@@ -421,131 +421,155 @@ export function EmployeesPage() {
       </Card>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? `Edit ${editing.full_name}` : 'Add employee'} wide>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3.5">
-          <Field label="Employee ID" required error={fieldErrors.employee_id?.[0]}>
-            <Input value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} disabled={!!editing} />
-          </Field>
-          <Field label="Full name" required error={fieldErrors.name?.[0]}>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled />
-          </Field>
-          <Field label="Email" required error={fieldErrors.email?.[0]}>
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          </Field>
-          <Field label={editing ? 'Password (leave blank to keep)' : 'Password'} required={!editing} error={fieldErrors.password?.[0]}>
-            <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
-          </Field>
-          <Field label="Role" required error={fieldErrors.role?.[0]}>
-            <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              {ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Branch" required error={fieldErrors.branch_id?.[0]}>
-            <Select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
-              <option value="">Select branch…</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Work arrangement" error={fieldErrors.work_arrangement?.[0]}>
-            <Select
-              value={form.work_arrangement}
-              onChange={(e) => setForm({ ...form, work_arrangement: e.target.value as 'onsite' | 'wfh' | 'hybrid' })}
-            >
-              <option value="onsite">Onsite</option>
-              <option value="wfh">WFH</option>
-              <option value="hybrid">Hybrid</option>
-            </Select>
-          </Field>
-          <Field label="First name" required error={fieldErrors.first_name?.[0]}>
-            <Input
-              value={form.first_name}
-              onChange={(e) =>
-                setForm({ ...form, first_name: e.target.value, name: composeFullName(e.target.value, form.middle_name, form.last_name) })
-              }
-            />
-          </Field>
-          <Field label="Middle name" error={fieldErrors.middle_name?.[0]}>
-            <Input
-              value={form.middle_name}
-              onChange={(e) =>
-                setForm({ ...form, middle_name: e.target.value, name: composeFullName(form.first_name, e.target.value, form.last_name) })
-              }
-            />
-          </Field>
-          <Field label="Last name" required error={fieldErrors.last_name?.[0]}>
-            <Input
-              value={form.last_name}
-              onChange={(e) =>
-                setForm({ ...form, last_name: e.target.value, name: composeFullName(form.first_name, form.middle_name, e.target.value) })
-              }
-            />
-          </Field>
-          <Field label="Department" required error={fieldErrors.department_id?.[0]}>
-            <SearchableSelect
-              options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
-              value={form.department_id}
-              onChange={(department_id) => setForm({ ...form, department_id })}
-              placeholder="Select department"
-              searchPlaceholder="Search departments…"
-              allowEmpty={false}
-              noneMatchLabel={
-                departments.length === 0
-                  ? 'No departments yet — add them under Org structure.'
-                  : 'No matches.'
-              }
-            />
-          </Field>
-          <Field label="Position" required error={fieldErrors.position_id?.[0]}>
-            <SearchableSelect
-              options={positions.map((p) => ({ value: String(p.id), label: p.name }))}
-              value={form.position_id}
-              onChange={(position_id) => setForm({ ...form, position_id })}
-              placeholder="Select position"
-              searchPlaceholder="Search positions…"
-              allowEmpty={false}
-              noneMatchLabel={
-                positions.length === 0
-                  ? 'No positions yet — add them under Org structure.'
-                  : 'No matches.'
-              }
-            />
-          </Field>
-          <Field label="Date hired" error={fieldErrors.date_hired?.[0]}>
-            <Input type="date" value={form.date_hired} onChange={(e) => setForm({ ...form, date_hired: e.target.value })} />
-          </Field>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Account active" />
-            <span className="text-sm text-text">Account active</span>
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Name</h3>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-3.5">
+              <Field label="First name" required error={fieldErrors.first_name?.[0]}>
+                <Input
+                  value={form.first_name}
+                  onChange={(e) =>
+                    setForm({ ...form, first_name: e.target.value, name: composeFullName(e.target.value, form.middle_name, form.last_name) })
+                  }
+                />
+              </Field>
+              <Field label="Middle name" error={fieldErrors.middle_name?.[0]}>
+                <Input
+                  value={form.middle_name}
+                  onChange={(e) =>
+                    setForm({ ...form, middle_name: e.target.value, name: composeFullName(form.first_name, e.target.value, form.last_name) })
+                  }
+                />
+              </Field>
+              <Field label="Last name" required error={fieldErrors.last_name?.[0]}>
+                <Input
+                  value={form.last_name}
+                  onChange={(e) =>
+                    setForm({ ...form, last_name: e.target.value, name: composeFullName(form.first_name, form.middle_name, e.target.value) })
+                  }
+                />
+              </Field>
+            </div>
+            {form.name ? (
+              <p className="text-xs text-muted">
+                Display name: <span className="font-medium text-text">{form.name}</span>
+              </p>
+            ) : null}
+          </section>
+
+          <section className="space-y-3 border-t border-border pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Account</h3>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3.5">
+              <Field label="Employee ID" required error={fieldErrors.employee_id?.[0]}>
+                <Input value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} disabled={!!editing} />
+              </Field>
+              <Field label="Email" required error={fieldErrors.email?.[0]}>
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </Field>
+              <Field label={editing ? 'Password (leave blank to keep)' : 'Password'} required={!editing} error={fieldErrors.password?.[0]}>
+                <Input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  autoComplete="new-password"
+                />
+              </Field>
+              <Field label="Role" required error={fieldErrors.role?.[0]}>
+                <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <div className="flex items-center gap-2 sm:col-span-2">
+                <Toggle checked={form.is_active} onChange={(v) => setForm({ ...form, is_active: v })} label="Account active" />
+                <span className="text-sm text-text">Account active</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-border pt-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Work</h3>
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3.5">
+              <Field label="Branch" required error={fieldErrors.branch_id?.[0]}>
+                <Select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
+                  <option value="">Select branch…</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Work arrangement" error={fieldErrors.work_arrangement?.[0]}>
+                <Select
+                  value={form.work_arrangement}
+                  onChange={(e) => setForm({ ...form, work_arrangement: e.target.value as 'onsite' | 'wfh' | 'hybrid' })}
+                >
+                  <option value="onsite">Onsite</option>
+                  <option value="wfh">WFH</option>
+                  <option value="hybrid">Hybrid</option>
+                </Select>
+              </Field>
+              <Field label="Department" required error={fieldErrors.department_id?.[0]}>
+                <SearchableSelect
+                  options={departments.map((d) => ({ value: String(d.id), label: d.name }))}
+                  value={form.department_id}
+                  onChange={(department_id) => setForm({ ...form, department_id })}
+                  placeholder="Select department"
+                  searchPlaceholder="Search departments…"
+                  allowEmpty={false}
+                  noneMatchLabel={
+                    departments.length === 0
+                      ? 'No departments yet — add them under Org structure.'
+                      : 'No matches.'
+                  }
+                />
+              </Field>
+              <Field label="Position" required error={fieldErrors.position_id?.[0]}>
+                <SearchableSelect
+                  options={positions.map((p) => ({ value: String(p.id), label: p.name }))}
+                  value={form.position_id}
+                  onChange={(position_id) => setForm({ ...form, position_id })}
+                  placeholder="Select position"
+                  searchPlaceholder="Search positions…"
+                  allowEmpty={false}
+                  noneMatchLabel={
+                    positions.length === 0
+                      ? 'No positions yet — add them under Org structure.'
+                      : 'No matches.'
+                  }
+                />
+              </Field>
+              <Field label="Date hired" error={fieldErrors.date_hired?.[0]}>
+                <Input type="date" value={form.date_hired} onChange={(e) => setForm({ ...form, date_hired: e.target.value })} />
+              </Field>
+            </div>
+          </section>
 
           {editing && (
-            <div className="sm:col-span-2">
-              <div className="mb-2 text-xs font-semibold text-muted">Reference photo</div>
-              <div className="flex items-center gap-4">
+            <section className="space-y-3 border-t border-border pt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Reference photo</h3>
+              <div className="flex items-start gap-4">
                 <PhotoViewer
                   url={`/api/admin/employees/${editing.id}/reference-photo`}
                   token={token ?? ''}
                   alt="Reference photo"
-                  className="h-28 w-28 rounded-md border border-border"
+                  className="h-28 w-28 shrink-0 rounded-md border border-border"
                 />
-                <div className="flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-2">
                   <Input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} />
                   <Button variant="secondary" onClick={handlePhotoUpload} disabled={!photoFile || photoUploading} loading={photoUploading}>
                     Upload photo
                   </Button>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-          <div className="mt-2 flex justify-end gap-2 border-t border-border pt-4 sm:col-span-2">
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>
