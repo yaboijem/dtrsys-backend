@@ -77,15 +77,12 @@ One authored moment: the confirmation stamp (spring scale + rotate settle). Ever
 
 ## Verification
 
-Commands (from `frontend/`):
+Commands (from `portal/`):
 
 ```
-npx tsc --noEmit
-npx expo export --platform android   # bundle sanity
-node "C:\Users\Jem\.agents\skills\impeccable\scripts\detect.mjs" --json src
+npm run typecheck
+npm run build
 ```
-
-Detector run on `src`: clean (`[]`, exit 0). Known caveat: the detector is web-oriented; judge its hits on RN code with a grain of salt.
 
 ### Manual device checklist (no emulator available in this session)
 
