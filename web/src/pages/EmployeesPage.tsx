@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
@@ -73,6 +73,15 @@ function composeFullName(firstName: string, middleName: string, lastName: string
   return [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
 }
 
+function matchesEmployeeQuery(e: Employee, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return false;
+  const hay = `${e.full_name} ${e.employee_id ?? ''} ${e.email ?? ''} ${e.department ?? ''} ${e.position ?? ''}`.toLowerCase();
+  if (hay.includes(q)) return true;
+  const terms = q.split(/\s+/).filter(Boolean);
+  return terms.length > 1 && terms.every((t) => hay.includes(t));
+}
+
 export function EmployeesPage() {
   const { token, user, refreshUser } = useAuth();
   const { notify } = useToast();
@@ -99,6 +108,12 @@ export function EmployeesPage() {
   const [deactivating, setDeactivating] = useState<Employee | null>(null);
   const [deactivateBusy, setDeactivateBusy] = useState(false);
 
+  /** One-time in-memory directory for typeahead — no DB hit while typing. */
+  const [directory, setDirectory] = useState<Employee[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeSuggest, setActiveSuggest] = useState(-1);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+
   const loadBranches = useCallback(async () => {
     if (!token) return;
     try {
@@ -124,10 +139,21 @@ export function EmployeesPage() {
     }
   }, [token]);
 
+  const loadDirectory = useCallback(async () => {
+    if (!token) return;
+    try {
+      const result = await listEmployees({ per_page: 100 }, token);
+      setDirectory(result.data);
+    } catch {
+      setDirectory([]);
+    }
+  }, [token]);
+
   useEffect(() => {
     void loadBranches();
     void loadMasterData();
-  }, [loadBranches, loadMasterData]);
+    void loadDirectory();
+  }, [loadBranches, loadMasterData, loadDirectory]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -154,9 +180,63 @@ export function EmployeesPage() {
 
   const dirty = useMemo(() => JSON.stringify(filters) !== JSON.stringify(applied), [filters, applied]);
 
-  function applyFilters() {
+  const suggestions = useMemo(() => {
+    const q = filters.search.trim();
+    if (q.length < 1) return [];
+    return directory.filter((e) => matchesEmployeeQuery(e, q)).slice(0, 8);
+  }, [directory, filters.search]);
+
+  useEffect(() => {
+    function onDocMouseDown(ev: MouseEvent) {
+      if (!searchWrapRef.current?.contains(ev.target as Node)) {
+        setSuggestOpen(false);
+        setActiveSuggest(-1);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
+
+  function applyFilters(next?: Filters) {
+    const f = next ?? filters;
     setPage(1);
-    setApplied(filters);
+    setApplied(f);
+    setFilters(f);
+    setSuggestOpen(false);
+    setActiveSuggest(-1);
+  }
+
+  function pickSuggestion(employee: Employee) {
+    const next: Filters = { ...filters, search: employee.full_name };
+    applyFilters(next);
+  }
+
+  function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown' && suggestions.length > 0) {
+      e.preventDefault();
+      setSuggestOpen(true);
+      setActiveSuggest((i) => (i + 1) % suggestions.length);
+      return;
+    }
+    if (e.key === 'ArrowUp' && suggestions.length > 0) {
+      e.preventDefault();
+      setSuggestOpen(true);
+      setActiveSuggest((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (suggestOpen && activeSuggest >= 0 && suggestions[activeSuggest]) {
+        pickSuggestion(suggestions[activeSuggest]);
+        return;
+      }
+      applyFilters();
+      return;
+    }
+    if (e.key === 'Escape') {
+      setSuggestOpen(false);
+      setActiveSuggest(-1);
+    }
   }
 
   function openCreate() {
@@ -238,6 +318,7 @@ export function EmployeesPage() {
       setModalOpen(false);
       setPhotoFile(null);
       void load();
+      void loadDirectory();
     } catch (err) {
       if (err instanceof ApiError) {
         setFieldErrors(err.errors ?? {});
@@ -274,6 +355,7 @@ export function EmployeesPage() {
       notify('success', `${deactivating.full_name} deactivated.`);
       setDeactivating(null);
       void load();
+      void loadDirectory();
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Failed to deactivate the employee.');
     } finally {
@@ -298,15 +380,56 @@ export function EmployeesPage() {
 
       <Card className="mb-4 p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
-          <div className="relative min-w-0 flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <div className="relative min-w-0 flex-1" ref={searchWrapRef}>
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted" />
             <Input
               value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+              onChange={(e) => {
+                setFilters({ ...filters, search: e.target.value });
+                setSuggestOpen(true);
+                setActiveSuggest(-1);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onKeyDown={onSearchKeyDown}
               placeholder="Search name or employee ID…"
               className="pl-9"
+              autoComplete="off"
+              role="combobox"
+              aria-expanded={suggestOpen && suggestions.length > 0}
+              aria-autocomplete="list"
+              aria-controls="employee-search-suggestions"
             />
+            {suggestOpen && filters.search.trim() && suggestions.length > 0 ? (
+              <ul
+                id="employee-search-suggestions"
+                role="listbox"
+                className="absolute left-0 right-0 top-full z-40 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg"
+              >
+                {suggestions.map((e, i) => (
+                  <li key={e.id} role="option" aria-selected={i === activeSuggest}>
+                    <button
+                      type="button"
+                      className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
+                        i === activeSuggest ? 'bg-teal-50 text-primary' : 'text-text'
+                      }`}
+                      onMouseDown={(ev) => {
+                        ev.preventDefault();
+                        pickSuggestion(e);
+                      }}
+                      onMouseEnter={() => setActiveSuggest(i)}
+                    >
+                      <Avatar name={e.full_name} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{e.full_name}</span>
+                        <span className="block truncate text-[11px] text-muted">
+                          {[e.employee_id, e.department, e.position].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
           <Select value={filters.branch_id} onChange={(e) => setFilters({ ...filters, branch_id: e.target.value })} className="lg:w-44">
             <option value="">All branches</option>
@@ -327,7 +450,7 @@ export function EmployeesPage() {
               searchPlaceholder="Search departments…"
             />
           </div>
-          <Button onClick={applyFilters} disabled={!dirty} className="shrink-0 lg:self-auto">
+          <Button onClick={() => applyFilters()} disabled={!dirty} className="shrink-0 lg:self-auto">
             Apply
           </Button>
         </div>
