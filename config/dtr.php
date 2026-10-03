@@ -8,7 +8,7 @@ return [
     ],
 
     'attendance' => [
-        // public | s3 | database (Neon/Postgres — free tier, no object storage)
+        // public | s3 | database (MySQL LONGTEXT — no object storage)
         'photo_disk' => env('ATTENDANCE_PHOTO_DISK', 'public'),
         'client_uuid_required_online' => env('ATTENDANCE_CLIENT_UUID_REQUIRED', false),
         'employee_lock_seconds' => (int) env('ATTENDANCE_EMPLOYEE_LOCK_SECONDS', 15),

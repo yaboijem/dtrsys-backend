@@ -17,7 +17,7 @@ Attendance and time-tracking backend for a multi-branch organization, built with
 | Layer | Choice |
 |---|---|
 | Framework | Laravel 12 (PHP 8.4) |
-| Database | MySQL 8 (primary), SQLite for tests |
+| Database | MySQL 8 |
 | Cache / Queue | `database` by default; `redis` supported via env |
 | Auth | Laravel Sanctum + `spatie/laravel-permission` |
 | MFA | `pragmarx/google2fa-laravel`, QR via `bacon/bacon-qr-code` |
@@ -188,20 +188,20 @@ Retention defaults are configurable via env: `RETENTION_ATTENDANCE_DAYS`, `RETEN
 ## Testing & Code Style
 
 ```bash
-php artisan test        # 155 tests (unit + feature, in-memory SQLite)
+php artisan test        # unit + feature, MySQL database dtrsys_testing
 vendor/bin/pint         # auto-fix code style
 vendor/bin/pint --test  # style check
 ```
 
 ## Deployment Notes
 
-**Free-tier production (Render + Neon + R2):** see **[docs/DEPLOY.md](docs/DEPLOY.md)** on branch `Deploy-v1.0`.
+**Production (Render + MySQL 8):** see **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 Summary of free defaults:
 
 - Employee PWA + API: one Render **Docker** web service (`Dockerfile`)
 - Admin: Render **Static Site** with `VITE_API_URL` pointing at the API
-- DB: Neon PostgreSQL (`DB_URL`)
+- DB: MySQL 8 (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`)
 - Photos: Cloudflare R2 (`ATTENDANCE_PHOTO_DISK=s3`)
 - No paid Redis/worker: `QUEUE_CONNECTION=sync`, `CACHE_STORE=database`
 

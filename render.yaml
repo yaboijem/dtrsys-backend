@@ -4,7 +4,7 @@
 # - Free plan has no Redis / no Background Workers → use QUEUE_CONNECTION=sync
 #   and ATTENDANCE_ASYNC_FACE=false so jobs run inside the web request.
 # - Photos: use Cloudflare R2 free tier (disk on free Render is ephemeral).
-# - Neon: free PostgreSQL project.
+# - Database: bring your own MySQL 8. Render free does not include MySQL.
 #
 # After first deploy: set RUN_SEEDERS=true once, redeploy, then set back to false.
 
@@ -33,8 +33,16 @@ services:
         generateValue: true
       # APP_URL is set at runtime from RENDER_EXTERNAL_URL in docker-entrypoint.sh
       - key: DB_CONNECTION
-        value: pgsql
-      - key: DB_URL
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
         sync: false
       - key: QUEUE_CONNECTION
         value: sync

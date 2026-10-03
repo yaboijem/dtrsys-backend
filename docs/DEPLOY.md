@@ -1,33 +1,33 @@
-# Deploy DTR (free tier) — Render + Neon only
+# Deploy DTR — Render + MySQL 8
 
-No Cloudflare / no credit card required.
+MySQL is not included on the Render free tier. Provision MySQL 8 yourself and pass the connection vars below.
 
 ```
 Employee PWA  ─┐  same host
-               ├──────────────────►  Render Web Service (free)
-Admin React   ─┘  Static Site (free)         │
-                                             └── Neon PostgreSQL (free)
+               ├──────────────────►  Render Web Service
+Admin React   ─┘  Static Site                │
+                                             └── MySQL 8
                                                  • app data
                                                  • punch selfies (ATTENDANCE_PHOTO_DISK=database)
 ```
 
-### Free-tier tradeoffs
+### Tradeoffs
 
 | Item | Behavior |
 |------|----------|
 | Render free web | Sleeps after ~15 min idle; cold start 30–60s |
 | No Redis / workers | `QUEUE_CONNECTION=sync` |
-| Photos in Neon | No R2; watch free storage (~0.5 GB) |
+| Photos in MySQL | Stored as LONGTEXT. Watch `max_allowed_packet` and disk |
 | Break scheduler | Runs while the web service is awake |
 
 Full walkthrough is also guided in chat step-by-step. This file is the complete reference.
 
 ---
 
-## 1. Neon PostgreSQL
+## 1. MySQL 8
 
-1. [console.neon.tech](https://console.neon.tech) → create project  
-2. Copy **connection URI** with `sslmode=require` → use as `DB_URL`
+1. Create a database and user on your MySQL 8 server.
+2. Set `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`. Do not use a PostgreSQL URL.
 
 ## 2. Push branch
 
@@ -48,8 +48,12 @@ git push -u origin Deploy-v1.0
 | `APP_ENV` | `production` |
 | `APP_DEBUG` | `false` |
 | `APP_KEY` | `php artisan key:generate --show` output |
-| `DB_CONNECTION` | `pgsql` |
-| `DB_URL` | Neon URI |
+| `DB_CONNECTION` | `mysql` |
+| `DB_HOST` | MySQL host |
+| `DB_PORT` | `3306` |
+| `DB_DATABASE` | database name |
+| `DB_USERNAME` | database user |
+| `DB_PASSWORD` | database password |
 | `QUEUE_CONNECTION` | `sync` |
 | `CACHE_STORE` | `database` |
 | `SESSION_DRIVER` | `database` |
@@ -91,6 +95,6 @@ Logins: `EMP001` / `HR001` / `ADMIN001`, password `password`.
 |-------|-----|
 | CORS / admin fails | Match `CORS_ALLOWED_ORIGINS` to admin URL; rebuild admin if `VITE_API_URL` wrong |
 | Admin refresh → 404 | SPA rewrite `/*` → `/index.html` (200). Build ships `web/public/_redirects`; enable rewrite on the static host if missing |
-| Migrate errors | Neon URI + `sslmode=require` |
+| Migrate errors | MySQL host, port, database, user, and password |
 | Photos missing | `ATTENDANCE_PHOTO_DISK=database` (not `public` on Render) |
 | Slow first load | Free cold start — wait and retry |
