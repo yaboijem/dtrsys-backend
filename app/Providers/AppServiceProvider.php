@@ -13,7 +13,12 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $connections = config('database.connections');
+        unset($connections['pgsql']);
+        if (env('DB_CONNECTION') !== 'sqlite') {
+            unset($connections['sqlite']);
+        }
+        config(['database.connections' => $connections]);
     }
 
     public function boot(): void
