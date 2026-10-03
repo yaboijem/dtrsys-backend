@@ -17,7 +17,7 @@ The phone behaves like the employee's physical ID badge, and punching a time rec
 | Laminate surfaces | Sea-mist ground, white cards with hairline edges |
 | Abyssal ink band | App mark + the employee's badge strip (DTR band) — the deep ink of the shared palette |
 | ID digits | Employee ID and times use tabular, letter-spaced digits |
-| Gate lamp | Clock state as a lamp: green (open, ready to punch), red (clocked in), amber (offline — punches queue locally and sync later) |
+| Gate lamp | Clock state as a lamp: green (ready to Time In), red (clocked in). A dropped connection does not queue punches. |
 | Punch = the slot | One large thumb-zone action at the top of Home |
 | Confirmation = stamp | Rotated, uppercase confirmation plate with a spring settle — the app's single authored motion |
 | Dark mode | The badge under the gate light: deep-ink ground, abyssal laminate cards, lighter band |
@@ -57,7 +57,7 @@ Challengers set aside: transit diagram (legibility), phosphor terminal (identity
 ## Screen architecture
 
 - **Login / MFA** — brand band plate; centered form (Employee ID + Password only). Dev affordance "Get code (dev)" on MFA is gated behind `DEV_OTP_ENABLED` in `src/config.ts` (single dev flag; MFA uses the same value surfaced by `AuthContext`). Device ID and server URL are edited after login (More) or via app config — not shown on Login.
-- **Home** — punch hero: BadgeFace → gate lamp → slot button → hint → banners (at most one system banner: offline only; queue count folds into it) → stamp result → schedule card → today's punches → offline queue card (with Sync now). GPS is resolved before the camera opens: no GPS fix (or location permission denied) blocks the punch with a "GPS required" error stamp; there is no manual coordinate entry.
+- **Home** — punch control is first. Clocked out: Time In (selfie + GPS). Clocked in: dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, then Time Out. On a break: Done Break (GPS only) and Time Out. After Time Out the control is Time In again. No schedule card. No offline queue. A failed punch stays on the same control and is not saved locally. GPS is resolved before the camera opens: no GPS fix blocks the punch with a "GPS required" error stamp; there is no manual coordinate entry.
 - **History** — segmented filter plates (min 44pt, `accessibilityState.selected`), date fields, wrapping tag rows.
 - **Alerts** — tab and screen both named "Alerts"; unread = laminate card + band dot; "Mark all read" micro-label action.
 - **More** — Account, Privacy (→ Consent & data), Security, Server, Device cards. Consent & data is now reachable via a native-stack wrapper (`MoreStack`).
@@ -90,13 +90,12 @@ npm run build
 2. Home: badge, lamp (open → green), punch slot in first viewport; punch → camera → stamp springs in and reads out.
 3. Clock in, then Home shows red "Clocked in" lamp; clock out shows duration row.
 4. Location services off (or permission denied): tapping Time In/Out shows the "GPS required" stamp and no camera opens; enabling GPS + retry completes the punch.
-5. Airplane mode: offline banner appears, punch queues; "pending" plates show; restore network → auto-sync.
-5. History filters (44pt) and date range; pull-to-refresh; tags wrap on narrow screens.
+5. Airplane mode: a punch does not succeed and is not queued. Restore network and retry.
+5. History filters (44pt) and date range; tags wrap on narrow screens. Break rows show the break kind.
 6. Alerts: unread dot, mark-all; tab badge counts down.
 7. More → Consent & data: toggles round-trip, back returns to More.
 8. Font scaling (large text) on Home and History; camera modal on a small device (safe areas).
 9. Camera permission denied flow shows the grant plate.
-10. Offline queue: a punch made while offline carries real GPS (resolved before the camera); queue rows show "pending sync".
 
 ---
 

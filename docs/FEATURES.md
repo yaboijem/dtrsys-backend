@@ -242,17 +242,17 @@ Installable Progressive Web App for employees.
 | Screen | Capabilities |
 |--------|----------------|
 | **Login / MFA** | Employee ID + password; MFA screen; theme toggle; session restore |
-| **Home** | GPS status; Time In / Time Out (camera selfie, client-side compress); Break In / Break Out; today’s schedule (shift, grace, start/end, progress); compact today’s punches with Activity / Time / **Duration** columns; offline queue + sync; result stamp |
-| **History** | Attendance history with filters and tags (offline, late, etc.) |
+| **Home** | GPS status; Time In (selfie + GPS); after clock-in, a dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, and Time Out; on a break, Done Break (GPS only) and Time Out; today's punches. No schedule card. No offline queue. |
+| **History** | Attendance history with filters. Break rows show the break kind. No offline tag. |
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
 | **More** | Profile (department, branch, position, roles); MFA status; consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |
 | **Consent** | Biometric + GPS toggles |
 | **Home location** | WFH employees submit current GPS as home pin; status none/pending/approved |
-| **PWA** | Manifest, service worker, offline shell banner, install prompt, IndexedDB offline punch queue |
+| **PWA** | Removed. The portal is an online website. A stored token is restored only when `/api/auth/me` succeeds. |
 
 Routes: `/login`, `/mfa`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`, `/more/home-location`.
 
-Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PwaChrome`.
+Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PunchControl`.
 
 ---
 
