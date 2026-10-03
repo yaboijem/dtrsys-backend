@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Camera, CloudSun, Coffee, LogIn, LogOut, MapPin, Moon, Sun, WifiOff } from 'lucide-react';
+import { MapPin, WifiOff } from 'lucide-react';
 
 import { ApiError } from '../api/client';
-import { Attendance, BreakKind, Paginated, PunchType, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
+import { Attendance, BreakKind, Paginated, PunchType, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { PunchControl } from '../components/PunchControl';
@@ -14,19 +14,14 @@ import { Stamp } from '../components/Stamp';
 import {
   distanceLabel,
   errorMessage,
-  formatClockTime,
   formatDateTime,
   formatTime,
   minutesToDuration,
   newUuid,
-  shiftProgress,
-  shiftSkyKind,
-  shiftSkyStyle,
   toLocalDate,
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl } from '../lib/image';
-import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
 import { coerceAttendance, deriveAttendanceState, derivePunchControl, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
@@ -90,9 +85,6 @@ export function Home() {
   const { refreshUnread } = useUnread();
   const { src: photoSrc } = useProfilePhoto(user?.employee_id);
 
-  const [schedule, setSchedule] = useState<Schedule | null>(null);
-  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
-  const [scheduleStale, setScheduleStale] = useState(false);
   const [todayPunches, setTodayPunches] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [punching, setPunching] = useState(false);
@@ -105,7 +97,6 @@ export function Home() {
   const [flushResult, setFlushResult] = useState<FlushResultView | null>(null);
   const [networkOffline, setNetworkOffline] = useState(!navigator.onLine);
   const [gpsHint, setGpsHint] = useState<'unknown' | 'ok' | 'bad'>('unknown');
-  const [breakTick, setBreakTick] = useState(0);
   const [breaksEnabled, setBreaksEnabled] = useState<boolean>(() => readCachedBreaksEnabled());
   const flushBusyRef = useRef(false);
   const punchBusyRef = useRef(false);
@@ -144,7 +135,7 @@ export function Home() {
   const todayKey = toLocalDate(new Date());
   const todaysPunches = effectivePunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
 
-  const { isOpen, onBreak, openBreakStartedAt } = deriveAttendanceState(todayPunches, localOffline);
+  const { isOpen, onBreak } = deriveAttendanceState(todayPunches, localOffline);
   const punchControl = derivePunchControl(todayPunches, breaksEnabled);
   const [punchNow, setPunchNow] = useState(() => Date.now());
 
@@ -152,96 +143,23 @@ export function Home() {
   const lastWork = workPunches[workPunches.length - 1] ?? null;
   const lastPunch = lastWork;
 
-  // One completed break pair after the open time_in blocks another Break In.
-  let breakUsed = false;
-  if (isOpen && lastWork) {
-    let openBreak: Attendance | null = null;
-    for (const p of effectivePunches) {
-      if (new Date(p.timestamp).getTime() < new Date(lastWork.timestamp).getTime()) continue;
-      if (p.type === 'break_in') openBreak = p;
-      if (p.type === 'break_out' && openBreak) {
-        breakUsed = true;
-        openBreak = null;
-      }
-    }
-  }
-
   useEffect(() => {
     if (punchControl.mode !== 'on_break' || !punchControl.expectedEndAt) return;
     const id = window.setInterval(() => setPunchNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [punchControl]);
 
-  useEffect(() => {
-    if (!onBreak) return;
-    const id = window.setInterval(() => setBreakTick((t) => t + 1), 30_000);
-    return () => window.clearInterval(id);
-  }, [onBreak]);
-  void breakTick;
-  const breakElapsedMin = openBreakStartedAt
-    ? Math.max(0, Math.floor((Date.now() - new Date(openBreakStartedAt).getTime()) / 60000))
-    : 0;
-
   const loadToday = useCallback(async (): Promise<boolean> => {
     if (!token) {
       return false;
     }
     const gen = ++loadGenRef.current;
-    const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
     let historyOk = false;
     try {
       const today = toLocalDate(new Date());
       // Include yesterday so overnight open sessions still flip Time Out.
       const historyFrom = toLocalDate(new Date(Date.now() - 86400000));
       await Promise.all([
-        api
-          .get<{ data: Schedule }>('/api/schedule/today', undefined, token)
-          .then((s) => {
-            if (gen !== loadGenRef.current) return;
-            setSchedule(s.data);
-            setScheduleMessage(null);
-            setScheduleStale(false);
-            if (userKey) {
-              void saveScheduleCache(userKey, {
-                schedule: s.data,
-                date: today,
-                message: null,
-              });
-            }
-          })
-          .catch(async (err: unknown) => {
-            if (gen !== loadGenRef.current) return;
-            if (err instanceof ApiError && err.code === 'no_schedule') {
-              setSchedule(null);
-              setScheduleMessage('No schedule assigned for today.');
-              setScheduleStale(false);
-              if (userKey) {
-                void saveScheduleCache(userKey, {
-                  schedule: null,
-                  date: today,
-                  message: 'No schedule assigned for today.',
-                });
-              }
-              return;
-            }
-            if (userKey) {
-              const cached = await loadScheduleCache(userKey);
-              if (gen !== loadGenRef.current) return;
-              if (cached && cached.date === today) {
-                setSchedule(cached.schedule);
-                setScheduleMessage(
-                  cached.schedule
-                    ? 'Connect to the internet to load the latest schedule.'
-                    : (cached.message ?? 'No schedule assigned for today.'),
-                );
-                setScheduleStale(Boolean(cached.schedule));
-                return;
-              }
-            }
-            setSchedule(null);
-            setScheduleStale(false);
-            setScheduleMessage(errorMessage(err));
-          }),
         api
           .get<Paginated<Attendance>>(
             '/api/attendance/history',
@@ -614,8 +532,6 @@ export function Home() {
 
   const displayName = user?.employee?.full_name ?? user?.name ?? 'there';
   const firstName = displayName.split(' ')[0] ?? displayName;
-  const progress = isOpen ? shiftProgress(schedule?.shift?.start_time, schedule?.shift?.end_time) : 0;
-
   const statusLabel = loading
     ? 'Checking…'
     : networkOffline
@@ -725,160 +641,6 @@ export function Home() {
       </div>
 
       {result ? <Stamp kind={result.kind} title={result.title} detail={result.detail} /> : null}
-
-      <SectionCard title="Today's schedule">
-        {scheduleStale ? (
-          <div style={{ fontSize: 12, fontWeight: 600, color: colors.muted, marginBottom: spacing.sm }}>
-            Showing saved schedule. Connect to the internet to load the latest.
-          </div>
-        ) : null}
-        {loading ? (
-          <div style={{ fontSize: fontSize.sm, color: colors.muted }}>Loading…</div>
-        ) : schedule ? (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(() => {
-                const sky = shiftSkyKind(schedule.shift?.start_time, schedule.shift?.end_time);
-                const skyStyle = shiftSkyStyle(sky);
-                const SkyIcon = sky === 'sun' ? Sun : sky === 'mid' ? CloudSun : Moon;
-                return (
-                  <div
-                    style={{
-                      borderRadius: 12,
-                      border: skyStyle.border,
-                      padding: '10px 12px',
-                      background: skyStyle.background,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: skyStyle.labelColor,
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      <SkyIcon size={14} color={skyStyle.iconColor} />
-                      Shift
-                    </div>
-                    <div className="tnum" style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: skyStyle.valueColor }}>
-                      {schedule.shift?.name ?? '—'}
-                    </div>
-                  </div>
-                );
-              })()}
-              <div className="metric-grid-2">
-                {(
-                  [
-                    {
-                      icon: LogIn,
-                      label: 'Start',
-                      value: formatClockTime(schedule.shift?.start_time),
-                      plate: colors.plates.success,
-                    },
-                    {
-                      icon: LogOut,
-                      label: 'End',
-                      value: formatClockTime(schedule.shift?.end_time),
-                      plate: colors.plates.warning,
-                    },
-                  ] as const
-                ).map((m) => {
-                  const Icon = m.icon;
-                  return (
-                    <div
-                      key={m.label}
-                      style={{
-                        borderRadius: 12,
-                        border: `1px solid ${m.plate.border}`,
-                        padding: '10px 12px',
-                        background: m.plate.bg,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          color: m.plate.text,
-                          fontSize: 11,
-                          fontWeight: 700,
-                        }}
-                      >
-                        <Icon size={14} color={m.plate.text} />
-                        {m.label}
-                      </div>
-                      <div className="tnum" style={{ marginTop: 4, fontSize: 14, fontWeight: 700, color: m.plate.text }}>
-                        {m.value}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {(() => {
-                const plate = colors.plates.info;
-                return (
-                  <div
-                    style={{
-                      borderRadius: 12,
-                      border: `1px solid ${plate.border}`,
-                      padding: '10px 12px',
-                      background: plate.bg,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: plate.text,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Coffee size={14} color={plate.text} />
-                      Breaktime
-                    </div>
-                    <div className="tnum" style={{ fontSize: 14, fontWeight: 700, color: plate.text, textAlign: 'right' }}>
-                      {schedule.shift?.break_start && schedule.shift?.break_end
-                        ? `${formatClockTime(schedule.shift.break_start)} – ${formatClockTime(schedule.shift.break_end)}`
-                        : '—'}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-            {isOpen && !onBreak ? (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: colors.muted }}>Shift progress</span>
-                  <span className="tnum" style={{ fontSize: 12, fontWeight: 700, color: colors.ink }}>
-                    {progress}%
-                  </span>
-                </div>
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-            ) : null}
-            {onBreak ? (
-              <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: colors.warningText }}>
-                Break elapsed: {breakElapsedMin} / 60 min
-                {breakElapsedMin >= 50 ? ' — wrap up soon' : ''}
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <div style={{ fontSize: fontSize.sm, color: colors.muted }}>{scheduleMessage ?? 'No schedule for today.'}</div>
-        )}
-      </SectionCard>
 
       {todaysPunches.length > 0 ? (
         <SectionCard title="Today's punches">
