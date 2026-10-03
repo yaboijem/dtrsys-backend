@@ -72,6 +72,8 @@ export interface Attendance {
   source: string | null;
   notes: string | null;
   synced_at: string | null;
+  break_kind?: BreakKind | null;
+  expected_end_at?: string | null;
   branch?: { id: number; name: string } | null;
   gps_location?: GpsLocation | null;
   photo?: AttendancePhoto | null;
@@ -146,6 +148,25 @@ export interface SyncResult {
   duplicates: number;
   records: SyncRecordResult[];
 }
+
+export type BreakKind =
+  | '15_min'
+  | 'lunch_60'
+  | 'bio'
+  | 'phone'
+  | 'coaching'
+  | 'huddle'
+  | 'training';
+
+export const BREAK_OPTIONS: { kind: BreakKind; label: string }[] = [
+  { kind: '15_min', label: '15 mins break' },
+  { kind: 'lunch_60', label: '1hr Lunch Break' },
+  { kind: 'bio', label: 'Bio break' },
+  { kind: 'phone', label: 'Phone time' },
+  { kind: 'coaching', label: 'Coaching' },
+  { kind: 'huddle', label: 'Huddle' },
+  { kind: 'training', label: 'Training' },
+];
 
 export type PunchType = 'time_in' | 'time_out' | 'break_in' | 'break_out';
 

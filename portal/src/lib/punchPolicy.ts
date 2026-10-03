@@ -1,4 +1,38 @@
-import type { Attendance, OfflinePunch, PunchType } from '../api/types';
+import type { Attendance, BreakKind, OfflinePunch, PunchType } from '../api/types';
+
+export type PunchControlState =
+  | { mode: 'time_in' }
+  | { mode: 'choose' }
+  | { mode: 'on_break'; kind: BreakKind | null; expectedEndAt: string | null; startedAt: string };
+
+export function derivePunchControl(punches: Attendance[], breaksEnabled: boolean): PunchControlState {
+  void breaksEnabled;
+  const ordered = [...punches].sort((a, b) => {
+    const byTime = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    return byTime !== 0 ? byTime : a.id - b.id;
+  });
+  let openShift: Attendance | null = null;
+  for (const punch of ordered) {
+    if (punch.type === 'time_in') openShift = punch;
+    if (punch.type === 'time_out') openShift = null;
+  }
+  if (!openShift) return { mode: 'time_in' };
+
+  let openBreak: Attendance | null = null;
+  for (const punch of ordered) {
+    if (new Date(punch.timestamp).getTime() < new Date(openShift.timestamp).getTime()) continue;
+    if (punch.id <= openShift.id) continue;
+    if (punch.type === 'break_in') openBreak = punch;
+    if (punch.type === 'break_out') openBreak = null;
+  }
+  if (!openBreak) return { mode: 'choose' };
+  return {
+    mode: 'on_break',
+    kind: openBreak.break_kind ?? null,
+    expectedEndAt: openBreak.expected_end_at ?? null,
+    startedAt: openBreak.timestamp,
+  };
+}
 
 export type AttendanceState = {
   isOpen: boolean;

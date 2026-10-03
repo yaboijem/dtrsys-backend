@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, CloudSun, Coffee, LogIn, LogOut, MapPin, Moon, Sun, WifiOff } from 'lucide-react';
 
 import { ApiError } from '../api/client';
-import { Attendance, Paginated, PunchType, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
+import { Attendance, BreakKind, Paginated, PunchType, Schedule, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
+import { PunchControl } from '../components/PunchControl';
 import { CameraModal } from '../components/CameraModal';
 import { Avatar, Banner, SectionCard, Tag } from '../components/Feedback';
 import { Screen } from '../components/Screen';
@@ -27,7 +28,7 @@ import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl } from '../lib/image';
 import { loadScheduleCache, saveScheduleCache } from '../lib/dataCache';
 import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
-import { coerceAttendance, deriveAttendanceState, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
+import { coerceAttendance, deriveAttendanceState, derivePunchControl, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
@@ -144,6 +145,8 @@ export function Home() {
   const todaysPunches = effectivePunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
 
   const { isOpen, onBreak, openBreakStartedAt } = deriveAttendanceState(todayPunches, localOffline);
+  const punchControl = derivePunchControl(todayPunches, breaksEnabled);
+  const [punchNow, setPunchNow] = useState(() => Date.now());
 
   const workPunches = effectivePunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
   const lastWork = workPunches[workPunches.length - 1] ?? null;
@@ -162,6 +165,12 @@ export function Home() {
       }
     }
   }
+
+  useEffect(() => {
+    if (punchControl.mode !== 'on_break' || !punchControl.expectedEndAt) return;
+    const id = window.setInterval(() => setPunchNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [punchControl]);
 
   useEffect(() => {
     if (!onBreak) return;
@@ -400,20 +409,11 @@ export function Home() {
       void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err)) {
-        const queued = await enqueueOfflinePunch(type, coords, compressedUri, clientUuid);
-        setQueue(queued);
-        setTodayPunches((prev) =>
-          upsertAttendance(
-            prev,
-            coerceAttendance(null, { type, uuid: clientUuid, timestamp: new Date().toISOString() }),
-          ),
-        );
         setResult({
-          kind: 'success',
-          title: 'Queued offline',
-          detail: `${type === 'time_in' ? 'Clock-in' : 'Clock-out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nQueued offline — will sync when you're back online.`,
+          kind: 'error',
+          title: 'Punch failed',
+          detail: 'Connect to the internet and try again.',
         });
-        void loadToday();
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const details = (err.details ?? {}) as GpsOutOfRangeDetails;
@@ -453,19 +453,14 @@ export function Home() {
     }
   };
 
-  const handlePunchPress = async () => {
-    if (onBreak) {
-      setResult({ kind: 'error', title: 'On break', detail: 'End your break before clocking out.' });
-      return;
-    }
+  const handlePunchPress = async (type: 'time_in' | 'time_out') => {
     if (punchBusyRef.current || punching || cameraVisible) {
       return;
     }
     setResult(null);
     setPunching(true);
     punchBusyRef.current = true;
-    // Freeze intended punch type at press time (not capture time).
-    pendingPunchTypeRef.current = isOpen ? 'time_out' : 'time_in';
+    pendingPunchTypeRef.current = type;
     try {
       const gps = await resolveGpsPosition();
       if (gps.status !== 'ok') {
@@ -495,13 +490,13 @@ export function Home() {
     }
   };
 
-  const handleBreakPress = async () => {
-    if (!token || !isOpen) return;
+  const handleBreakPress = async (kind: BreakKind | null) => {
+    if (!token) return;
     if (punchBusyRef.current || punching) return;
     setResult(null);
     setPunching(true);
     punchBusyRef.current = true;
-    const breakType: PunchType = onBreak ? 'break_out' : 'break_in';
+    const breakType: PunchType = kind ? 'break_in' : 'break_out';
     const clientUuid = newUuid();
     let coords: { latitude: number; longitude: number; accuracy: number | null } | null = null;
     try {
@@ -513,7 +508,7 @@ export function Home() {
       }
       setGpsHint('ok');
       coords = gps.position;
-      const path = onBreak ? '/api/attendance/break-out' : '/api/attendance/break-in';
+      const path = kind ? '/api/attendance/break-in' : '/api/attendance/break-out';
       const res = await api.post<{ data: Attendance }>(
         path,
         {
@@ -522,6 +517,7 @@ export function Home() {
           accuracy_meters: coords.accuracy,
           device_id: deviceId ?? undefined,
           client_uuid: clientUuid,
+          ...(kind ? { break_kind: kind } : {}),
         },
         token,
       );
@@ -529,32 +525,23 @@ export function Home() {
       setTodayPunches((prev) => upsertAttendance(prev, attendance));
       setResult({
         kind: 'success',
-        title: onBreak ? 'Break ended' : 'Break started',
-        detail: onBreak
-          ? attendance.break_minutes != null
+        title: kind ? 'Break started' : 'Break ended',
+        detail: kind
+          ? 'GPS verified.'
+          : attendance.break_minutes != null
             ? `Break lasted ${attendance.break_minutes} min${attendance.is_overbreak ? ' (overbreak)' : ''}.`
-            : undefined
-          : 'GPS verified. Remember to Break Out within 1 hour.',
+            : undefined,
       });
       void loadToday();
       refreshUnread();
       void runFlush();
     } catch (err) {
-      if (shouldQueueOffline(err) && coords) {
-        const queued = await enqueueOfflinePunch(breakType, coords, null, clientUuid);
-        setQueue(queued);
-        setTodayPunches((prev) =>
-          upsertAttendance(
-            prev,
-            coerceAttendance(null, { type: breakType, uuid: clientUuid, timestamp: new Date().toISOString() }),
-          ),
-        );
+      if (shouldQueueOffline(err)) {
         setResult({
-          kind: 'success',
-          title: 'Queued offline',
-          detail: `${breakType === 'break_in' ? 'Break in' : 'Break out'} recorded locally at ${formatDateTime(new Date().toISOString())}.\nQueued offline — will sync when you're back online.`,
+          kind: 'error',
+          title: 'Punch failed',
+          detail: 'Connect to the internet and try again.',
         });
-        void loadToday();
       } else if (err instanceof ApiError) {
         if (err.code === 'gps_out_of_range') {
           const d = (err.details ?? {}) as GpsOutOfRangeDetails;
@@ -716,46 +703,25 @@ export function Home() {
                     : 'Checking location…'}
             </div>
             <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
-              {onBreak
-                ? `On break for ${breakElapsedMin} min (max 60). GPS check on Break Out.`
-                : isOpen
+              {punchControl.mode === 'on_break'
+                ? 'GPS check on Done Break. Selfie required to clock out.'
+                : punchControl.mode === 'choose'
                   ? `Clocked in since ${formatTime(lastPunch?.timestamp)}. Selfie required to clock out.`
                   : 'Location verified against your branch radius on punch.'}
             </div>
           </div>
         </div>
 
-        {onBreak ? (
-          <Button
-            title="Break Out"
-            variant="primary"
-            size="large"
-            onClick={handleBreakPress}
-            loading={punching}
-            icon={<Coffee size={18} />}
-          />
-        ) : (
-          <>
-            <Button
-              title={isOpen ? 'Time Out' : 'Time In'}
-              variant={isOpen ? 'danger' : 'success'}
-              size="large"
-              onClick={handlePunchPress}
-              loading={punching}
-              icon={<Camera size={18} />}
-            />
-            {breaksEnabled && isOpen && !breakUsed ? (
-              <Button
-                title="Break In"
-                variant="secondary"
-                onClick={handleBreakPress}
-                loading={punching}
-                icon={<Coffee size={16} />}
-                style={{ marginTop: 10 }}
-              />
-            ) : null}
-          </>
-        )}
+        <PunchControl
+          state={punchControl}
+          breaksEnabled={breaksEnabled}
+          punching={punching}
+          now={punchNow}
+          onTimeIn={() => void handlePunchPress('time_in')}
+          onTimeOut={() => void handlePunchPress('time_out')}
+          onBreak={(kind) => void handleBreakPress(kind)}
+          onDoneBreak={() => void handleBreakPress(null)}
+        />
       </div>
 
       {result ? <Stamp kind={result.kind} title={result.title} detail={result.detail} /> : null}
