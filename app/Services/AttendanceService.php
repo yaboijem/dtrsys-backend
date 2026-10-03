@@ -65,11 +65,12 @@ class AttendanceService
                 throw new AttendanceConflictException('You have not clocked in yet today.');
             }
 
-            if ($this->openBreakFor($employee)) {
-                throw new AttendanceConflictException('End your break before clocking out.');
-            }
-
             return DB::transaction(function () use ($employee, $timeIn, $data, $now) {
+                $openBreak = $this->openBreakFor($employee);
+                if ($openBreak) {
+                    $this->writeBreakOut($employee, $openBreak, $data, $now);
+                }
+
                 $gps = $this->verifyGps($employee, $data);
                 $shift = $this->scheduleService->shiftFor($employee, $now);
 
@@ -105,10 +106,6 @@ class AttendanceService
                 throw new AttendanceConflictException('You are already on break.');
             }
 
-            if ($this->hasCompletedBreakSince($employee, $timeIn)) {
-                throw new AttendanceConflictException('You have already taken your break for this shift.');
-            }
-
             return DB::transaction(function () use ($employee, $data, $now) {
                 $gps = $this->verifyGps($employee, $data);
                 $shift = $this->scheduleService->shiftFor($employee, $now);
@@ -133,23 +130,26 @@ class AttendanceService
             }
 
             return DB::transaction(function () use ($employee, $breakIn, $data, $now) {
-                $gps = $this->verifyGps($employee, $data);
-                $shift = $this->scheduleService->shiftFor($employee, $now);
-
-                $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($now));
-                $attendance = $this->createPunch($employee, 'break_out', $now, $data, $shift);
-                $attendance->update([
-                    'break_minutes' => $breakMinutes,
-                    'is_overbreak' => $breakMinutes > 60,
-                    'break_kind' => $breakIn->break_kind,
-                    'expected_end_at' => $breakIn->expected_end_at,
-                ]);
-
-                $this->storeGpsLocation($attendance, $employee, $gps);
-
-                return $attendance->load(['branch', 'gpsLocation']);
+                return $this->writeBreakOut($employee, $breakIn, $data, $now);
             });
         });
+    }
+
+    private function writeBreakOut(Employee $employee, Attendance $breakIn, array $data, Carbon $now): Attendance
+    {
+        $gps = $this->verifyGps($employee, $data);
+        $shift = $this->scheduleService->shiftFor($employee, $now);
+        $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($now));
+        $attendance = $this->createPunch($employee, 'break_out', $now, $data, $shift);
+        $attendance->update([
+            'break_minutes' => $breakMinutes,
+            'is_overbreak' => $breakMinutes > 60,
+            'break_kind' => $breakIn->break_kind,
+            'expected_end_at' => $breakIn->expected_end_at,
+        ]);
+        $this->storeGpsLocation($attendance, $employee, $gps);
+
+        return $attendance->load(['branch', 'gpsLocation']);
     }
 
     /**

@@ -187,46 +187,60 @@ class BreakAttendanceTest extends TestCase
     }
 
     #[Test]
-    public function time_out_blocked_while_on_break(): void
+    public function employee_can_take_another_break_after_done_break(): void
     {
         $employee = $this->makeEmployee();
         $this->timeIn($employee);
+        $this->breakIn($employee, 'bio');
 
+        Carbon::setTestNow(now()->addMinutes(10));
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
-            ->assertCreated();
+            ->postJson('/api/attendance/break-out', $this->gps($employee->branch))
+            ->assertSuccessful();
+
+        $this->breakIn($employee, 'phone');
+
+        $this->assertSame(2, Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->count());
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function time_out_closes_an_open_break_then_clocks_out(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+        $this->breakIn($employee, 'coaching');
 
         $this->actingAs($employee->user, 'sanctum')
             ->postJson('/api/attendance/time-out', [
                 ...$this->gps($employee->branch),
                 'selfie' => UploadedFile::fake()->image('out.jpg'),
             ])
-            ->assertStatus(409)
-            ->assertJsonPath('code', 'attendance_conflict');
+            ->assertSuccessful()
+            ->assertJsonPath('data.type', 'time_out');
+
+        $breakOut = Attendance::where('employee_id', $employee->id)->where('type', 'break_out')->first();
+        $this->assertNotNull($breakOut);
+        $this->assertSame('coaching', $breakOut->break_kind);
+        $this->assertNull($breakOut->expected_end_at);
+        $this->assertNull($this->app->make(\App\Services\AttendanceService::class)->openBreakFor($employee));
     }
 
     #[Test]
-    public function only_one_break_per_shift(): void
+    public function time_in_after_time_out_starts_another_shift(): void
     {
         $employee = $this->makeEmployee();
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
-            ->assertCreated();
-
-        Carbon::setTestNow(now()->addMinutes(20));
-
-        $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-out', $this->gps($employee->branch))
+            ->postJson('/api/attendance/time-out', [
+                ...$this->gps($employee->branch),
+                'selfie' => UploadedFile::fake()->image('out.jpg'),
+            ])
             ->assertSuccessful();
 
-        $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
-            ->assertStatus(409)
-            ->assertJsonPath('code', 'attendance_conflict');
-
-        Carbon::setTestNow();
+        $this->timeIn($employee);
+        $this->assertSame(2, Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count());
     }
 
     #[Test]
