@@ -215,6 +215,7 @@ class BreakAttendanceTest extends TestCase
             ->postJson('/api/attendance/time-out', [
                 ...$this->gps($employee->branch),
                 'selfie' => UploadedFile::fake()->image('out.jpg'),
+                'client_uuid' => '11111111-1111-4111-8111-111111111111',
             ])
             ->assertSuccessful()
             ->assertJsonPath('data.type', 'time_out');

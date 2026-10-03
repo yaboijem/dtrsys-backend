@@ -68,7 +68,9 @@ class AttendanceService
             return DB::transaction(function () use ($employee, $timeIn, $data, $now) {
                 $openBreak = $this->openBreakFor($employee);
                 if ($openBreak) {
-                    $this->writeBreakOut($employee, $openBreak, $data, $now);
+                    $breakData = $data;
+                    unset($breakData['client_uuid'], $breakData['selfie']);
+                    $this->writeBreakOut($employee, $openBreak, $breakData, $now);
                 }
 
                 $gps = $this->verifyGps($employee, $data);
@@ -255,8 +257,7 @@ class AttendanceService
 
     private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift, ?Carbon $shiftDate = null): Attendance
     {
-        return Attendance::create([
-            'uuid' => $data['client_uuid'] ?? null,
+        $attributes = [
             'employee_id' => $employee->id,
             'branch_id' => $employee->branch_id,
             'device_id' => $this->resolveDevice($employee, $data['device_id'] ?? null)?->id,
@@ -274,7 +275,12 @@ class AttendanceService
             'source' => $data['source'] ?? 'app',
             'notes' => $data['notes'] ?? null,
             'synced_at' => now(),
-        ]);
+        ];
+        if (! empty($data['client_uuid'])) {
+            $attributes['uuid'] = $data['client_uuid'];
+        }
+
+        return Attendance::create($attributes);
     }
 
     public function resolveGpsVerification(Employee $employee, array $data): array
