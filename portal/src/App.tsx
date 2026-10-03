@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { UnreadProvider } from './notifications/UnreadContext';
-import { PwaChrome } from './components/PwaChrome';
 import { TabBar } from './components/TabBar';
 import { ThemeProvider } from './theme/ThemeContext';
 import { useThemeColors } from './theme';
@@ -65,7 +64,6 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <UnreadProvider>
-            <PwaChrome />
             <Routes>
               {/* Public routes */}
               <Route path="/login" element={<Login />} />

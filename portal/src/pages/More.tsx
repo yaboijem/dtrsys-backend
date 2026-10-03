@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
@@ -9,26 +9,7 @@ import { Avatar, Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
-import { getSwStatus, onSwStatus, type SwStatus } from '../pwa/register';
 import { fontSize, spacing, useThemeColors } from '../theme';
-
-function swStatusLabel(status: SwStatus): string {
-  switch (status) {
-    case 'ready':
-      return 'Offline Ready';
-    case 'registered':
-    case 'registering':
-      return 'Preparing offline…';
-    case 'dev':
-      return 'Offline unavailable (dev)';
-    case 'unsupported':
-      return 'Offline unavailable';
-    case 'error':
-      return 'Offline unavailable';
-    default:
-      return 'Offline unavailable';
-  }
-}
 
 export function More() {
   const colors = useThemeColors();
@@ -39,13 +20,6 @@ export function More() {
   );
 
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [swStatus, setSwStatus] = useState<SwStatus>(() => getSwStatus().status);
-
-  useEffect(() => {
-    return onSwStatus((status) => {
-      setSwStatus(status);
-    });
-  }, []);
 
   const displayName = user?.employee?.full_name ?? user?.name ?? '—';
 
@@ -171,18 +145,6 @@ export function More() {
           Choose light, dark, or match your device setting.
         </div>
         <ThemeToggle />
-      </SectionCard>
-
-      <SectionCard title="Offline">
-        <div
-          style={{
-            fontSize: fontSize.md,
-            fontWeight: 700,
-            color: swStatus === 'ready' ? colors.successText : colors.ink,
-          }}
-        >
-          {swStatusLabel(swStatus)}
-        </div>
       </SectionCard>
 
       <Button

@@ -3,7 +3,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { ApiClient, ApiError } from '../api/client';
 import { LoginSuccess, User } from '../api/types';
 import { APP_VERSION, DEFAULT_API_URL, DEFAULT_DEVICE_ID, STORAGE_KEYS } from '../config';
-import { clearUserDataCache } from '../lib/dataCache';
 
 type AuthStatus = 'restoring' | 'guest' | 'authed';
 
@@ -54,13 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deviceIdRef.current = dev;
 
         if (storedToken && storedUser) {
-          let cachedUser: User | null = null;
-          try {
-            cachedUser = JSON.parse(storedUser) as User;
-          } catch {
-            cachedUser = null;
-          }
-
           try {
             const me = await apiRef.current.get<{ data: User }>('/api/auth/me', undefined, storedToken);
             setToken(storedToken);
@@ -69,26 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setStatus('authed');
             return;
           } catch (err) {
-            // Offline / unreachable API: keep last good session so punches can queue locally.
-            const networkFail =
-              err instanceof ApiError && (err.status === 0 || err.code === 'network_error');
-            if (networkFail && cachedUser) {
-              setToken(storedToken);
-              setUser(cachedUser);
-              setStatus('authed');
-              return;
-            }
-            // Auth rejected (expired/revoked token) — force fresh login.
             if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-              localStorage.removeItem(STORAGE_KEYS.token);
-              localStorage.removeItem(STORAGE_KEYS.user);
-            } else if (cachedUser) {
-              // Transient server error: still allow cached session.
-              setToken(storedToken);
-              setUser(cachedUser);
-              setStatus('authed');
-              return;
-            } else {
               localStorage.removeItem(STORAGE_KEYS.token);
               localStorage.removeItem(STORAGE_KEYS.user);
             }
@@ -145,12 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
     if (token) {
       await apiRef.current.post('/api/auth/logout', {}, token).catch(() => undefined);
-    }
-    if (userKey) {
-      void clearUserDataCache(userKey);
     }
     setToken(null);
     setUser(null);

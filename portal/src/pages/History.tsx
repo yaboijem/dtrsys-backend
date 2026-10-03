@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MapPin } from 'lucide-react';
 
-import { Attendance, Paginated } from '../api/types';
+import { Attendance, BREAK_OPTIONS, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Banner, Tag } from '../components/Feedback';
 import { Screen } from '../components/Screen';
-import { loadHistoryCache, saveHistoryCache } from '../lib/dataCache';
 import { distanceLabel, errorMessage, formatDateTime, minutesToDuration, toLocalDate } from '../lib/format';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
@@ -25,8 +24,7 @@ function daysAgo(n: number): string {
 
 export function History() {
   const colors = useThemeColors();
-  const { api, token, user } = useAuth();
-  const userKey = user?.employee_id ?? (user?.id != null ? String(user.id) : null);
+  const { api, token } = useAuth();
 
   const [records, setRecords] = useState<Attendance[]>([]);
   const [page, setPage] = useState(1);
@@ -34,7 +32,6 @@ export function History() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stale, setStale] = useState(false);
   const [type, setType] = useState<TypeFilter>('');
   const [preset, setPreset] = useState<RangePreset>('week');
   const [from, setFrom] = useState(daysAgo(6));
@@ -62,48 +59,22 @@ export function History() {
           { from, to, type: type || undefined, per_page: 20, page: targetPage },
           token,
         );
-        setRecords((prev) => {
-          const merged = replace ? res.data : [...prev, ...res.data];
-          if (userKey) {
-            void saveHistoryCache(userKey, {
-              records: merged,
-              from,
-              to,
-              type,
-              page: res.meta.current_page,
-              lastPage: res.meta.last_page,
-            });
-          }
-          return merged;
-        });
+        setRecords((prev) => (replace ? res.data : [...prev, ...res.data]));
         setPage(res.meta.current_page);
         setLastPage(res.meta.last_page);
-        setStale(false);
       } catch (err) {
-        if (replace && userKey) {
-          const cached = await loadHistoryCache(userKey);
-          if (cached && cached.records.length > 0) {
-            setRecords(cached.records);
-            setPage(cached.page);
-            setLastPage(cached.lastPage);
-            setStale(true);
-            setError(null);
-            return;
-          }
-        }
         setError(errorMessage(err));
-        setStale(false);
+        if (replace) setRecords([]);
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [api, token, from, to, type, userKey],
+    [api, token, from, to, type],
   );
 
   useEffect(() => {
     setLoading(true);
-    setStale(false);
     fetchPage(1, true);
   }, [fetchPage]);
 
@@ -242,13 +213,6 @@ export function History() {
         ) : null}
       </div>
 
-      {stale ? (
-        <Banner
-          kind="info"
-          title="Showing saved history"
-          detail="Connect to the internet to load the latest history."
-        />
-      ) : null}
       {error ? <Banner kind="error" title="Failed to load history" detail={error} /> : null}
 
       <div style={{ flex: 1, paddingBottom: 8 }}>
@@ -283,10 +247,15 @@ export function History() {
                       }
                       tone={item.type.startsWith('break') ? 'neutral' : toneFor(item)}
                     />
+                    {item.break_kind ? (
+                      <Tag
+                        label={BREAK_OPTIONS.find((option) => option.kind === item.break_kind)?.label ?? item.break_kind}
+                        tone="neutral"
+                      />
+                    ) : null}
                     {item.is_late ? <Tag label="Late" tone="warning" /> : null}
                     {item.type === 'time_out' && item.is_early_timeout ? <Tag label="Early out" tone="warning" /> : null}
                     {item.is_overbreak ? <Tag label="Overbreak" tone="danger" /> : null}
-                    {item.is_offline ? <Tag label="Offline" tone="neutral" /> : null}
                     {item.fraud_flags?.map((f) => (
                       <Tag key={f.type} label={f.type} tone="danger" />
                     ))}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
@@ -20,26 +20,12 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [online, setOnline] = useState(
-    typeof navigator === 'undefined' ? true : navigator.onLine,
-  );
-
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-    return () => {
-      window.removeEventListener('online', on);
-      window.removeEventListener('offline', off);
-    };
-  }, []);
 
   const handleLogin = async () => {
     setError(null);
     if (!navigator.onLine) {
       setError(
-        'Sign-in needs internet. Log in once while online — next time Offline Ready keeps you signed in without typing your password.',
+        'Connect to the internet and try again.',
       );
       return;
     }
@@ -50,7 +36,7 @@ export function Login() {
     } catch (err) {
       if (err instanceof ApiError && (err.status === 0 || err.code === 'network_error')) {
         setError(
-          'Cannot reach the server. Connect to the internet to sign in. After one online login, Offline Ready keeps your session.',
+          'Connect to the internet and try again.',
         );
       } else if (err instanceof ApiError && err.errors) {
         const messages = Object.values(err.errors).flat();
@@ -115,14 +101,6 @@ export function Login() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginTop: spacing.xl }}>
-          {!online ? (
-            <Banner
-              kind="warning"
-              title="You're offline"
-              detail="Password sign-in needs internet. If you already logged in on this device while online, reopen the app — Offline Ready restores that session automatically."
-            />
-          ) : null}
-
           <LabeledInput
             label="Employee ID"
             value={employeeId}
@@ -137,7 +115,7 @@ export function Login() {
             placeholder="Enter your password"
           />
 
-          <Button title="Login" onClick={handleLogin} loading={loading} disabled={!online} />
+          <Button title="Login" onClick={handleLogin} loading={loading} />
         </div>
       </div>
 

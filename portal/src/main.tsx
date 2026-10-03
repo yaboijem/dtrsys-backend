@@ -2,7 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { STORAGE_KEYS } from "./config";
-import { registerPortalSW } from "./pwa/register";
 import "@fontsource-variable/inter";
 import "./index.css";
 
@@ -19,7 +18,17 @@ import "./index.css";
   }
 })();
 
-registerPortalSW();
+try {
+  localStorage.removeItem("dtr_offline_queue");
+} catch {
+  // storage unavailable
+}
+if ("serviceWorker" in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((regs) => {
+    for (const reg of regs) void reg.unregister();
+  });
+}
+void indexedDB.deleteDatabase("dtr_portal");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

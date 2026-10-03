@@ -116,3 +116,13 @@ export async function exportCoverCropDataUrl(
   ctx.restore();
   return canvas.toDataURL('image/jpeg', quality);
 }
+
+export function dataUrlToFile(dataUrl: string, filename: string): File | null {
+  const parts = dataUrl.split(',');
+  if (parts.length < 2) return null;
+  const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+  const binary = atob(parts[1]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], filename, { type: mime });
+}

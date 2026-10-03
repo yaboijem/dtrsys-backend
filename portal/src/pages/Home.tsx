@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { MapPin, WifiOff } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 import { ApiError } from '../api/client';
-import { Attendance, BreakKind, Paginated, PunchType, GpsOutOfRangeDetails, OfflinePunch } from '../api/types';
+import { Attendance, BreakKind, Paginated, PunchType, GpsOutOfRangeDetails } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Button } from '../components/Button';
 import { PunchControl } from '../components/PunchControl';
 import { CameraModal } from '../components/CameraModal';
-import { Avatar, Banner, SectionCard, Tag } from '../components/Feedback';
+import { Avatar, SectionCard, Tag } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { Stamp } from '../components/Stamp';
 import {
@@ -21,9 +20,8 @@ import {
   toLocalDate,
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
-import { compressDataUrl } from '../lib/image';
-import { dataUrlToFile, enqueueOfflinePunch, flushOfflineQueue, getOfflineQueue } from '../lib/offlineQueue';
-import { coerceAttendance, deriveAttendanceState, derivePunchControl, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
+import { compressDataUrl, dataUrlToFile } from '../lib/image';
+import { coerceAttendance, derivePunchControl, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
@@ -73,12 +71,6 @@ interface PunchResult {
   detail?: string;
 }
 
-interface FlushResultView {
-  synced: number;
-  failed: number;
-  duplicates: number;
-}
-
 export function Home() {
   const colors = useThemeColors();
   const { api, token, user, deviceId } = useAuth();
@@ -91,55 +83,20 @@ export function Home() {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [result, setResult] = useState<PunchResult | null>(null);
   const [pendingCoords, setPendingCoords] = useState<{ latitude: number; longitude: number; accuracy: number | null } | null>(null);
-  const [queue, setQueue] = useState<OfflinePunch[]>([]);
-  const [syncedLocal, setSyncedLocal] = useState<OfflinePunch[]>([]);
-  const [flushing, setFlushing] = useState(false);
-  const [flushResult, setFlushResult] = useState<FlushResultView | null>(null);
-  const [networkOffline, setNetworkOffline] = useState(!navigator.onLine);
   const [gpsHint, setGpsHint] = useState<'unknown' | 'ok' | 'bad'>('unknown');
   const [breaksEnabled, setBreaksEnabled] = useState<boolean>(() => readCachedBreaksEnabled());
-  const flushBusyRef = useRef(false);
   const punchBusyRef = useRef(false);
   const loadGenRef = useRef(0);
   const pendingPunchTypeRef = useRef<'time_in' | 'time_out'>('time_in');
 
-  const toLocalAttendance = (p: OfflinePunch, source: 'local_queue' | 'local_queue_synced'): Attendance => ({
-    id: -1,
-    uuid: p.client_uuid,
-    type: p.type,
-    timestamp: p.timestamp,
-    is_offline: true,
-    is_late: false,
-    is_early_timeout: false,
-    work_minutes: null,
-    break_minutes: null,
-    is_overbreak: false,
-    source,
-    notes: null,
-    synced_at: null,
-  });
-
-  const serverUuids = new Set(todayPunches.map((p) => p.uuid).filter(Boolean));
-  const syncedUuids = new Set(syncedLocal.map((p) => p.client_uuid));
-  const queueUuids = new Set(queue.map((p) => p.client_uuid));
-  const localOffline: OfflinePunch[] = [
-    ...queue.filter((p) => !syncedUuids.has(p.client_uuid)),
-    ...syncedLocal,
-  ].filter((p) => !serverUuids.has(p.client_uuid));
-  const localPunches = localOffline.map((p) =>
-    toLocalAttendance(p, queueUuids.has(p.client_uuid) ? 'local_queue' : 'local_queue_synced'),
-  );
-  const effectivePunches: Attendance[] = [...todayPunches, ...localPunches].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
   const todayKey = toLocalDate(new Date());
-  const todaysPunches = effectivePunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
-
-  const { isOpen, onBreak } = deriveAttendanceState(todayPunches, localOffline);
+  const todaysPunches = todayPunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
   const punchControl = derivePunchControl(todayPunches, breaksEnabled);
+  const isOpen = punchControl.mode !== 'time_in';
+  const onBreak = punchControl.mode === 'on_break';
   const [punchNow, setPunchNow] = useState(() => Date.now());
 
-  const workPunches = effectivePunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
+  const workPunches = todayPunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
   const lastWork = workPunches[workPunches.length - 1] ?? null;
   const lastPunch = lastWork;
 
@@ -201,69 +158,10 @@ export function Home() {
     return historyOk;
   }, [api, token, user]);
 
-  const runFlush = useCallback(async () => {
-    if (flushBusyRef.current) {
-      return;
-    }
-    flushBusyRef.current = true;
-    setFlushing(true);
-    setFlushResult(null);
-    try {
-      const res = await flushOfflineQueue(api, token, deviceId);
-      if (res.hadQueue) {
-        setFlushResult({
-          synced: res.synced,
-          failed: res.failed,
-          duplicates: res.duplicates,
-        });
-        if (res.syncedItems.length > 0) {
-          setSyncedLocal((prev) => [...prev, ...res.syncedItems]);
-        }
-      }
-      setQueue(await getOfflineQueue());
-      const ok = await loadToday();
-      if (ok) {
-        setSyncedLocal([]);
-      }
-    } catch {
-      // still offline / HTTP error — reload queue so UI reflects retained items
-      setQueue(await getOfflineQueue());
-    } finally {
-      flushBusyRef.current = false;
-      setFlushing(false);
-    }
-  }, [api, token, loadToday]);
-
   useEffect(() => {
-    const handleOnline = () => {
-      setNetworkOffline(false);
-      void runFlush();
-    };
-    const handleOffline = () => {
-      setNetworkOffline(true);
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [runFlush]);
-
-  useEffect(() => {
-    getOfflineQueue().then((q) => {
-      if (!flushBusyRef.current) {
-        setQueue(q);
-      }
-    });
-    void loadToday().then((ok) => {
-      if (ok) {
-        setSyncedLocal([]);
-      }
-    });
-    void runFlush();
+    void loadToday();
     refreshUnread();
-  }, [loadToday, runFlush, refreshUnread]);
+  }, [loadToday, refreshUnread]);
 
   const submitPunch = async (
     uri: string,
@@ -324,7 +222,6 @@ export function Home() {
       // Background refresh only — button already reflects the punch.
       void loadToday();
       refreshUnread();
-      void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err)) {
         setResult({
@@ -452,7 +349,6 @@ export function Home() {
       });
       void loadToday();
       refreshUnread();
-      void runFlush();
     } catch (err) {
       if (shouldQueueOffline(err)) {
         setResult({
@@ -534,9 +430,7 @@ export function Home() {
   const firstName = displayName.split(' ')[0] ?? displayName;
   const statusLabel = loading
     ? 'Checking…'
-    : networkOffline
-      ? 'Offline'
-      : onBreak
+    : onBreak
         ? 'On Break'
         : isOpen
           ? 'On Shift'
@@ -544,9 +438,7 @@ export function Home() {
 
   const statusTone = loading
     ? colors.muted
-    : networkOffline
-      ? colors.warningText
-      : onBreak
+    : onBreak
         ? colors.warningText
         : isOpen
           ? colors.successText
@@ -578,14 +470,6 @@ export function Home() {
         </div>
       </div>
 
-      {networkOffline ? (
-        <Banner
-          kind="warning"
-          title="You're offline"
-          detail={`Punches queue locally and sync when you're back online.${queue.length > 0 ? ` ${queue.length} queued.` : ''}`}
-        />
-      ) : null}
-
       <div className="portal-card portal-card-pad">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <div
@@ -606,17 +490,15 @@ export function Home() {
               color: gpsHint === 'ok' ? colors.successText : gpsHint === 'bad' ? colors.dangerText : colors.muted,
             }}
           >
-            {networkOffline ? <WifiOff size={18} /> : <MapPin size={18} />}
+            <MapPin size={18} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: fontSize.sm, fontWeight: 700, color: colors.ink }}>
-              {networkOffline
-                ? 'Network offline'
-                : gpsHint === 'ok'
-                  ? 'GPS ready'
-                  : gpsHint === 'bad'
-                    ? 'GPS unavailable'
-                    : 'Checking location…'}
+              {gpsHint === 'ok'
+                ? 'GPS ready'
+                : gpsHint === 'bad'
+                  ? 'GPS unavailable'
+                  : 'Checking location…'}
             </div>
             <div style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
               {punchControl.mode === 'on_break'
@@ -668,8 +550,18 @@ export function Home() {
               const meta: string[] = [];
               if (p.is_late) meta.push('Late');
               if (p.is_overbreak) meta.push('Overbreak');
-              if (p.source === 'local_queue') meta.push('Pending');
-              else if (p.is_offline) meta.push('Offline');
+              if (p.break_kind) {
+                const label = {
+                  '15_min': '15 mins break',
+                  lunch_60: '1hr Lunch Break',
+                  bio: 'Bio break',
+                  phone: 'Phone time',
+                  coaching: 'Coaching',
+                  huddle: 'Huddle',
+                  training: 'Training',
+                }[p.break_kind];
+                if (label) meta.push(label);
+              }
               const duration =
                 p.type === 'time_out' && p.work_minutes != null
                   ? minutesToDuration(p.work_minutes)
@@ -741,44 +633,6 @@ export function Home() {
               );
             })}
           </div>
-        </SectionCard>
-      ) : null}
-
-      {queue.length > 0 ? (
-        <SectionCard title="Offline queue">
-          {queue.map((p) => (
-            <div
-              key={p.client_uuid}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingTop: spacing.sm,
-                paddingBottom: spacing.sm,
-                borderBottom: `1px solid ${colors.border}`,
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase' }}>
-                  {punchTypeLabel(p.type)}
-                </div>
-                <div className="tnum" style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: colors.ink }}>
-                  {formatTime(p.timestamp)}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                  <Tag label="Pending sync" tone="neutral" />
-                  {p.selfieUri ? <Tag label="Photo attached" tone="neutral" /> : null}
-                  {p.attempts && p.attempts > 0 ? <Tag label={`Retry ${p.attempts}`} tone="warning" /> : null}
-                </div>
-              </div>
-            </div>
-          ))}
-          <Button title="Sync now" variant="secondary" onClick={runFlush} loading={flushing} style={{ marginTop: spacing.md }} />
-          {flushResult ? (
-            <div style={{ marginTop: spacing.md, fontSize: fontSize.sm, color: colors.ink }}>
-              Synced: {flushResult.synced} · Failed: {flushResult.failed} · Duplicates: {flushResult.duplicates}
-            </div>
-          ) : null}
         </SectionCard>
       ) : null}
 
