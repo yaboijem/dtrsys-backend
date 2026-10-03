@@ -77,7 +77,7 @@ class NotificationApiTest extends TestCase
         $service->send($employee->user, 'First', 'One');
         $service->send($employee->user, 'Second', 'Two');
 
-        $employee->user->notifications()->first()->markAsRead();
+        $employee->user->notifications()->where('data->title', 'First')->first()->markAsRead();
 
         $this->actingAs($employee->user, 'sanctum')->getJson('/api/notifications?unread_only=1')
             ->assertOk()
