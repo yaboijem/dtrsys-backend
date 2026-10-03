@@ -29,10 +29,10 @@ class BreakAttendanceTest extends TestCase
         Storage::fake('public');
     }
 
-    private function makeEmployee(): Employee
+    private function makeEmployee(string $employeeId = 'EMP-BRK'): Employee
     {
         $employee = Employee::factory()->create();
-        $employee->user->update(['employee_id' => 'EMP-BRK']);
+        $employee->user->update(['employee_id' => $employeeId]);
         $employee->user->syncRoles(['Employee']);
 
         return $employee;
@@ -55,6 +55,62 @@ class BreakAttendanceTest extends TestCase
         ])->assertCreated();
     }
 
+    private function breakIn(Employee $employee, string $kind = 'bio'): void
+    {
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [
+                ...$this->gps($employee->branch),
+                'break_kind' => $kind,
+            ])
+            ->assertCreated();
+    }
+
+    #[Test]
+    public function timed_break_stores_kind_and_due_time(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+        $this->breakIn($employee, '15_min');
+
+        $break = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        $this->assertSame('15_min', $break->break_kind);
+        $this->assertTrue($break->expected_end_at->equalTo($break->timestamp->copy()->addMinutes(15)));
+
+        $employee = $this->makeEmployee('EMP-LUNCH');
+        $this->timeIn($employee);
+        $this->breakIn($employee, 'lunch_60');
+
+        $lunch = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        $this->assertSame('lunch_60', $lunch->break_kind);
+        $this->assertTrue($lunch->expected_end_at->equalTo($lunch->timestamp->copy()->addMinutes(60)));
+    }
+
+    #[Test]
+    public function untimed_break_has_no_due_time(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+        $this->breakIn($employee, 'bio');
+
+        $break = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        $this->assertSame('bio', $break->break_kind);
+        $this->assertNull($break->expected_end_at);
+    }
+
+    #[Test]
+    public function break_in_rejects_unknown_kind(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [
+                ...$this->gps($employee->branch),
+                'break_kind' => 'nap',
+            ])
+            ->assertStatus(422);
+    }
+
     #[Test]
     public function employee_can_break_in_and_out_without_selfie(): void
     {
@@ -62,7 +118,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated()
             ->assertJsonPath('data.type', 'break_in')
             ->assertJsonPath('data.gps_location.is_within_radius', true)
@@ -87,7 +143,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         Carbon::setTestNow(now()->addMinutes(61));
@@ -108,7 +164,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         Carbon::setTestNow(now()->addMinutes(30));
@@ -137,7 +193,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         $this->actingAs($employee->user, 'sanctum')
@@ -156,7 +212,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         Carbon::setTestNow(now()->addMinutes(20));
@@ -166,7 +222,7 @@ class BreakAttendanceTest extends TestCase
             ->assertSuccessful();
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertStatus(409)
             ->assertJsonPath('code', 'attendance_conflict');
 
@@ -179,7 +235,7 @@ class BreakAttendanceTest extends TestCase
         $employee = $this->makeEmployee();
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertStatus(409);
     }
 
@@ -194,6 +250,7 @@ class BreakAttendanceTest extends TestCase
                 'latitude' => 0,
                 'longitude' => 0,
                 'accuracy_meters' => 5,
+                'break_kind' => 'bio',
             ])
             ->assertStatus(422)
             ->assertJsonPath('code', 'gps_out_of_range');
@@ -207,7 +264,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         $breakIn = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
@@ -235,7 +292,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertStatus(422)
             ->assertJsonPath('code', 'breaks_disabled');
     }
@@ -247,7 +304,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', $this->gps($employee->branch))
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => 'bio'])
             ->assertCreated();
 
         AppSetting::current()->update(['breaks_enabled' => false]);

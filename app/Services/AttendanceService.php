@@ -141,6 +141,8 @@ class AttendanceService
                 $attendance->update([
                     'break_minutes' => $breakMinutes,
                     'is_overbreak' => $breakMinutes > 60,
+                    'break_kind' => $breakIn->break_kind,
+                    'expected_end_at' => $breakIn->expected_end_at,
                 ]);
 
                 $this->storeGpsLocation($attendance, $employee, $gps);
@@ -242,6 +244,15 @@ class AttendanceService
         return max(0, $total);
     }
 
+    private function expectedEndAt(?string $kind, Carbon $now): ?Carbon
+    {
+        return match ($kind) {
+            '15_min' => $now->copy()->addMinutes(15),
+            'lunch_60' => $now->copy()->addMinutes(60),
+            default => null,
+        };
+    }
+
     private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift, ?Carbon $shiftDate = null): Attendance
     {
         return Attendance::create([
@@ -257,6 +268,8 @@ class AttendanceService
             'is_offline' => (bool) ($data['is_offline'] ?? false),
             'is_late' => $type === 'time_in' && $this->isLate($now, $shift),
             'is_early_timeout' => $type === 'time_out' && $this->isEarlyTimeout($now, $shift, $shiftDate),
+            'break_kind' => $type === 'break_in' ? ($data['break_kind'] ?? null) : null,
+            'expected_end_at' => $type === 'break_in' ? $this->expectedEndAt($data['break_kind'] ?? null, $now) : null,
             'break_notify_stage' => $type === 'break_in' ? 'none' : 'none',
             'source' => $data['source'] ?? 'app',
             'notes' => $data['notes'] ?? null,

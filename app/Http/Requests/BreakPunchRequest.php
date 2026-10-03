@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class BreakPunchRequest extends FormRequest
 {
@@ -22,6 +23,11 @@ class BreakPunchRequest extends FormRequest
             'client_uuid' => [
                 config('dtr.attendance.client_uuid_required_online') ? 'required' : 'nullable',
                 'uuid',
+            ],
+            'break_kind' => [
+                Rule::requiredIf(fn () => $this->is('api/attendance/break-in')),
+                Rule::excludeIf(fn () => ! $this->is('api/attendance/break-in')),
+                Rule::in(['15_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training']),
             ],
         ];
     }
