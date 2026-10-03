@@ -16,9 +16,14 @@ class MysqlSchemaTest extends TestCase
     public function baseline_migration_creates_the_current_mysql_schema(): void
     {
         $this->assertSame(
-            ['2026_10_03_000000_create_dtr_mysql_schema'],
+            [
+                '2026_10_03_000000_create_dtr_mysql_schema',
+                '2026_10_03_130000_add_break_kind_to_attendance_table',
+            ],
             DB::table('migrations')->pluck('migration')->all(),
         );
+        $this->assertTrue(Schema::hasColumn('attendance', 'break_kind'));
+        $this->assertTrue(Schema::hasColumn('attendance', 'expected_end_at'));
 
         $this->assertFalse(Schema::hasTable('device_change_requests'));
         $this->assertFalse(Schema::hasTable('report_exports'));

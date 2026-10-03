@@ -13,6 +13,8 @@ class AttendanceAdminResource extends JsonResource
             'id' => $this->id,
             'uuid' => $this->uuid,
             'type' => $this->type,
+            'break_kind' => $this->break_kind,
+            'expected_end_at' => $this->expected_end_at?->toISOString(),
             'timestamp' => $this->timestamp?->toISOString(),
             'is_late' => $this->is_late,
             'is_early_timeout' => $this->is_early_timeout,

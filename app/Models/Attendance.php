@@ -27,6 +27,8 @@ class Attendance extends Model
         'branch_id',
         'device_id',
         'type',
+        'break_kind',
+        'expected_end_at',
         'timestamp',
         'latitude',
         'longitude',
@@ -45,6 +47,7 @@ class Attendance extends Model
 
     protected $casts = [
         'timestamp' => 'datetime',
+        'expected_end_at' => 'datetime',
         'is_offline' => 'boolean',
         'is_late' => 'boolean',
         'is_early_timeout' => 'boolean',
