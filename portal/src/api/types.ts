@@ -170,6 +170,13 @@ export const BREAK_OPTIONS: { kind: BreakKind; label: string }[] = [
 
 export type PunchType = 'time_in' | 'time_out' | 'break_in' | 'break_out';
 
+export type PunchSession = {
+  open: boolean;
+  on_break: boolean;
+  time_in: Attendance | null;
+  break: Attendance | null;
+};
+
 export interface OfflinePunch {
   client_uuid: string;
   type: PunchType;

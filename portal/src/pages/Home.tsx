@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { ApiError } from '../api/client';
-import { Attendance, BreakKind, Paginated, PunchType, GpsOutOfRangeDetails } from '../api/types';
+import { Attendance, BreakKind, Paginated, PunchSession, PunchType, GpsOutOfRangeDetails } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/Button';
 import { PunchControl } from '../components/PunchControl';
 import { CameraModal } from '../components/CameraModal';
 import { Avatar, SectionCard, Tag } from '../components/Feedback';
@@ -21,7 +22,9 @@ import {
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl, dataUrlToFile } from '../lib/image';
-import { coerceAttendance, derivePunchControl, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
+import { coerceAttendance, mergeServerAttendance, upsertAttendance } from '../lib/punchPolicy';
+import { sessionFromPunch, sessionToControl } from '../lib/sessionControl';
+import { MAX_UPLOAD_SENDS, shouldReplayUpload } from '../lib/uploadReplay';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
 import { useUnread } from '../notifications/UnreadContext';
 import { fontSize, spacing, useThemeColors } from '../theme';
@@ -46,11 +49,23 @@ function writeCachedBreaksEnabled(value: boolean): void {
   }
 }
 
-function shouldQueueOffline(err: unknown): boolean {
-  if (!(err instanceof ApiError)) return false;
-  if (err.code === 'network_error') return true;
-  return [429, 502, 503, 504].includes(err.status);
-}
+type PendingUpload = {
+  clientUuid: string;
+  kind: 'time_in' | 'time_out' | 'break_in' | 'break_out';
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  selfieDataUrl?: string;
+  breakKind?: BreakKind;
+  sends: number;
+};
+
+const EMPTY_SESSION: PunchSession = {
+  open: false,
+  on_break: false,
+  time_in: null,
+  break: null,
+};
 
 function punchTypeLabel(type: PunchType): string {
   switch (type) {
@@ -85,15 +100,19 @@ export function Home() {
   const [pendingCoords, setPendingCoords] = useState<{ latitude: number; longitude: number; accuracy: number | null } | null>(null);
   const [gpsHint, setGpsHint] = useState<'unknown' | 'ok' | 'bad'>('unknown');
   const [breaksEnabled, setBreaksEnabled] = useState<boolean>(() => readCachedBreaksEnabled());
+  const [session, setSession] = useState<PunchSession>(EMPTY_SESSION);
+  const [retryReady, setRetryReady] = useState(false);
   const punchBusyRef = useRef(false);
   const loadGenRef = useRef(0);
+  const sessionGenRef = useRef(0);
+  const pendingRef = useRef<PendingUpload | null>(null);
   const pendingPunchTypeRef = useRef<'time_in' | 'time_out'>('time_in');
 
   const todayKey = toLocalDate(new Date());
   const todaysPunches = todayPunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
-  const punchControl = derivePunchControl(todayPunches, breaksEnabled);
-  const isOpen = punchControl.mode !== 'time_in';
-  const onBreak = punchControl.mode === 'on_break';
+  const punchControl = sessionToControl(session, breaksEnabled);
+  const isOpen = session.open;
+  const onBreak = session.on_break;
   const [punchNow, setPunchNow] = useState(() => Date.now());
 
   const workPunches = todayPunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
@@ -158,10 +177,186 @@ export function Home() {
     return historyOk;
   }, [api, token, user]);
 
+  const applySession = (next: PunchSession) => {
+    sessionGenRef.current += 1;
+    setSession(next);
+  };
+
+  const loadSession = useCallback(async () => {
+    if (!token) return;
+    const gen = ++sessionGenRef.current;
+    try {
+      const res = await api.get<{ data: PunchSession }>('/api/attendance/session', undefined, token);
+      if (gen !== sessionGenRef.current) return;
+      setSession(res.data);
+    } catch {
+      // Keep the last applied session. History must not move the button.
+    }
+  }, [api, token]);
+
   useEffect(() => {
     void loadToday();
+    void loadSession();
     refreshUnread();
-  }, [loadToday, refreshUnread]);
+  }, [loadToday, loadSession, refreshUnread]);
+
+  useEffect(() => {
+    return () => {
+      pendingRef.current = null;
+    };
+  }, []);
+
+  const clearPending = () => {
+    pendingRef.current = null;
+    setRetryReady(false);
+  };
+
+  const postPending = async (pending: PendingUpload): Promise<Attendance> => {
+    if (pending.kind === 'time_in' || pending.kind === 'time_out') {
+      const selfieFile = dataUrlToFile(pending.selfieDataUrl ?? '', 'selfie.jpg');
+      if (!selfieFile) {
+        throw new ApiError('The captured selfie could not be read. Tap the button again to retake it.', 0, 'photo_unavailable');
+      }
+      const form = new FormData();
+      form.append('selfie', selfieFile);
+      form.append('latitude', String(pending.latitude));
+      form.append('longitude', String(pending.longitude));
+      if (pending.accuracy !== null && Number.isFinite(pending.accuracy)) {
+        form.append('accuracy_meters', String(pending.accuracy));
+      }
+      form.append('device_id', deviceId);
+      form.append('client_uuid', pending.clientUuid);
+      const res = await api.postForm<{ data: Attendance }>(
+        `/api/attendance/${pending.kind === 'time_in' ? 'time-in' : 'time-out'}`,
+        form,
+        token,
+      );
+      return coerceAttendance(res?.data, { type: pending.kind, uuid: pending.clientUuid });
+    }
+
+    const res = await api.post<{ data: Attendance }>(
+      pending.kind === 'break_in' ? '/api/attendance/break-in' : '/api/attendance/break-out',
+      {
+        latitude: pending.latitude,
+        longitude: pending.longitude,
+        accuracy_meters: pending.accuracy,
+        device_id: deviceId || undefined,
+        client_uuid: pending.clientUuid,
+        ...(pending.breakKind ? { break_kind: pending.breakKind } : {}),
+      },
+      token,
+    );
+    return coerceAttendance(res?.data, { type: pending.kind, uuid: pending.clientUuid });
+  };
+
+  const finishSuccess = (attendance: Attendance, kind: PendingUpload['kind']) => {
+    clearPending();
+    setTodayPunches((prev) => upsertAttendance(prev, attendance));
+    setSession((current) => {
+      sessionGenRef.current += 1;
+      return sessionFromPunch(current, attendance);
+    });
+    const distance = attendance.gps_location?.distance_from_branch_meters;
+    if (kind === 'time_in' || kind === 'time_out') {
+      setResult({
+        kind: 'success',
+        title: kind === 'time_in' ? 'Clocked in' : 'Clocked out',
+        detail: [
+          formatDateTime(attendance.timestamp),
+          attendance.is_late ? 'Late (past grace period)' : 'On time',
+          distance !== null && distance !== undefined ? `Distance from branch: ${distanceLabel(distance)}` : '',
+          kind === 'time_out' && attendance.work_minutes !== null
+            ? `Work duration: ${minutesToDuration(attendance.work_minutes)}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      });
+    } else {
+      setResult({
+        kind: 'success',
+        title: kind === 'break_in' ? 'Break started' : 'Break ended',
+        detail:
+          kind === 'break_in'
+            ? 'GPS verified.'
+            : attendance.break_minutes != null
+              ? `Break lasted ${attendance.break_minutes} min${attendance.is_overbreak ? ' (overbreak)' : ''}.`
+              : undefined,
+      });
+    }
+    void loadToday();
+    void loadSession();
+    refreshUnread();
+  };
+
+  const explainFailure = (err: unknown, fallbackTitle: string) => {
+    if (err instanceof ApiError && err.code === 'attendance_conflict' && err.session) {
+      clearPending();
+      applySession(err.session);
+      setResult({
+        kind: 'error',
+        title: err.session.open ? 'Already clocked in.' : 'Conflict',
+        detail: err.message,
+      });
+      return;
+    }
+    if (shouldReplayUpload(err)) {
+      setRetryReady(true);
+      setResult({
+        kind: 'error',
+        title: 'Punch failed',
+        detail: 'Not recorded. Connect and tap Retry to send this same punch.',
+      });
+      return;
+    }
+    clearPending();
+    if (err instanceof ApiError && err.code === 'gps_out_of_range') {
+      const details = (err.details ?? {}) as GpsOutOfRangeDetails;
+      const target = details.verified_against_type === 'home_location' ? 'home' : 'branch';
+      setResult({
+        kind: 'error',
+        title: 'Outside GPS radius',
+        detail: `${err.message}${details.distance_meters !== undefined ? ` (${distanceLabel(details.distance_meters)} from ${target})` : ''}`,
+      });
+      return;
+    }
+    if (err instanceof ApiError && err.code === 'home_location_required') {
+      setResult({
+        kind: 'error',
+        title: 'Home location required',
+        detail: 'Go to More → Home location and submit your home pin for HR approval.',
+      });
+      return;
+    }
+    if (err instanceof ApiError && err.code === 'home_location_pending') {
+      setResult({
+        kind: 'error',
+        title: 'Home location pending',
+        detail: 'Your home pin is waiting for HR approval. You cannot punch until it is approved.',
+      });
+      return;
+    }
+    if (err instanceof ApiError && err.code === 'unauthenticated') {
+      setResult({ kind: 'error', title: 'Session expired', detail: 'Log in again.' });
+      return;
+    }
+    setResult({ kind: 'error', title: fallbackTitle, detail: errorMessage(err) });
+  };
+
+  const sendWithReplay = async (pending: PendingUpload): Promise<Attendance> => {
+    let lastError: unknown;
+    while (pending.sends < MAX_UPLOAD_SENDS) {
+      pending.sends += 1;
+      try {
+        return await postPending(pending);
+      } catch (err) {
+        lastError = err;
+        if (!shouldReplayUpload(err)) throw err;
+      }
+    }
+    setRetryReady(true);
+    throw lastError;
+  };
 
   const submitPunch = async (
     uri: string,
@@ -171,97 +366,22 @@ export function Home() {
     setResult(null);
     setPunching(true);
     punchBusyRef.current = true;
-    const clientUuid = newUuid();
-    // Compress before live upload or offline enqueue to cut upload/CPU cost.
     const compressedUri = await compressDataUrl(uri);
+    const pending: PendingUpload = {
+      clientUuid: newUuid(),
+      kind: type,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      selfieDataUrl: compressedUri,
+      sends: 0,
+    };
+    pendingRef.current = pending;
     try {
-      const form = new FormData();
-      // Convert base64 data URL to File for FormData
-      const selfieFile = dataUrlToFile(compressedUri, 'selfie.jpg');
-      if (!selfieFile) {
-        setResult({
-          kind: 'error',
-          title: 'Photo unavailable',
-          detail: 'The captured selfie could not be read. Tap the button again to retake it.',
-        });
-        return;
-      }
-      form.append('selfie', selfieFile);
-      form.append('latitude', String(coords.latitude));
-      form.append('longitude', String(coords.longitude));
-      if (coords.accuracy !== null && Number.isFinite(coords.accuracy)) {
-        form.append('accuracy_meters', String(coords.accuracy));
-      }
-      form.append('device_id', deviceId);
-      form.append('client_uuid', clientUuid);
-
-      const res = await api.postForm<{ data: Attendance }>(
-        `/api/attendance/${type === 'time_in' ? 'time-in' : 'time-out'}`,
-        form,
-        token,
-      );
-      // Always flip from request type + uuid so a partial payload cannot leave the button stuck.
-      const attendance = coerceAttendance(res?.data, { type, uuid: clientUuid });
-      setTodayPunches((prev) => upsertAttendance(prev, attendance));
-
-      const distance = attendance.gps_location?.distance_from_branch_meters;
-      setResult({
-        kind: 'success',
-        title: type === 'time_in' ? 'Clocked in' : 'Clocked out',
-        detail: [
-          formatDateTime(attendance.timestamp),
-          attendance.is_late ? 'Late (past grace period)' : 'On time',
-          distance !== null && distance !== undefined ? `Distance from branch: ${distanceLabel(distance)}` : '',
-          type === 'time_out' && attendance.work_minutes !== null
-            ? `Work duration: ${minutesToDuration(attendance.work_minutes)}`
-            : '',
-        ]
-          .filter(Boolean)
-          .join('\n'),
-      });
-      // Background refresh only — button already reflects the punch.
-      void loadToday();
-      refreshUnread();
+      const attendance = await sendWithReplay(pending);
+      finishSuccess(attendance, type);
     } catch (err) {
-      if (shouldQueueOffline(err)) {
-        setResult({
-          kind: 'error',
-          title: 'Punch failed',
-          detail: 'Connect to the internet and try again.',
-        });
-      } else if (err instanceof ApiError) {
-        if (err.code === 'gps_out_of_range') {
-          const details = (err.details ?? {}) as GpsOutOfRangeDetails;
-          const target = details.verified_against_type === 'home_location' ? 'home' : 'branch';
-          setResult({
-            kind: 'error',
-            title: 'Outside GPS radius',
-            detail: `${err.message}${details.distance_meters !== undefined ? ` (${distanceLabel(details.distance_meters)} from ${target})` : ''}`,
-          });
-        } else if (err.code === 'home_location_required') {
-          setResult({
-            kind: 'error',
-            title: 'Home location required',
-            detail: 'Go to More → Home location and submit your home pin for HR approval.',
-          });
-        } else if (err.code === 'home_location_pending') {
-          setResult({
-            kind: 'error',
-            title: 'Home location pending',
-            detail: 'Your home pin is waiting for HR approval. You cannot punch until it is approved.',
-          });
-        } else if (err.code === 'attendance_conflict') {
-          setResult({ kind: 'error', title: 'Conflict', detail: err.message });
-          // Server is source of truth — resync button state after conflict/spam.
-          await loadToday();
-        } else if (err.code === 'unauthenticated') {
-          setResult({ kind: 'error', title: 'Session expired', detail: 'Log in again.' });
-        } else {
-          setResult({ kind: 'error', title: 'Punch failed', detail: errorMessage(err) });
-        }
-      } else {
-        setResult({ kind: 'error', title: 'Punch failed', detail: errorMessage(err) });
-      }
+      explainFailure(err, 'Punch failed');
     } finally {
       setPunching(false);
       punchBusyRef.current = false;
@@ -269,7 +389,7 @@ export function Home() {
   };
 
   const handlePunchPress = async (type: 'time_in' | 'time_out') => {
-    if (punchBusyRef.current || punching || cameraVisible) {
+    if (punchBusyRef.current || punching || cameraVisible || pendingRef.current) {
       return;
     }
     setResult(null);
@@ -307,13 +427,10 @@ export function Home() {
 
   const handleBreakPress = async (kind: BreakKind | null) => {
     if (!token) return;
-    if (punchBusyRef.current || punching) return;
+    if (punchBusyRef.current || punching || pendingRef.current) return;
     setResult(null);
     setPunching(true);
     punchBusyRef.current = true;
-    const breakType: PunchType = kind ? 'break_in' : 'break_out';
-    const clientUuid = newUuid();
-    let coords: { latitude: number; longitude: number; accuracy: number | null } | null = null;
     try {
       const gps = await resolveGpsPosition();
       if (gps.status !== 'ok') {
@@ -322,70 +439,38 @@ export function Home() {
         return;
       }
       setGpsHint('ok');
-      coords = gps.position;
-      const path = kind ? '/api/attendance/break-in' : '/api/attendance/break-out';
-      const res = await api.post<{ data: Attendance }>(
-        path,
-        {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          accuracy_meters: coords.accuracy,
-          device_id: deviceId ?? undefined,
-          client_uuid: clientUuid,
-          ...(kind ? { break_kind: kind } : {}),
-        },
-        token,
-      );
-      const attendance = coerceAttendance(res?.data, { type: breakType, uuid: clientUuid });
-      setTodayPunches((prev) => upsertAttendance(prev, attendance));
-      setResult({
-        kind: 'success',
-        title: kind ? 'Break started' : 'Break ended',
-        detail: kind
-          ? 'GPS verified.'
-          : attendance.break_minutes != null
-            ? `Break lasted ${attendance.break_minutes} min${attendance.is_overbreak ? ' (overbreak)' : ''}.`
-            : undefined,
-      });
-      void loadToday();
-      refreshUnread();
+      const pending: PendingUpload = {
+        clientUuid: newUuid(),
+        kind: kind ? 'break_in' : 'break_out',
+        latitude: gps.position.latitude,
+        longitude: gps.position.longitude,
+        accuracy: gps.position.accuracy,
+        breakKind: kind ?? undefined,
+        sends: 0,
+      };
+      pendingRef.current = pending;
+      const attendance = await sendWithReplay(pending);
+      finishSuccess(attendance, pending.kind);
     } catch (err) {
-      if (shouldQueueOffline(err)) {
-        setResult({
-          kind: 'error',
-          title: 'Punch failed',
-          detail: 'Connect to the internet and try again.',
-        });
-      } else if (err instanceof ApiError) {
-        if (err.code === 'gps_out_of_range') {
-          const d = (err.details ?? {}) as GpsOutOfRangeDetails;
-          const target = d.verified_against_type === 'home_location' ? 'home' : 'branch';
-          setResult({
-            kind: 'error',
-            title: 'Outside GPS radius',
-            detail: `${err.message}${d.distance_meters !== undefined ? ` (${distanceLabel(d.distance_meters)} from ${target})` : ''}`,
-          });
-        } else if (err.code === 'home_location_required') {
-          setResult({
-            kind: 'error',
-            title: 'Home location required',
-            detail: 'Go to More → Home location and submit your home pin for HR approval.',
-          });
-        } else if (err.code === 'home_location_pending') {
-          setResult({
-            kind: 'error',
-            title: 'Home location pending',
-            detail: 'Your home pin is waiting for HR approval.',
-          });
-        } else if (err.code === 'attendance_conflict') {
-          setResult({ kind: 'error', title: 'Conflict', detail: err.message });
-          await loadToday();
-        } else {
-          setResult({ kind: 'error', title: 'Break failed', detail: errorMessage(err) });
-        }
-      } else {
-        setResult({ kind: 'error', title: 'Break failed', detail: errorMessage(err) });
-      }
+      explainFailure(err, 'Break failed');
+    } finally {
+      setPunching(false);
+      punchBusyRef.current = false;
+    }
+  };
+
+  const handleRetry = async () => {
+    const pending = pendingRef.current;
+    if (!pending || punchBusyRef.current) return;
+    setResult(null);
+    setPunching(true);
+    punchBusyRef.current = true;
+    try {
+      pending.sends += 1;
+      const attendance = await postPending(pending);
+      finishSuccess(attendance, pending.kind);
+    } catch (err) {
+      explainFailure(err, 'Punch failed');
     } finally {
       setPunching(false);
       punchBusyRef.current = false;
@@ -504,7 +589,7 @@ export function Home() {
               {punchControl.mode === 'on_break'
                 ? 'GPS check on Done Break. Selfie required to clock out.'
                 : punchControl.mode === 'choose'
-                  ? `Clocked in since ${formatTime(lastPunch?.timestamp)}. Selfie required to clock out.`
+                  ? `Clocked in since ${formatTime(session.time_in?.timestamp ?? lastPunch?.timestamp)}. Selfie required to clock out.`
                   : 'Location verified against your branch radius on punch.'}
             </div>
           </div>
@@ -520,6 +605,15 @@ export function Home() {
           onBreak={(kind) => void handleBreakPress(kind)}
           onDoneBreak={() => void handleBreakPress(null)}
         />
+        {retryReady ? (
+          <Button
+            title="Retry"
+            variant="primary"
+            onClick={() => void handleRetry()}
+            loading={punching}
+            style={{ marginTop: spacing.sm }}
+          />
+        ) : null}
       </div>
 
       {result ? <Stamp kind={result.kind} title={result.title} detail={result.detail} /> : null}

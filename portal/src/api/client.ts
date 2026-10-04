@@ -1,8 +1,11 @@
+import type { PunchSession } from './types';
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly details?: Record<string, unknown>;
   readonly errors?: Record<string, string[]>;
+  readonly session?: PunchSession;
 
   constructor(
     message: string,
@@ -10,6 +13,7 @@ export class ApiError extends Error {
     code?: string,
     details?: Record<string, unknown>,
     errors?: Record<string, string[]>,
+    session?: PunchSession,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -17,6 +21,7 @@ export class ApiError extends Error {
     this.code = code;
     this.details = details;
     this.errors = errors;
+    this.session = session;
   }
 }
 
@@ -117,6 +122,7 @@ export class ApiClient {
         code?: string;
         details?: Record<string, unknown>;
         errors?: Record<string, string[]>;
+        session?: PunchSession;
       };
       throw new ApiError(
         json.message ?? `Request failed (HTTP ${response.status}).`,
@@ -124,6 +130,7 @@ export class ApiClient {
         json.code,
         json.details,
         json.errors,
+        json.session,
       );
     }
 
