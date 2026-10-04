@@ -52,7 +52,7 @@ class AttendanceAdminApiTest extends TestCase
             'employee_id' => $employee->id,
             'branch_id' => $branch->id,
             'type' => 'time_in',
-            'timestamp' => now()->subHours(3),
+            'timestamp' => now()->startOfDay()->addHours(8),
         ], $overrides));
     }
 

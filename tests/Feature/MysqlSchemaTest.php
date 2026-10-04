@@ -19,9 +19,13 @@ class MysqlSchemaTest extends TestCase
             [
                 '2026_10_03_000000_create_dtr_mysql_schema',
                 '2026_10_03_130000_add_break_kind_to_attendance_table',
+                '2026_10_05_000000_drop_two_factor_columns_from_users',
             ],
             DB::table('migrations')->pluck('migration')->all(),
         );
+        $this->assertFalse(Schema::hasColumn('users', 'two_factor_secret'));
+        $this->assertFalse(Schema::hasColumn('users', 'two_factor_confirmed_at'));
+        $this->assertFalse(Schema::hasColumn('users', 'two_factor_recovery_codes'));
         $this->assertTrue(Schema::hasColumn('attendance', 'break_kind'));
         $this->assertTrue(Schema::hasColumn('attendance', 'expected_end_at'));
 
