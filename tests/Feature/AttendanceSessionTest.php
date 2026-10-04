@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Attendance;
 use App\Models\Employee;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -132,5 +134,28 @@ class AttendanceSessionTest extends TestCase
         foreach ($sql as $statement) {
             $this->assertStringContainsString('limit 1', $statement);
         }
+    }
+
+    #[Test]
+    public function duplicate_time_in_conflict_includes_the_open_session(): void
+    {
+        $employee = $this->employee();
+        $timeIn = $this->punch($employee, 'time_in', now()->subMinutes(30)->toDateTimeString());
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->post('/api/attendance/time-in', [
+                'latitude' => (float) $employee->branch->latitude + 0.0001,
+                'longitude' => (float) $employee->branch->longitude + 0.0001,
+                'accuracy_meters' => 8,
+                'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+                'client_uuid' => (string) Str::uuid(),
+            ])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'attendance_conflict')
+            ->assertJsonPath('session.open', true)
+            ->assertJsonPath('session.on_break', false)
+            ->assertJsonPath('session.time_in.uuid', $timeIn->uuid);
+
+        $this->assertSame(1, Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count());
     }
 }

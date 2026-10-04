@@ -36,7 +36,10 @@ class AttendanceService
             $now = now();
 
             if ($this->openPunchFor($employee, 'time_in')) {
-                throw new AttendanceConflictException('You already clocked in today.');
+                throw new AttendanceConflictException(
+                    'You already clocked in today.',
+                    $this->sessionFor($employee),
+                );
             }
 
             return DB::transaction(function () use ($employee, $data, $now) {
@@ -62,7 +65,10 @@ class AttendanceService
             $timeIn = $this->openPunchFor($employee, 'time_in');
 
             if (! $timeIn) {
-                throw new AttendanceConflictException('You have not clocked in yet today.');
+                throw new AttendanceConflictException(
+                    'You have not clocked in yet today.',
+                    $this->sessionFor($employee),
+                );
             }
 
             return DB::transaction(function () use ($employee, $timeIn, $data, $now) {
@@ -101,11 +107,17 @@ class AttendanceService
             $timeIn = $this->openPunchFor($employee, 'time_in');
 
             if (! $timeIn) {
-                throw new AttendanceConflictException('You have not clocked in yet today.');
+                throw new AttendanceConflictException(
+                    'You have not clocked in yet today.',
+                    $this->sessionFor($employee),
+                );
             }
 
             if ($this->openBreakFor($employee)) {
-                throw new AttendanceConflictException('You are already on break.');
+                throw new AttendanceConflictException(
+                    'You are already on break.',
+                    $this->sessionFor($employee),
+                );
             }
 
             return DB::transaction(function () use ($employee, $data, $now) {
@@ -128,7 +140,10 @@ class AttendanceService
             $breakIn = $this->openBreakFor($employee);
 
             if (! $breakIn) {
-                throw new AttendanceConflictException('You are not on break.');
+                throw new AttendanceConflictException(
+                    'You are not on break.',
+                    $this->sessionFor($employee),
+                );
             }
 
             return DB::transaction(function () use ($employee, $breakIn, $data, $now) {
@@ -170,7 +185,10 @@ class AttendanceService
         try {
             $lock->block(5);
         } catch (LockTimeoutException) {
-            throw new AttendanceConflictException('Attendance is busy. Please try again.');
+            throw new AttendanceConflictException(
+                'Attendance is busy. Please try again.',
+                $this->sessionFor($employee),
+            );
         }
 
         try {

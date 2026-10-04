@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => $e->getMessage(),
                 'code' => 'attendance_conflict',
+                'session' => $e->session,
             ], 409);
         });
 

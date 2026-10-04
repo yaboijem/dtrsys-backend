@@ -43,7 +43,10 @@ class SyncService
         try {
             $lock->block(5);
         } catch (LockTimeoutException) {
-            throw new AttendanceConflictException('Attendance is busy. Please try again.');
+            throw new AttendanceConflictException(
+                'Attendance is busy. Please try again.',
+                $this->attendanceService->sessionFor($employee),
+            );
         }
 
         try {
