@@ -1,0 +1,87 @@
+digraph "DTR Admin HR" {
+  graph [
+    fontname = "Helvetica, Arial"
+    fontsize = 22
+    fontcolor = "#0c1b2a"
+    label = "DTR Admin / HR — how the console works"
+    labelloc = t
+    rankdir = TB
+    splines = true
+    nodesep = 0.55
+    ranksep = 0.7
+    bgcolor = "#eef4f7"
+    pad = 0.6
+  ]
+  node [
+    fontname = "Helvetica, Arial"
+    fontsize = 13
+    fontcolor = "#0c1b2a"
+    style = "rounded,filled"
+    fillcolor = "#ffffff"
+    color = "#0e7490"
+    penwidth = 1.6
+    width = 2.4
+    height = 0.7
+  ]
+  edge [
+    fontname = "Helvetica, Arial"
+    fontsize = 12
+    fontcolor = "#0c1b2a"
+    color = "#102840"
+    arrowsize = 0.8
+  ]
+
+  start [label = "Start" shape = oval fillcolor = "#0c1b2a" fontcolor = "#eef4f7" width = 1.2]
+  login [label = "Log in with Employee ID"]
+  mfa [label = "Need a 2FA code?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
+  code [label = "Enter authenticator code"]
+  dash [label = "Dashboard\nWho is in, late, or absent today"]
+
+  subgraph cluster_setup {
+    label = "Set up once  (HR / Super Admin)"
+    fontname = "Helvetica, Arial"
+    fontsize = 14
+    fontcolor = "#0c1b2a"
+    color = "#0e7490"
+    style = "rounded,filled"
+    fillcolor = "#dbecef"
+    branches [label = "Add company branches"]
+    people [label = "Add employees"]
+    shifts [label = "Create work shifts"]
+    sched [label = "Assign schedules"]
+  }
+
+  subgraph cluster_day {
+    label = "Every workday  (HR, managers)"
+    fontname = "Helvetica, Arial"
+    fontsize = 14
+    fontcolor = "#0c1b2a"
+    color = "#0e7490"
+    style = "rounded,filled"
+    fillcolor = "#dbecef"
+    att [label = "Review punches\nselfie + map"]
+    fraud [label = "Suspicious punch?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
+    flag [label = "Keep the flag\nor dismiss it"]
+    pin [label = "Approve WFH home pins"]
+  }
+
+  note [label = "Managers only see their own\nbranch or department" shape = note fillcolor = "#fff7ed" color = "#c2410c" width = 3]
+  end [label = "Done" shape = oval fillcolor = "#0c1b2a" fontcolor = "#eef4f7" width = 1.2]
+
+  start -> login -> mfa
+  mfa -> code [label = "Yes"]
+  mfa -> dash [label = "No"]
+  code -> dash
+
+  dash -> branches [label = "New company"]
+  branches -> people -> shifts -> sched
+
+  dash -> att [label = "Today"]
+  att -> fraud
+  fraud -> flag [label = "Yes"]
+  fraud -> pin [label = "No"]
+  flag -> pin
+  pin -> end
+  sched -> end
+  dash -> note [style = dashed]
+}

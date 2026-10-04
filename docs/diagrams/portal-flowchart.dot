@@ -1,0 +1,81 @@
+digraph "DTR Portal" {
+  graph [
+    fontname = "Helvetica, Arial"
+    fontsize = 22
+    fontcolor = "#0c1b2a"
+    label = "DTR Portal — how an employee clocks in"
+    labelloc = t
+    rankdir = TB
+    splines = true
+    nodesep = 0.55
+    ranksep = 0.7
+    bgcolor = "#eef4f7"
+    pad = 0.6
+  ]
+  node [
+    fontname = "Helvetica, Arial"
+    fontsize = 13
+    fontcolor = "#0c1b2a"
+    style = "rounded,filled"
+    fillcolor = "#ffffff"
+    color = "#0e7490"
+    penwidth = 1.6
+    width = 2.6
+    height = 0.7
+  ]
+  edge [
+    fontname = "Helvetica, Arial"
+    fontsize = 12
+    fontcolor = "#0c1b2a"
+    color = "#102840"
+    arrowsize = 0.8
+  ]
+
+  start [label = "Start" shape = oval fillcolor = "#0c1b2a" fontcolor = "#eef4f7" width = 1.2]
+  login [label = "Log in with Employee ID"]
+  consent [label = "Allow camera + GPS?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.4 height = 1.1]
+  allow [label = "Turn on consent"]
+  home [label = "Home\nSee today's shift"]
+  shift [label = "Scheduled today?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.4 height = 1.1]
+  noshift [label = "Can't punch yet" fillcolor = "#fee2e2" color = "#b91c1c"]
+
+  subgraph cluster_day {
+    label = "The workday"
+    fontname = "Helvetica, Arial"
+    fontsize = 14
+    fontcolor = "#0c1b2a"
+    color = "#0e7490"
+    style = "rounded,filled"
+    fillcolor = "#dbecef"
+    timein [label = "Time In\ntake selfie, share location"]
+    working [label = "Working"]
+    breakq [label = "Take a break?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
+    brkin [label = "Break In"]
+    brkout [label = "Break Out"]
+    timeout [label = "Time Out\ntake selfie, share location"]
+  }
+
+  net [label = "No internet?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
+  queue [label = "Saved on the phone\nsyncs when back online" fillcolor = "#fff7ed" color = "#c2410c"]
+  extras [label = "Also available:\nHistory · Alerts · WFH home pin"]
+  end [label = "Done" shape = oval fillcolor = "#0c1b2a" fontcolor = "#eef4f7" width = 1.2]
+
+  start -> login -> consent
+  consent -> allow [label = "Not yet"]
+  allow -> home
+  consent -> home [label = "Yes"]
+  home -> shift
+  shift -> noshift [label = "No"]
+  noshift -> extras
+  shift -> timein [label = "Yes"]
+  timein -> working -> breakq
+  breakq -> brkin [label = "Yes"]
+  brkin -> brkout -> timeout
+  breakq -> timeout [label = "No"]
+  timeout -> net
+  timein -> net [style = dashed]
+  net -> queue [label = "Offline"]
+  net -> extras [label = "Online"]
+  queue -> extras
+  extras -> end
+}

@@ -9,6 +9,16 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('employees') && Schema::hasColumn('employees', 'department')) {
+            $this->upgradeLegacySchema();
+
+            return;
+        }
+
+        if (Schema::hasTable('users')) {
+            return;
+        }
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -427,8 +437,128 @@ return new class extends Migration
             ->forget(config('permission.cache.key'));
     }
 
+    private function upgradeLegacySchema(): void
+    {
+        if (! Schema::hasTable('departments')) {
+            Schema::create('departments', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->unique();
+                $table->timestamps();
+            });
+        }
+
+        if (! Schema::hasTable('positions')) {
+            Schema::create('positions', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->unique();
+                $table->timestamps();
+            });
+        }
+
+        $now = now();
+        foreach (['department' => 'departments', 'position' => 'positions'] as $column => $table) {
+            DB::table('employees')
+                ->whereNotNull($column)
+                ->pluck($column)
+                ->map(fn ($name) => trim((string) $name))
+                ->filter()
+                ->unique(fn ($name) => mb_strtolower($name))
+                ->each(function (string $name) use ($table, $now) {
+                    DB::table($table)->insertOrIgnore([
+                        'name' => $name,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                });
+        }
+
+        if (! Schema::hasColumn('employees', 'department_id')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->foreignId('department_id')->nullable()->after('last_name')->constrained()->restrictOnDelete();
+                $table->foreignId('position_id')->nullable()->after('department_id')->constrained()->restrictOnDelete();
+            });
+        }
+
+        if (Schema::hasColumn('employees', 'department')) {
+            DB::statement('UPDATE employees e INNER JOIN departments d ON d.name = TRIM(e.department) SET e.department_id = d.id WHERE e.department IS NOT NULL AND TRIM(e.department) <> ""');
+            DB::statement('UPDATE employees e INNER JOIN positions p ON p.name = TRIM(e.position) SET e.position_id = p.id WHERE e.position IS NOT NULL AND TRIM(e.position) <> ""');
+        }
+
+        $indexes = collect(DB::select('SHOW INDEX FROM `employees`'))->pluck('Key_name');
+        if (! $indexes->contains('employees_branch_id_department_id_index')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->index(['branch_id', 'department_id']);
+            });
+        }
+
+        if ($indexes->contains('employees_branch_id_department_index')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->dropIndex('employees_branch_id_department_index');
+            });
+        }
+
+        if (Schema::hasColumn('employees', 'department')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->dropColumn(['department', 'position']);
+            });
+        }
+
+        if (! Schema::hasColumn('employees', 'work_arrangement')) {
+            Schema::table('employees', function (Blueprint $table) {
+                $table->string('work_arrangement', 20)->default('onsite')->after('branch_id');
+                $table->index('work_arrangement');
+            });
+        }
+
+        if (Schema::hasTable('gps_locations') && ! Schema::hasColumn('gps_locations', 'verified_against_type')) {
+            Schema::table('gps_locations', function (Blueprint $table) {
+                $table->string('verified_against_type', 32)->nullable()->after('is_within_radius');
+                $table->unsignedBigInteger('verified_against_id')->nullable()->after('verified_against_type');
+                $table->index(['verified_against_type', 'verified_against_id'], 'gps_verified_against_idx');
+            });
+        }
+
+        if (! Schema::hasTable('home_locations')) {
+            Schema::create('home_locations', function (Blueprint $table) {
+                $table->id();
+                $table->string('label')->nullable();
+                $table->decimal('latitude', 10, 7);
+                $table->decimal('longitude', 10, 7);
+                $table->unsignedInteger('radius_meters')->default(150);
+                $table->string('address_text')->nullable();
+                $table->string('street')->nullable();
+                $table->string('city')->nullable();
+                $table->string('province')->nullable();
+                $table->foreignId('created_by')->constrained('users');
+                $table->enum('status', ['pending', 'approved', 'rejected', 'retired'])->default('pending');
+                $table->foreignId('reviewed_by')->nullable()->constrained('users');
+                $table->dateTime('reviewed_at')->nullable();
+                $table->text('review_note')->nullable();
+                $table->timestamps();
+                $table->index('status');
+            });
+        }
+
+        if (! Schema::hasTable('employee_home_location')) {
+            Schema::create('employee_home_location', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('employee_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('home_location_id')->constrained('home_locations')->cascadeOnDelete();
+                $table->boolean('is_primary')->default(false);
+                $table->timestamp('assigned_at')->useCurrent();
+                $table->timestamps();
+                $table->unique(['employee_id', 'home_location_id']);
+                $table->index(['employee_id', 'is_primary']);
+            });
+        }
+    }
+
     public function down(): void
     {
+        if (Schema::hasTable('employees') && Schema::hasColumn('employees', 'reference_photo_path')) {
+            return;
+        }
+
         Schema::dropIfExists('employee_home_location');
         Schema::dropIfExists('home_locations');
         Schema::dropIfExists('data_requests');
