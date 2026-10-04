@@ -34,13 +34,6 @@ class AppServiceProvider extends ServiceProvider
             ], 429));
         });
 
-        RateLimiter::for('mfa', function (Request $request) {
-            return Limit::perMinute(5)->by('mfa:'.$request->ip())->response(fn () => response()->json([
-                'message' => 'Too many verification attempts. Please try again in a minute.',
-                'code' => 'too_many_attempts',
-            ], 429));
-        });
-
         RateLimiter::for('attendance', function (Request $request) {
             $key = $request->user()?->employee_id ?? $request->ip();
 
