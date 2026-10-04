@@ -49,7 +49,7 @@ Timezone: **Asia/Manila**.
 | Employee locking | Per-employee lock prevents concurrent punch races |
 | Client UUID | Optional online idempotency; required for offline sync dedupe |
 | Schedule gate | Punch requires an assigned shift for the day (`no_schedule`) |
-| Conflict rules | Already clocked in / no open punch → `attendance_conflict` |
+| Conflict rules | Already clocked in / no open punch → `attendance_conflict`. The 409 includes `session` so the button can follow the open shift. |
 | History | Own records; filters `from`, `to`, `type`, pagination |
 | Rate limit | Attendance 30/min; sync has a separate throttle |
 
@@ -62,6 +62,7 @@ Timezone: **Asia/Manila**.
 | POST | `/api/attendance/break-in` | GPS payload |
 | POST | `/api/attendance/break-out` | GPS payload |
 | GET | `/api/attendance/history` | Own records |
+| GET | `/api/attendance/session` | Open shift for the punch button: `{ open, on_break, time_in, break }`. Two indexed lookups, not the history list. |
 | POST | `/api/attendance/sync` | Offline batch (max 100; lower with photos) |
 
 ---
@@ -75,7 +76,7 @@ Timezone: **Asia/Manila**.
 | Ordered apply | Timestamp-ordered transitions (time_in → break → time_out) |
 | Re-validation | GPS and fraud checks re-run on sync |
 | Sync trail | `sync_logs` records outcomes |
-| Portal queue | IndexedDB (legacy localStorage fallback); selfie attached; auto-flush on reconnect; manual “Sync now” |
+| Portal upload | A dropped live upload replays the same `client_uuid` up to 3 times in memory, then offers Retry. It is not stored after the page closes. |
 | Mobile queue | Parallel offline queue on Expo app |
 
 ---
@@ -235,7 +236,7 @@ Installable Progressive Web App for employees.
 | Screen | Capabilities |
 |--------|----------------|
 | **Login** | Employee ID + password; theme toggle; session restore |
-| **Home** | GPS status; Time In (selfie + GPS); after clock-in, a dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, and Time Out; on a break, Done Break (GPS only) and Time Out; today's punches. No schedule card. No offline queue. |
+| **Home** | GPS status; Time In (selfie + GPS); after clock-in, a dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, and Time Out; on a break, Done Break (GPS only) and Time Out; today's punches. The button follows `GET /api/attendance/session`, not the history list. A dropped upload replays the same `client_uuid` up to 3 times, then offers Retry. Nothing is kept after the page closes. No schedule card. No offline queue. |
 | **History** | Attendance history with filters. Break rows show the break kind. No offline tag. |
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
 | **More** | Profile (department, branch, position, roles); consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |

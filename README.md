@@ -101,6 +101,7 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 | POST | `/attendance/break-in` | `{ latitude, longitude, accuracy_meters?, device_id? }` — GPS only (no selfie). One break per open shift. |
 | POST | `/attendance/break-out` | Same GPS payload. Sets `break_minutes`, `is_overbreak` if > 60 min. |
 | GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type` (`time_in`/`time_out`/`break_in`/`break_out`), `per_page` |
+| GET | `/attendance/session` | Open shift for the punch button: `{ open, on_break, time_in, break }`. Two indexed lookups, not the history list. |
 | POST | `/attendance/sync` | `{ device_id?, records: [{ client_uuid, type, timestamp, latitude, longitude, ... }] }` (max 100). Deduplicates by `client_uuid`, validates each record, re-runs fraud rules |
 | GET | `/schedule/today` | Today's shift for the employee |
 | GET | `/notifications` | Inbox, `unread_only` + `per_page` filters |
@@ -152,7 +153,7 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 
 | 404 | `not_found` | Resource not found / not yours |
 | 404 | `no_employee_record` | Account has no employee record |
-| 409 | `attendance_conflict` | Already clocked in / no open punch |
+| 409 | `attendance_conflict` | Already clocked in / no open punch. Body includes `session`. The portal applies it and does not start a second punch. |
 | 409 | `branch_has_employees` / `shift_in_use` | Referential delete blocked |
 | 422 | `gps_out_of_range` | Outside assigned branch radius (with `details`) |
 | 422 | `no_schedule` | No assigned shift for today |
