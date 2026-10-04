@@ -44,13 +44,6 @@ export interface LoginResponse {
   user: User;
 }
 
-export interface MfaRequiredResponse {
-  message: string;
-  mfa_required: boolean;
-  mfa_setup_required: boolean;
-  mfa_token: string;
-}
-
 export interface DashboardSummary {
   date: string;
   time_ins_today: number;

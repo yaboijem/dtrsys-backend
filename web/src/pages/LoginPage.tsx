@@ -3,7 +3,6 @@ import type { FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { login } from '../api/endpoints';
-import type { MfaRequiredResponse } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button, Field, Input } from '../components/ui';
 
@@ -27,12 +26,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       const result = await login(employeeId.trim(), password);
-      if ('mfa_required' in result && (result as MfaRequiredResponse).mfa_required) {
-        sessionStorage.setItem('dtr_mfa_token', (result as MfaRequiredResponse).mfa_token);
-        navigate('/mfa');
-        return;
-      }
-      if ('token' in result && result.token) {
+      if (result.token) {
         signIn(result.token, result.user);
         navigate('/');
       }

@@ -20,24 +20,17 @@ Timezone: **Asia/Manila**.
 
 | Feature | Details |
 |---------|---------|
-| Login | Employee ID + password → Sanctum bearer token |
+| Login | Employee ID + password → Sanctum bearer token for every role |
 | Multi-device | Devices auto-register on login (`device_id`, platform, model, app version); shared/kiosk devices supported |
 | Inactive accounts | Deactivated users cannot log in |
-| TOTP MFA | Optional MFA stack (enable / confirm / verify / disable / status); privileged roles flagged via `mfa_required_by_role` |
-| MFA recovery | Hashed one-time recovery codes |
 | Session | Logout revokes current token; `GET /auth/me` returns user + roles + employee + branch |
-| Rate limits | Login 5/min, MFA 5/min, general authenticated API 60/min |
+| Rate limits | Login 5/min, general authenticated API 60/min |
 
 ### API
 
 | Method | Path | Access |
 |--------|------|--------|
 | POST | `/api/auth/login` | Public |
-| POST | `/api/auth/mfa/verify` | Public |
-| POST | `/api/auth/mfa/enable` | MFA setup flow |
-| POST | `/api/auth/mfa/confirm` | MFA setup flow |
-| GET | `/api/auth/mfa/status` | Authenticated |
-| POST | `/api/auth/mfa/disable` | Authenticated |
 | POST | `/api/auth/logout` | Authenticated |
 | GET | `/api/auth/me` | Authenticated |
 
@@ -241,16 +234,16 @@ Installable Progressive Web App for employees.
 
 | Screen | Capabilities |
 |--------|----------------|
-| **Login / MFA** | Employee ID + password; MFA screen; theme toggle; session restore |
+| **Login** | Employee ID + password; theme toggle; session restore |
 | **Home** | GPS status; Time In (selfie + GPS); after clock-in, a dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, and Time Out; on a break, Done Break (GPS only) and Time Out; today's punches. No schedule card. No offline queue. |
 | **History** | Attendance history with filters. Break rows show the break kind. No offline tag. |
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
-| **More** | Profile (department, branch, position, roles); MFA status; consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |
+| **More** | Profile (department, branch, position, roles); consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |
 | **Consent** | Biometric + GPS toggles |
 | **Home location** | WFH employees submit current GPS as home pin; status none/pending/approved |
 | **PWA** | Removed. The portal is an online website. A stored token is restored only when `/api/auth/me` succeeds. |
 
-Routes: `/login`, `/mfa`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`, `/more/home-location`.
+Routes: `/login`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`, `/more/home-location`.
 
 Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PunchControl`.
 
@@ -260,7 +253,7 @@ Shared UI: `ConfirmModal`, `ThemeToggle`, `CameraModal`, `TabBar`, `PunchControl
 
 | Page | Roles | Notable UI |
 |------|--------|------------|
-| Login / MFA | Privileged users | — |
+| Login | Privileged users | Employee ID + password |
 | Dashboard | Super Admin, HR, Branch Manager, Department Head | Metrics + day-over-day deltas; fraud severity; recent audit activity |
 | Attendance | Super Admin, HR, Branch Manager, Department Head | Filters; searchable **EmployeePicker**; selfie / map drawer |
 | Fraud flags | Super Admin, HR, Branch Manager | Resolve / dismiss; drawer with selfie; severity filters |
@@ -293,7 +286,7 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 
 | Service | Responsibility |
 |---------|----------------|
-| `AuthService` / `MfaService` | Login, MFA tokens, recovery codes |
+| `AuthService` | Login and Sanctum token issue |
 | `DeviceService` | Device resolve/register on login |
 | `AttendanceService` | Time in/out, break in/out, late/work minutes, photo capture |
 | `GPSService` | Distance and geofence verify |

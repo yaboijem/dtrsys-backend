@@ -3,7 +3,7 @@
 End-to-end acceptance smoke test for the DTR backend API.
 
 .DESCRIPTION
-Runs the full user journey against a live server: auth, MFA, attendance
+Runs the full user journey against a live server: auth, attendance
 punches (GPS + selfie), sync, schedule, notifications, consent, data
 requests, admin scoped views, reports, payroll exports, fraud review
 access, and the retention dry-run. Prints [PASS]/[WARN]/[FAIL] per step
@@ -36,12 +36,6 @@ function JsonPost([string]$Uri, $Body, [hashtable]$Headers = @{}) {
 function Tinker([string]$Code) {
     $out = & php artisan tinker --execute=$Code 2>&1
     return ($out -join "`n").Trim()
-}
-
-function TotpFor([string]$EmployeeId) {
-    $secret = Tinker "echo App\Models\User::where('employee_id','$EmployeeId')->first()?->two_factor_secret;"
-    if ([string]::IsNullOrWhiteSpace($secret)) { throw "No TOTP secret for $EmployeeId" }
-    return (Tinker "echo (new PragmaRX\Google2FA\Google2FA)->getCurrentOtp('$secret');").Trim()
 }
 
 function ServerDate([int]$OffsetDays = 0) {
@@ -155,18 +149,11 @@ try {
     $unread = Invoke-RestMethod -Uri "$BaseUrl/api/notifications/unread-count" -Headers @{ Authorization = "Bearer $empToken" }
     Report 'PASS' 'notifications unread-count' "count=$($unread.count)"
 
-    # --- 9. HR login + MFA ---
+    # --- 9. HR login ---
     $hrLogin = JsonPost "$BaseUrl/api/auth/login" @{ employee_id = 'HR001'; password = 'password'; device_id = 'device-hr001' }
-    if ($hrLogin.token) {
-        Report 'PASS' 'HR001 login (no MFA required)'
-        $hrToken = $hrLogin.token
-    } else {
-        $code = TotpFor 'HR001'
-        $verify = JsonPost "$BaseUrl/api/auth/mfa/verify" @{ code = $code; mfa_token = $hrLogin.mfa_token }
-        if (-not $verify.token) { Report 'FAIL' 'HR001 MFA verify'; exit 1 }
-        Report 'PASS' 'HR001 login + MFA verify'
-        $hrToken = $verify.token
-    }
+    if (-not $hrLogin.token) { Report 'FAIL' 'HR001 login'; exit 1 }
+    Report 'PASS' 'HR001 login'
+    $hrToken = $hrLogin.token
     $hr = @{ Authorization = "Bearer $hrToken" }
 
     # --- 10. HR admin views ---
@@ -205,18 +192,11 @@ try {
     if ($payDl.StatusCode -eq 200 -and $payDl.Content -match 'employee_id') { Report 'PASS' 'payroll export download' }
     else { Report 'FAIL' 'payroll export download' }
 
-    # --- 13. Branch Manager scoping (MGR001 + MFA) ---
+    # --- 13. Branch Manager scoping ---
     $mgLogin = JsonPost "$BaseUrl/api/auth/login" @{ employee_id = 'MGR001'; password = 'password'; device_id = 'device-mgr001' }
-    if ($mgLogin.token) {
-        Report 'PASS' 'MGR001 login (no MFA required)'
-        $mgToken = $mgLogin.token
-    } else {
-        $code = TotpFor 'MGR001'
-        $verify = JsonPost "$BaseUrl/api/auth/mfa/verify" @{ code = $code; mfa_token = $mgLogin.mfa_token }
-        if (-not $verify.token) { Report 'FAIL' 'MGR001 MFA verify'; exit 1 }
-        Report 'PASS' 'MGR001 login + MFA verify'
-        $mgToken = $verify.token
-    }
+    if (-not $mgLogin.token) { Report 'FAIL' 'MGR001 login'; exit 1 }
+    Report 'PASS' 'MGR001 login'
+    $mgToken = $mgLogin.token
     $mgAtt = Invoke-RestMethod -Uri "$BaseUrl/api/admin/attendance?per_page=100" -Headers @{ Authorization = "Bearer $mgToken" }
     $badBranches = @($mgAtt.data | Where-Object { $_.branch.id -ne 1 })
     if ($badBranches.Count -eq 0) { Report 'PASS' 'BM attendance scope (Makati only)' }

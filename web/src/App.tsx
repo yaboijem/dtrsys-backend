@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import { ToastProvider } from './components/Toast';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
-import { MfaPage } from './pages/MfaPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { FraudFlagsPage } from './pages/FraudFlagsPage';
@@ -46,7 +45,6 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/mfa" element={<MfaPage />} />
       <Route
         path="/"
         element={

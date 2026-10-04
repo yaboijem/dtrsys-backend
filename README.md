@@ -1,10 +1,10 @@
 # DTR System — Backend API
 
-Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with mandatory selfies, automated fraud detection, offline sync, role-scoped administration, MFA, and data-privacy compliance (consent, data access/deletion requests, retention purging).
+Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with mandatory selfies, automated fraud detection, offline sync, role-scoped administration, and data-privacy compliance (consent, data access/deletion requests, retention purging).
 
 ## Feature Checklist
 
-- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional), TOTP MFA for privileged roles (Super Admin / HR / Branch Manager / Department Head)
+- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional)
 - **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, rapid clock-in and impossible location-jump fraud rules
 - **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
 - **Role-based access control** — Super Admin, HR, Branch Manager (own branch), Department Head (own department), Employee (own data)
@@ -20,7 +20,6 @@ Attendance and time-tracking backend for a multi-branch organization, built with
 | Database | MySQL 8 |
 | Cache / Queue | `database` by default; `redis` supported via env |
 | Auth | Laravel Sanctum + `spatie/laravel-permission` |
-| MFA | `pragmarx/google2fa-laravel`, QR via `bacon/bacon-qr-code` |
 | Image processing | `intervention/image` (GD) — selfies downscaled to 1024px JPEG, EXIF stripped |
 | Testing | PHPUnit (155 tests) + Laravel Pint |
 
@@ -69,40 +68,27 @@ All seeded accounts use password `password`.
 | Employee ID | Role | Branch | Notes |
 |---|---|---|---|
 | ADMIN001 | Super Admin | Makati HQ | |
-| HR001 | HR | Makati HQ | MFA enabled in dev DB |
-| MGR001 | Branch Manager | Makati HQ | MFA enabled in dev DB |
+| HR001 | HR | Makati HQ | |
+| MGR001 | Branch Manager | Makati HQ | |
 | MGR002 | Branch Manager | QC Branch | |
 | DH001 | Department Head | Makati HQ | |
 | EMP001–EMP010 | Employee | Makati HQ / QC | |
 
 Seeded branches: `MAK-001` (Makati HQ, 14.554729, 121.0244452, radius 300 m) and `QC-001` (QC Branch).
 
-### MFA in development
-
-Privileged accounts may have MFA enabled. The TOTP secret is stored encrypted in `users.two_factor_secret`; to obtain a current code:
-
-```bash
-php artisan tinker --execute="echo (new PragmaRX\Google2FA\Google2FA)->getCurrentOtp(App\Models\User::where('employee_id','HR001')->first()->two_factor_secret);"
-```
-
 ## API Reference
 
 Base URL: `http://localhost:8000/api`. All responses are JSON; single resources are wrapped in `{ "data": ... }`, lists in `{ "data": [...], "links": ..., "meta": ... }`.
 
-Authentication header: `Authorization: Bearer <token>` (token returned by `/auth/login`, `/auth/mfa/verify`, or `/auth/mfa/enable`).
+Authentication header: `Authorization: Bearer <token>` (token returned by `POST /auth/login`).
 
-Rate limits (per minute): `login` 5, `mfa` 5, `attendance` 30, all other authenticated routes 60. Exhausted limits return `429 { code: "too_many_attempts" }`.
+Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated routes 60. Exhausted limits return `429 { code: "too_many_attempts" }`.
 
-### 1. Auth & MFA (public / authenticated)
+### 1. Auth (public / authenticated)
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | `/auth/login` | public | `{ employee_id, password, device_id?, platform?, model?, app_version? }`. Returns token, or `mfa_required` / `mfa_setup_required` with a 10-minute `mfa_token` for privileged roles |
-| POST | `/auth/mfa/verify` | public | `{ code, mfa_token, recovery_code? }` → completes login |
-| POST | `/auth/mfa/enable` | authenticated | Begins MFA setup → `{ secret, qr_code_data_url, recovery_codes }` (codes shown once, stored hashed) |
-| POST | `/auth/mfa/confirm` | authenticated | `{ code, secret? }` → activates MFA |
-| POST | `/auth/mfa/disable` | authenticated | `{ password }` → disables MFA |
-| GET | `/auth/mfa/status` | authenticated | `{ enabled, confirmed_at }` |
+| POST | `/auth/login` | public | `{ employee_id, password, device_id?, platform?, model?, app_version? }`. Returns a token for every role |
 | POST | `/auth/logout` | authenticated | Revokes current token |
 | GET | `/auth/me` | authenticated | Current user profile + roles + employee |
 
@@ -209,7 +195,7 @@ When scaling later:
 
 - **Queue / cache**: `QUEUE_CONNECTION=redis`, `CACHE_STORE=redis`, background `queue:work`
 - **Media**: keep R2/S3; selfies pre-compressed (max 1024 px JPEG), EXIF stripped
-- **Security**: HTTPS, `APP_DEBUG=false`, `APP_KEY`, rate limits (`login`, `mfa`, `attendance`, `api`)
+- **Security**: HTTPS, `APP_DEBUG=false`, `APP_KEY`, rate limits (`login`, `attendance`, `api`)
 - **CORS**: `CORS_ALLOWED_ORIGINS` must include the admin static origin
 
 ### Scale runbook (~1000 concurrent punches)
@@ -247,7 +233,7 @@ Optional env: `LOGIN_EMPLOYEE_ID` / `LOGIN_PASSWORD` if `TOKEN` is omitted (each
 
 ```
 app/Console/Commands/PurgeRetainedData.php   # retention purge
-app/Services/                                # business logic (attendance, gps, sync, fraud, mfa, reports, ...)
+app/Services/                                # business logic (attendance, gps, sync, fraud, reports, ...)
 app/Http/Controllers/Api/                    # REST controllers (employee + admin)
 app/Http/Requests/                           # form requests / validation
 app/Http/Resources/                          # JSON resources

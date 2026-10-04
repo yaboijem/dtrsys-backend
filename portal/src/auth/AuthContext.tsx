@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (employeeId: string, password: string): Promise<void> => {
-      const result = await apiRef.current.post<LoginSuccess & { mfa_required?: boolean }>('/api/auth/login', {
+      const result = await apiRef.current.post<LoginSuccess>('/api/auth/login', {
         employee_id: employeeId,
         password,
         device_id: deviceIdRef.current,
@@ -98,10 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           0,
           'invalid_response',
         );
-      }
-
-      if ('mfa_required' in result && result.mfa_required) {
-        throw new ApiError('This account requires MFA, which is not supported in the employee portal.', 403, 'mfa_unsupported');
       }
 
       if (!('token' in result) || !result.token || !result.user) {

@@ -11,7 +11,6 @@ import type {
   FraudFlag,
   HomeLocation,
   LoginResponse,
-  MfaRequiredResponse,
   Paginated,
   ScheduleAdmin,
   Shift,
@@ -56,20 +55,12 @@ function toPaginated<T>(raw: RawPaginated<T>): Paginated<T> {
   };
 }
 
-export function login(employeeId: string, password: string, deviceId?: string): Promise<LoginResponse | MfaRequiredResponse> {
-  return api.post<LoginResponse | MfaRequiredResponse>('/api/auth/login', {
+export function login(employeeId: string, password: string, deviceId?: string): Promise<LoginResponse> {
+  return api.post<LoginResponse>('/api/auth/login', {
     employee_id: employeeId,
     password,
     device_id: deviceId || undefined,
     platform: 'web',
-  });
-}
-
-export function verifyMfa(mfaToken: string, code?: string, recoveryCode?: string): Promise<LoginResponse> {
-  return api.post<LoginResponse>('/api/auth/mfa/verify', {
-    mfa_token: mfaToken,
-    code,
-    recovery_code: recoveryCode || undefined,
   });
 }
 
