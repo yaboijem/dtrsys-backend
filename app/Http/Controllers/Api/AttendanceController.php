@@ -55,6 +55,22 @@ class AttendanceController extends Controller
         return (new AttendanceResource($attendance))->response();
     }
 
+    public function session(Request $request): JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json([
+                'message' => 'No employee record is linked to this account.',
+                'code' => 'no_employee_record',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $this->attendanceService->sessionFor($employee),
+        ]);
+    }
+
     public function history(Request $request): AnonymousResourceCollection
     {
         $query = Attendance::with(['branch', 'photo', 'gpsLocation', 'fraudFlags'])

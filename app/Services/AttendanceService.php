@@ -485,24 +485,15 @@ class AttendanceService
 
     public function openTimeInAsOf(Employee $employee, Carbon $asOf): ?Attendance
     {
-        $punches = Attendance::query()
+        $latest = Attendance::query()
             ->where('employee_id', $employee->id)
             ->whereIn('type', ['time_in', 'time_out'])
             ->where('timestamp', '<=', $asOf)
-            ->orderBy('timestamp')
-            ->orderBy('id')
-            ->get(['id', 'type', 'timestamp']);
+            ->orderByDesc('timestamp')
+            ->orderByDesc('id')
+            ->first();
 
-        $openId = null;
-        foreach ($punches as $punch) {
-            if ($punch->type === 'time_in') {
-                $openId = $punch->id;
-            } else {
-                $openId = null;
-            }
-        }
-
-        return $openId ? Attendance::query()->find($openId) : null;
+        return $latest !== null && $latest->type === 'time_in' ? $latest : null;
     }
 
     public function openBreakFor(Employee $employee, ?Carbon $asOf = null): ?Attendance
@@ -514,26 +505,42 @@ class AttendanceService
             return null;
         }
 
-        $punches = Attendance::query()
+        $latest = Attendance::query()
             ->where('employee_id', $employee->id)
             ->whereIn('type', ['break_in', 'break_out'])
             ->where('timestamp', '>=', $timeIn->timestamp)
             ->where('timestamp', '<=', $asOf)
             ->where('id', '>', $timeIn->id)
-            ->orderBy('timestamp')
-            ->orderBy('id')
-            ->get(['id', 'type', 'timestamp']);
+            ->orderByDesc('timestamp')
+            ->orderByDesc('id')
+            ->first();
 
-        $openId = null;
-        foreach ($punches as $punch) {
-            if ($punch->type === 'break_in') {
-                $openId = $punch->id;
-            } else {
-                $openId = null;
-            }
-        }
+        return $latest !== null && $latest->type === 'break_in' ? $latest : null;
+    }
 
-        return $openId ? Attendance::query()->find($openId) : null;
+    public function sessionFor(Employee $employee): array
+    {
+        $timeIn = $this->openTimeInAsOf($employee, now());
+        $break = $timeIn ? $this->openBreakFor($employee, now()) : null;
+
+        return [
+            'open' => $timeIn !== null,
+            'on_break' => $break !== null,
+            'time_in' => $timeIn ? $this->sessionPunch($timeIn) : null,
+            'break' => $break ? $this->sessionPunch($break) : null,
+        ];
+    }
+
+    private function sessionPunch(Attendance $row): array
+    {
+        return [
+            'id' => $row->id,
+            'uuid' => $row->uuid,
+            'type' => $row->type,
+            'timestamp' => $row->timestamp?->toISOString(),
+            'break_kind' => $row->break_kind,
+            'expected_end_at' => $row->expected_end_at?->toISOString(),
+        ];
     }
 
     public function hasCompletedBreakSince(Employee $employee, Attendance $timeIn): bool
