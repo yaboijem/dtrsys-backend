@@ -8,7 +8,7 @@ Attendance and time-tracking backend for a multi-branch organization, built with
 - **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, rapid clock-in and impossible location-jump fraud rules
 - **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
 - **Role-based access control** — Super Admin, HR, Branch Manager (own branch), Department Head (own department), Employee (own data)
-- **Admin tools** — employee/branch/shift/schedule management, attendance review with selfie streaming, dashboard summary, fraud-flag review
+- **Admin tools** — employee/branch management, attendance review with selfie streaming, dashboard summary, fraud-flag review
 - **Notifications** — per-user inbox with unread count, read/mark-all-read, and delete endpoints
 - **Compliance** — biometric/GPS consent management, data access & deletion requests, `dtr:purge-old-data` retention command, audit logging of admin actions and attendance changes
 
@@ -103,7 +103,7 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 | GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type` (`time_in`/`time_out`/`break_in`/`break_out`), `per_page` |
 | GET | `/attendance/session` | Open shift for the punch button: `{ open, on_break, time_in, break }`. Two indexed lookups, not the history list. |
 | POST | `/attendance/sync` | `{ device_id?, records: [{ client_uuid, type, timestamp, latitude, longitude, ... }] }` (max 100). Deduplicates by `client_uuid`, validates each record, re-runs fraud rules |
-| GET | `/schedule/today` | Today's shift for the employee |
+
 | GET | `/notifications` | Inbox, `unread_only` + `per_page` filters |
 | GET | `/notifications/unread-count` | `{ count }` |
 | POST | `/notifications/{id}/read` | Marks one notification read (own only) |
@@ -118,12 +118,12 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 | Method | Path | Description |
 |---|---|---|
 | GET | `/admin/branches` · POST `/admin/branches` · GET/PUT/DELETE `/admin/branches/{branch}` | Branch CRUD (`{ name, code, address?, latitude, longitude, radius_meters, is_active? }`). Delete is blocked while employees exist (`branch_has_employees`) |
-| GET | `/admin/shifts` · POST `/admin/shifts` · GET/PUT/DELETE `/admin/shifts/{shift}` | Shift CRUD (`{ name, start_time, end_time, grace_minutes?, break_start?, break_end?, is_active? }`). Delete blocked while assigned (`shift_in_use`) |
+
 | GET/POST | `/admin/employees` · GET/PUT/DELETE `/admin/employees/{employee}` | Employee CRUD (`{ employee_id, name, email, password, role, branch_id, work_arrangement?: onsite\|wfh\|hybrid, first_name, last_name, department, position, date_hired?, is_active? }`). Hybrid = branch or approved home (nearest wins); home pin required before any punch. Delete blocks accounts with attendance history |
 | GET | `/admin/home-locations` | List home pins; filter `status` (`pending`/`approved`/…) |
 | PATCH | `/admin/home-locations/{id}` | `{ action: approve\|reject\|link, radius_meters?, review_note?, link_home_location_id?, employee_id? }` |
-| POST | `/admin/schedules` | `{ employee_id, date, shift_id }` — upserts per employee+date |
-| DELETE | `/admin/schedules/{schedule}` | Removes an assignment |
+
+
 | GET | `/admin/audit-logs` | Audit trail, filters (`action`, `model_type`, `model_id`, `user_id`, `from`, `to`) |
 
 ### 4. Admin — Super Admin, HR, Branch Manager
@@ -140,7 +140,7 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 | GET | `/admin/attendance` | Attendance records scoped to own branch (BM) / department (DH); filters `branch_id`, `department`, `from`, `to`, `status`, `has_open_flags`, `per_page` |
 | GET | `/admin/attendance/{id}/photo` | Streams the punch selfie (access-checked) |
 | GET | `/admin/dashboard/summary` | `{ time_ins_today, late_ins_today, early_time_outs_today, absent_today, open_fraud_flags, open_fraud_by_severity, … }` |
-| GET | `/admin/schedules` | Schedules scoped by role, date filters |
+
 
 ## Error Codes
 
@@ -154,9 +154,9 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 | 404 | `not_found` | Resource not found / not yours |
 | 404 | `no_employee_record` | Account has no employee record |
 | 409 | `attendance_conflict` | Already clocked in / no open punch. Body includes `session`. The portal applies it and does not start a second punch. |
-| 409 | `branch_has_employees` / `shift_in_use` | Referential delete blocked |
+| 409 | `branch_has_employees` | Referential delete blocked |
 | 422 | `gps_out_of_range` | Outside assigned branch radius (with `details`) |
-| 422 | `no_schedule` | No assigned shift for today |
+
 | 429 | `too_many_attempts` | Rate limit hit |
 | 422 | (validation) | Default Laravel validation errors under `errors` |
 
@@ -240,7 +240,7 @@ app/Http/Requests/                           # form requests / validation
 app/Http/Resources/                          # JSON resources
 app/Support/ScopesByRole.php                 # role-scoping trait
 app/Notifications/GenericNotification.php    # database notifications
-database/seeders/                            # demo data (roles, branches, employees, devices, shifts)
+database/seeders/                            # demo data (roles, branches, employees, devices)
 scripts/acceptance.ps1                       # end-to-end acceptance smoke script
 tests/                                       # PHPUnit suites
 ```

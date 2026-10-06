@@ -66,7 +66,7 @@ class EmployeeController extends Controller
                 $q->whereHas('user', fn ($uq) => $uq->where('is_active', $active));
             })
             ->orderBy('last_name')
-            ->paginate(min(max($request->integer('per_page', 20), 1), 100));
+            ->paginate($this->perPage($request));
 
         return EmployeeResource::collection($employees);
     }

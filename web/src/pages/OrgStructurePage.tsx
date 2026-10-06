@@ -16,7 +16,7 @@ import type { Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
 import { Button, Card, ErrorState, Field, Input } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 
@@ -41,6 +41,7 @@ function MasterSection({
 }) {
   const { notify } = useToast();
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<MasterItem[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +60,7 @@ function MasterSection({
     setLoading(true);
     setError(null);
     try {
-      const result = await listFn({ page, per_page: 20 }, token);
+      const result = await listFn({ page, per_page: perPage }, token);
       setData(result.data);
       setPaginated(result);
     } catch (err) {
@@ -67,7 +68,7 @@ function MasterSection({
     } finally {
       setLoading(false);
     }
-  }, [token, page, listFn, title]);
+  }, [token, page, perPage, listFn, title]);
 
   useEffect(() => {
     void load();
@@ -191,7 +192,18 @@ function MasterSection({
               },
             ]}
           />
-          {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+          {paginated && (
+            <PaginationBar
+              page={page}
+              paginated={paginated}
+              perPage={perPage}
+              onPageChange={setPage}
+              onPerPageChange={(next) => {
+                setPerPage(next);
+                setPage(1);
+              }}
+            />
+          )}
         </>
       )}
 

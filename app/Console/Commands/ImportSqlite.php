@@ -27,10 +27,8 @@ class ImportSqlite extends Command
         'branches',
         'departments',
         'positions',
-        'shifts',
         'employees',
         'devices',
-        'schedules',
         'attendance',
         'attendance_photos',
         'photo_blobs',
@@ -80,10 +78,8 @@ class ImportSqlite extends Command
         'branches',
         'departments',
         'positions',
-        'shifts',
         'employees',
         'devices',
-        'schedules',
         'attendance',
         'attendance_photos',
         'photo_blobs',
@@ -238,6 +234,7 @@ class ImportSqlite extends Command
             $value = $row[$column] ?? null;
             if ($value === null || $value === '') {
                 $row[$column] = null;
+
                 continue;
             }
             json_decode((string) $value);

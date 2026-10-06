@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
 import { LocationMap } from '../components/LocationMap';
 import { Badge, Button, Card, ErrorState, Field, Input, Select, Textarea } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { Drawer } from '../components/Drawer';
 import { useToast } from '../components/Toast';
 import { formatDateTime, formatHomeAddress } from '../lib/format';
@@ -16,6 +16,7 @@ export function HomeLocationsPage() {
   const { notify } = useToast();
   const [status, setStatus] = useState('pending');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<HomeLocation[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function HomeLocationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await listHomeLocations({ page, per_page: 20, status: status || undefined }, token);
+      const result = await listHomeLocations({ page, per_page: perPage, status: status || undefined }, token);
       setData(result.data);
       setPaginated(result);
     } catch (err) {
@@ -39,7 +40,7 @@ export function HomeLocationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, status]);
+  }, [token, page, perPage, status]);
 
   useEffect(() => {
     void load();
@@ -152,7 +153,18 @@ export function HomeLocationsPage() {
                 },
               ]}
             />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+            {paginated && (
+              <PaginationBar
+                page={page}
+                paginated={paginated}
+                perPage={perPage}
+                onPageChange={setPage}
+                onPerPageChange={(next) => {
+                  setPerPage(next);
+                  setPage(1);
+                }}
+              />
+            )}
           </>
         )}
       </Card>

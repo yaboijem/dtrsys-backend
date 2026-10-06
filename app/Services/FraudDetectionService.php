@@ -33,10 +33,6 @@ class FraudDetectionService
             $flags[] = $flag;
         }
 
-        if ($flag = $this->checkGpsSpoof($attendance)) {
-            $flags[] = $flag;
-        }
-
         return $flags;
     }
 
@@ -110,34 +106,6 @@ class FraudDetectionService
         return $this->flag($attendance, 'rapid_clock', 'medium', [
             'previous_punch_at' => $previous->timestamp->toISOString(),
             'elapsed_minutes' => $elapsedMinutes,
-        ]);
-    }
-
-    private function checkGpsSpoof(Attendance $attendance): ?FraudFlag
-    {
-        if ($attendance->latitude === null || $attendance->longitude === null) {
-            return null;
-        }
-
-        $previous = GpsLocation::where('employee_id', $attendance->employee_id)
-            ->where('captured_at', '<', $attendance->timestamp)
-            ->latest('captured_at')
-            ->first();
-
-        if (! $previous) {
-            return null;
-        }
-
-        $identicalCoords = (float) $previous->latitude === (float) $attendance->latitude
-            && (float) $previous->longitude === (float) $attendance->longitude;
-
-        if (! $identicalCoords) {
-            return null;
-        }
-
-        return $this->flag($attendance, 'gps_spoof', 'low', [
-            'identical_coordinates' => true,
-            'previous_punch_at' => $previous->captured_at->toISOString(),
         ]);
     }
 

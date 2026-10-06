@@ -29,7 +29,7 @@ class HomeLocationController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
             ->with(['employees.user', 'creator'])
             ->latest()
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($this->perPage($request));
 
         $homes->getCollection()->transform(
             fn (HomeLocation $home) => $this->homeLocationService->ensureAddressParts($home)

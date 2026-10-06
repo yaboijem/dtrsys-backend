@@ -3,15 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import { ListFilter } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { dashboardSummary, listBranches, listFraudFlags, reviewFraudFlag } from '../api/endpoints';
-import type { Branch, FraudFlag, FraudFlagStatus, FraudFlagType, Paginated } from '../api/types';
+import type { Branch, FraudFlag, FraudFlagStatus, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar, Badge, Button, Card, ErrorState, Field, Select, Textarea } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { Drawer } from '../components/Drawer';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { useToast } from '../components/Toast';
-import { FLAG_LABELS, FLAG_TONES, SEVERITY_TONES, STATUS_TONES } from '../lib/flags';
+import { FLAG_FILTER_TYPES, FLAG_LABELS, FLAG_RULES, FLAG_TONES, SEVERITY_TONES, STATUS_TONES } from '../lib/flags';
 import { cn } from '../lib/cn';
 import { formatDateTime, formatMeters } from '../lib/format';
 
@@ -23,8 +23,6 @@ interface Filters {
 }
 
 const EMPTY_FILTERS: Filters = { status: 'open', type: '', severity: '', branch_id: '' };
-
-const FLAG_TYPES = Object.keys(FLAG_LABELS) as FraudFlagType[];
 
 export function FraudFlagsPage() {
   const { token } = useAuth();
@@ -41,6 +39,7 @@ export function FraudFlagsPage() {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [applied, setApplied] = useState<Filters>(initialFilters);
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<FraudFlag[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -82,7 +81,7 @@ export function FraudFlagsPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | number | boolean | undefined> = { page, per_page: 20 };
+      const params: Record<string, string | number | boolean | undefined> = { page, per_page: perPage };
       if (applied.status) params.status = applied.status;
       if (applied.type) params.type = applied.type;
       if (applied.severity) params.severity = applied.severity;
@@ -95,7 +94,7 @@ export function FraudFlagsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, applied]);
+  }, [token, page, perPage, applied]);
 
   useEffect(() => {
     void load();
@@ -179,6 +178,17 @@ export function FraudFlagsPage() {
         ))}
       </div>
 
+      <Card className="mb-4 px-4 py-3 shadow-sm">
+        <div className="mb-2 text-xs font-semibold text-muted">How flags are raised</div>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {FLAG_RULES.map((item) => (
+            <li key={item.type} className="text-xs text-muted">
+              <span className="font-medium text-text">{FLAG_LABELS[item.type]}.</span> {item.rule}
+            </li>
+          ))}
+        </ul>
+      </Card>
+
       <Card className="mb-4 p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted">
           <ListFilter size={14} />
@@ -196,7 +206,7 @@ export function FraudFlagsPage() {
           <Field label="Type">
             <Select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}>
               <option value="">All types</option>
-              {FLAG_TYPES.map((t) => (
+              {FLAG_FILTER_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {FLAG_LABELS[t]}
                 </option>
@@ -271,6 +281,16 @@ export function FraudFlagsPage() {
                 },
                 { key: 'status', header: 'Status', render: (r) => <Badge tone={STATUS_TONES[r.status]} className="capitalize">{r.status}</Badge> },
                 {
+                  key: 'reviewer',
+                  header: 'Reviewed by',
+                  render: (r) =>
+                    r.status === 'open' ? (
+                      <span className="text-xs text-muted">—</span>
+                    ) : (
+                      <span className="text-xs font-medium text-text">{r.reviewer?.name ?? '—'}</span>
+                    ),
+                },
+                {
                   key: 'timestamp',
                   header: 'Punch time',
                   render: (r) => <span className="font-mono tnum whitespace-nowrap">{formatDateTime(r.attendance.timestamp)}</span>,
@@ -279,6 +299,11 @@ export function FraudFlagsPage() {
                   key: 'branch',
                   header: 'Branch',
                   render: (r) => <span className="text-xs text-text">{r.attendance.branch ?? '—'}</span>,
+                },
+                {
+                  key: 'created',
+                  header: 'Flagged at',
+                  render: (r) => <span className="font-mono tnum whitespace-nowrap text-xs text-muted">{formatDateTime(r.created_at)}</span>,
                 },
                 {
                   key: 'actions',
@@ -310,14 +335,20 @@ export function FraudFlagsPage() {
                       <span className="text-xs text-muted">—</span>
                     ),
                 },
-                {
-                  key: 'created',
-                  header: 'Flagged at',
-                  render: (r) => <span className="font-mono tnum whitespace-nowrap text-xs text-muted">{formatDateTime(r.created_at)}</span>,
-                },
               ]}
             />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+            {paginated && (
+              <PaginationBar
+                page={page}
+                paginated={paginated}
+                perPage={perPage}
+                onPageChange={setPage}
+                onPerPageChange={(next) => {
+                  setPerPage(next);
+                  setPage(1);
+                }}
+              />
+            )}
           </>
         )}
       </Card>
@@ -415,6 +446,7 @@ function FlagReview({
 
   const attendance = flag.attendance;
   const busy = pendingAction !== null;
+  const flagRule = FLAG_RULES.find((item) => item.type === flag.type)?.rule;
 
   if (!attendance) {
     return <div className="text-sm text-slate-400">Attendance details unavailable for this flag.</div>;
@@ -449,6 +481,8 @@ function FlagReview({
           <div className="flex h-40 items-center justify-center bg-deep-2 text-xs text-slate-400">No selfie captured</div>
         )}
       </div>
+
+      {flagRule && <p className="text-xs text-slate-400">{flagRule}</p>}
 
       {flag.details && (
         <div className="rounded-lg border border-deep-border bg-deep-2 px-4 py-3">

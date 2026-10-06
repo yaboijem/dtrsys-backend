@@ -20,6 +20,7 @@ class MysqlSchemaTest extends TestCase
                 '2026_10_03_000000_create_dtr_mysql_schema',
                 '2026_10_03_130000_add_break_kind_to_attendance_table',
                 '2026_10_05_000000_drop_two_factor_columns_from_users',
+                '2026_10_06_000000_drop_shifts_and_schedules',
             ],
             DB::table('migrations')->pluck('migration')->all(),
         );
@@ -29,6 +30,8 @@ class MysqlSchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumn('attendance', 'break_kind'));
         $this->assertTrue(Schema::hasColumn('attendance', 'expected_end_at'));
 
+        $this->assertFalse(Schema::hasTable('shifts'));
+        $this->assertFalse(Schema::hasTable('schedules'));
         $this->assertFalse(Schema::hasTable('device_change_requests'));
         $this->assertFalse(Schema::hasTable('report_exports'));
         $this->assertFalse(Schema::hasTable('payroll_exports'));

@@ -8,16 +8,15 @@ use App\Http\Controllers\Api\Admin\DepartmentController;
 use App\Http\Controllers\Api\Admin\EmployeeController;
 use App\Http\Controllers\Api\Admin\FraudFlagController;
 use App\Http\Controllers\Api\Admin\HomeLocationController as AdminHomeLocationController;
+use App\Http\Controllers\Api\Admin\OpenSessionController;
 use App\Http\Controllers\Api\Admin\PositionController;
-use App\Http\Controllers\Api\Admin\ScheduleAdminController;
 use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
-use App\Http\Controllers\Api\Admin\ShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\HomeLocationController;
 use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -44,11 +43,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         ->middleware('throttle:attendance-sync');
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
     Route::get('/attendance/session', [AttendanceController::class, 'session']);
-
-    Route::get('/schedule', [ScheduleController::class, 'index']);
-    Route::get('/schedule/today', [ScheduleController::class, 'today']);
+    Route::get('/attendance/work', [AttendanceController::class, 'work']);
 
     Route::get('/settings', [SettingsController::class, 'show']);
+
+    Route::get('/push/vapid-public-key', [PushSubscriptionController::class, 'publicKey']);
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);
+    Route::delete('/push/subscribe', [PushSubscriptionController::class, 'destroy']);
+    Route::post('/push/test', [PushSubscriptionController::class, 'test']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
@@ -73,12 +75,11 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
     Route::get('/settings', [AdminSettingsController::class, 'show']);
     Route::patch('/settings', [AdminSettingsController::class, 'update']);
 
-    Route::post('/schedules', [ScheduleAdminController::class, 'store']);
-    Route::delete('/schedules/{schedule}', [ScheduleAdminController::class, 'destroy']);
-
     Route::apiResource('branches', BranchController::class);
-    Route::apiResource('shifts', ShiftController::class);
     Route::apiResource('employees', EmployeeController::class);
+
+    Route::get('/open-sessions', [OpenSessionController::class, 'index']);
+    Route::post('/open-sessions/{employee}/close', [OpenSessionController::class, 'close']);
 });
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefix('admin')->group(function () {
@@ -90,8 +91,7 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager|Departmen
     Route::get('/attendance', [AttendanceAdminController::class, 'index']);
     Route::get('/attendance/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
-    Route::get('/schedules', [ScheduleAdminController::class, 'index']);
+    Route::get('/dashboard/badges', [DashboardController::class, 'badges']);
     Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('positions', PositionController::class);
 });
-

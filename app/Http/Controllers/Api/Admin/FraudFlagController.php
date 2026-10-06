@@ -32,7 +32,7 @@ class FraudFlagController extends Controller
 
         $this->applyRoleScope($query, $request->user(), 'attendance.branch_id');
 
-        $flags = $query->latest()->paginate(min($request->integer('per_page', 20), 100));
+        $flags = $query->latest()->paginate($this->perPage($request));
 
         return FraudFlagResource::collection($flags);
     }

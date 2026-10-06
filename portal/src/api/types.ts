@@ -80,22 +80,6 @@ export interface Attendance {
   fraud_flags?: FraudFlag[] | null;
 }
 
-export interface Shift {
-  id: number;
-  name: string;
-  start_time: string;
-  end_time: string;
-  grace_minutes: number;
-  break_start: string | null;
-  break_end: string | null;
-}
-
-export interface Schedule {
-  id: number;
-  date: string;
-  shift: Shift | null;
-}
-
 export interface AppNotification {
   id: string;
   title: string | null;
@@ -151,6 +135,7 @@ export interface SyncResult {
 
 export type BreakKind =
   | '15_min'
+  | '5_min' // TEST ONLY: remove before production
   | 'lunch_60'
   | 'bio'
   | 'phone'
@@ -160,6 +145,7 @@ export type BreakKind =
 
 export const BREAK_OPTIONS: { kind: BreakKind; label: string }[] = [
   { kind: '15_min', label: '15 mins break' },
+  { kind: '5_min', label: '5 mins break (test)' },
   { kind: 'lunch_60', label: '1hr Lunch Break' },
   { kind: 'bio', label: 'Bio break' },
   { kind: 'phone', label: 'Phone time' },

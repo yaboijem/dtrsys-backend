@@ -22,6 +22,24 @@
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+
+  .pill-orange {
+    background-color: #f97316;
+    color: #fff;
+  }
+
+  .pill-orange:hover {
+    background-color: #ea580c;
+  }
+
+  .pill-red {
+    background-color: #dc2626;
+    color: #fff;
+  }
+
+  .pill-red:hover {
+    background-color: #b91c1c;
+  }
 }
 
 *,

@@ -6,7 +6,6 @@ use App\Models\Attendance;
 use App\Models\Device;
 use App\Models\Employee;
 use App\Models\GpsLocation;
-use App\Models\Schedule;
 use Illuminate\Database\Seeder;
 
 class AttendanceSeeder extends Seeder
@@ -27,20 +26,16 @@ class AttendanceSeeder extends Seeder
                     continue;
                 }
 
-                $schedule = Schedule::where('employee_id', $employee->id)->whereDate('date', $date->toDateString())->first();
-                $start = $schedule ? $schedule->shift->start_time : '08:00:00';
-                $end = $schedule ? $schedule->shift->end_time : '17:00:00';
+                $punchIn = $date->copy()->setTime(8, 0)->addMinutes(rand(-5, 25));
+                $punchOut = $date->copy()->setTime(17, 0)->addMinutes(rand(-15, 20));
 
-                $punchIn = $date->copy()->setTimeFromTimeString($start)->addMinutes(rand(-5, 25));
-                $punchOut = $date->copy()->setTimeFromTimeString($end)->addMinutes(rand(-15, 20));
-
-                $this->createPunch($employee, $branch, $device, 'time_in', $punchIn, $start);
-                $this->createPunch($employee, $branch, $device, 'time_out', $punchOut, $end);
+                $this->createPunch($employee, $branch, $device, 'time_in', $punchIn);
+                $this->createPunch($employee, $branch, $device, 'time_out', $punchOut);
             }
         });
     }
 
-    private function createPunch(Employee $employee, $branch, ?Device $device, string $type, $timestamp, string $shiftTime): void
+    private function createPunch(Employee $employee, $branch, ?Device $device, string $type, $timestamp): void
     {
         $attendance = Attendance::create([
             'employee_id' => $employee->id,
@@ -52,7 +47,7 @@ class AttendanceSeeder extends Seeder
             'longitude' => $branch->longitude + rand(-3, 3) / 100000,
             'gps_accuracy_meters' => rand(5, 30),
             'is_offline' => false,
-            'is_late' => $type === 'time_in' && $timestamp->gt($timestamp->copy()->setTimeFromTimeString($shiftTime)->addMinutes(10)),
+            'is_late' => false,
             'source' => 'app',
             'synced_at' => $timestamp,
         ]);

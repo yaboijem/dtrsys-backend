@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarClock, Clock4, Flag, LogOut, UserX } from 'lucide-react';
+import { Activity, CalendarClock, Coffee, Flag, Users } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { dashboardSummary, listAuditLogs } from '../api/endpoints';
 import type { AuditLog, DashboardSummary } from '../api/types';
@@ -9,6 +9,32 @@ import { PageHeader } from '../components/PageHeader';
 import { Avatar, Card, ErrorState, MetricCard, Spinner } from '../components/ui';
 import { activityDef } from '../lib/activities';
 import { deltaLabel, formatDate, formatRelative } from '../lib/format';
+
+const BREAK_KIND_ORDER = ['15_min', '5_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training', 'unspecified'];
+
+const BREAK_KIND_LABELS: Record<string, string> = {
+  '15_min': '15 mins break',
+  '5_min': '5 mins break (test)',
+  lunch_60: '1hr Lunch Break',
+  bio: 'Bio break',
+  phone: 'Phone time',
+  coaching: 'Coaching',
+  huddle: 'Huddle',
+  training: 'Training',
+  unspecified: 'Unspecified',
+};
+
+function breakBreakdown(counts: Record<string, number> | undefined) {
+  const byKind = counts ?? {};
+  const known = BREAK_KIND_ORDER.filter((kind) => (byKind[kind] ?? 0) > 0);
+  const extra = Object.keys(byKind).filter((kind) => !BREAK_KIND_ORDER.includes(kind) && (byKind[kind] ?? 0) > 0);
+
+  return [...known, ...extra].map((kind) => ({
+    kind,
+    label: BREAK_KIND_LABELS[kind] ?? kind,
+    n: byKind[kind] ?? 0,
+  }));
+}
 
 export function DashboardPage() {
   const { token, hasRole } = useAuth();
@@ -51,15 +77,16 @@ export function DashboardPage() {
     void loadActivities();
   }, [loadActivities]);
 
-  if (loading) return <Spinner label="Loading dashboard…" />;
-  if (error || !summary) return <ErrorState message={error ?? 'No data available.'} onRetry={load} />;
+  if (error || (!loading && !summary)) return <ErrorState message={error ?? 'No data available.'} onRetry={load} />;
 
-  const sev = summary.open_fraud_by_severity ?? { high: 0, medium: 0, low: 0 };
+  const breaks = summary ? breakBreakdown(summary.on_break_by_kind) : [];
 
   return (
     <div>
-      <PageHeader title="Dashboard" description={`Today · ${formatDate(summary.date)}`} />
-
+      <PageHeader title="Dashboard" description={summary ? `Today · ${formatDate(summary.date)}` : 'Today'} />
+      {loading || !summary ? <Spinner label="Loading dashboard…" /> : null}
+      {summary ? (
+      <>
       <section className="mb-6">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Attendance</h2>
         <div className="metric-grid">
@@ -70,27 +97,37 @@ export function DashboardPage() {
             delta={deltaLabel(summary.time_ins_today, summary.time_ins_yesterday ?? 0)}
             onClick={() => navigate('/attendance')}
           />
+          <Card className="p-4 shadow-sm lg:col-span-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-mono text-2xl font-bold tracking-tight tnum text-text">{summary.on_break ?? 0}</div>
+                <div className="mt-1 text-xs font-medium text-muted">On break</div>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-2 text-warning">
+                <Coffee size={18} />
+              </div>
+            </div>
+            {breaks.length > 0 ? (
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {breaks.map((item) => (
+                  <li
+                    key={item.kind}
+                    className="rounded-md border border-border bg-slate-50 px-2 py-1 text-[11px] font-medium text-text"
+                  >
+                    <span className="font-mono font-bold tnum">{item.n}</span>
+                    <span className="ml-1 text-muted">{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-[11px] font-medium text-muted">No one on break</p>
+            )}
+          </Card>
           <MetricCard
-            label="Late arrivals"
-            value={summary.late_ins_today}
-            icon={<Clock4 size={18} />}
-            tone="warning"
-            delta={deltaLabel(summary.late_ins_today, summary.late_ins_yesterday ?? 0)}
-            onClick={() => navigate('/attendance?is_late=1')}
-          />
-          <MetricCard
-            label="Early time outs"
-            value={summary.early_time_outs_today}
-            icon={<LogOut size={18} />}
-            tone="warning"
-            delta={deltaLabel(summary.early_time_outs_today, summary.early_time_outs_yesterday ?? 0)}
-            onClick={() => navigate('/attendance?is_early_timeout=1')}
-          />
-          <MetricCard
-            label="Absent today"
-            value={summary.absent_today}
-            icon={<UserX size={18} />}
-            delta={deltaLabel(summary.absent_today, summary.absent_yesterday ?? 0)}
+            label="Employees"
+            value={summary.employees_total ?? 0}
+            icon={<Users size={18} />}
+            onClick={hasRole('Super Admin', 'HR') ? () => navigate('/employees') : undefined}
           />
         </div>
       </section>
@@ -105,28 +142,6 @@ export function DashboardPage() {
             tone="danger"
             onClick={() => navigate('/fraud-flags?status=open')}
           />
-          <Card className="p-4 shadow-sm">
-            <div className="mb-2 text-xs font-medium text-muted">Open by severity</div>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { key: 'high', label: 'High', n: sev.high, className: 'bg-red-50 text-red-800 border-red-200' },
-                  { key: 'medium', label: 'Medium', n: sev.medium, className: 'bg-amber-50 text-amber-900 border-amber-200' },
-                  { key: 'low', label: 'Low', n: sev.low, className: 'bg-slate-50 text-slate-700 border-slate-200' },
-                ] as const
-              ).map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => navigate(`/fraud-flags?status=open&severity=${s.key}`)}
-                  className={`rounded-lg border px-2 py-2.5 text-center cursor-pointer transition hover:shadow-sm ${s.className}`}
-                >
-                  <div className="font-mono text-lg font-bold tnum">{s.n}</div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide opacity-80">{s.label}</div>
-                </button>
-              ))}
-            </div>
-          </Card>
         </div>
       </section>
 
@@ -170,6 +185,8 @@ export function DashboardPage() {
           </ul>
         )}
       </Card>
+      </>
+      ) : null}
     </div>
   );
 }

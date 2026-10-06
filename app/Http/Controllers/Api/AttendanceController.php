@@ -71,6 +71,20 @@ class AttendanceController extends Controller
         ]);
     }
 
+    public function work(Request $request): AnonymousResourceCollection|JsonResponse
+    {
+        $employee = $request->user()->employee;
+
+        if (! $employee) {
+            return response()->json([
+                'message' => 'No employee record is linked to this account.',
+                'code' => 'no_employee_record',
+            ], 404);
+        }
+
+        return AttendanceResource::collection($this->attendanceService->latestWorkPunches($employee));
+    }
+
     public function history(Request $request): AnonymousResourceCollection
     {
         $query = Attendance::with(['branch', 'photo', 'gpsLocation', 'fraudFlags'])
@@ -80,7 +94,7 @@ class AttendanceController extends Controller
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->input('type')))
             ->latest('timestamp');
 
-        return AttendanceResource::collection($query->paginate(min($request->integer('per_page', 20), 100)));
+        return AttendanceResource::collection($query->paginate($this->perPage($request)));
     }
 
     public function sync(SyncAttendanceRequest $request): JsonResponse

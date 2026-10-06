@@ -6,13 +6,12 @@ import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AttendancePage } from './pages/AttendancePage';
+import { OpenSessionsPage } from './pages/OpenSessionsPage';
 import { FraudFlagsPage } from './pages/FraudFlagsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { HomeLocationsPage } from './pages/HomeLocationsPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { OrgStructurePage } from './pages/OrgStructurePage';
-import { ShiftsPage } from './pages/ShiftsPage';
-import { SchedulesPage } from './pages/SchedulesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { Spinner } from './components/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -62,6 +61,18 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR', 'Branch Manager', 'Department Head']}>
                 <AttendancePage />
+              </RequireRole>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/open-sessions"
+        element={
+          <RequireAuth>
+            <Layout>
+              <RequireRole roles={['Super Admin', 'HR']}>
+                <OpenSessionsPage />
               </RequireRole>
             </Layout>
           </RequireAuth>
@@ -122,30 +133,6 @@ function AppRoutes() {
             <Layout>
               <RequireRole roles={['Super Admin', 'HR']}>
                 <BranchesPage />
-              </RequireRole>
-            </Layout>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/shifts"
-        element={
-          <RequireAuth>
-            <Layout>
-              <RequireRole roles={['Super Admin', 'HR']}>
-                <ShiftsPage />
-              </RequireRole>
-            </Layout>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/schedules"
-        element={
-          <RequireAuth>
-            <Layout>
-              <RequireRole roles={['Super Admin', 'HR', 'Branch Manager', 'Department Head']}>
-                <SchedulesPage />
               </RequireRole>
             </Layout>
           </RequireAuth>

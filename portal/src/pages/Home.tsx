@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { ApiError } from '../api/client';
-import { Attendance, BreakKind, Paginated, PunchSession, PunchType, GpsOutOfRangeDetails } from '../api/types';
+import { Attendance, BreakKind, PunchSession, PunchType, GpsOutOfRangeDetails } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { PunchControl } from '../components/PunchControl';
@@ -15,10 +15,10 @@ import {
   distanceLabel,
   errorMessage,
   formatDateTime,
+  formatPunchTime,
   formatTime,
   minutesToDuration,
   newUuid,
-  toLocalDate,
 } from '../lib/format';
 import { gpsFailureMessage, resolveGpsPosition } from '../lib/location';
 import { compressDataUrl, dataUrlToFile } from '../lib/image';
@@ -92,7 +92,7 @@ export function Home() {
   const { refreshUnread } = useUnread();
   const { src: photoSrc } = useProfilePhoto(user?.employee_id);
 
-  const [todayPunches, setTodayPunches] = useState<Attendance[]>([]);
+  const [punches, setPunches] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [punching, setPunching] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
@@ -108,14 +108,12 @@ export function Home() {
   const pendingRef = useRef<PendingUpload | null>(null);
   const pendingPunchTypeRef = useRef<'time_in' | 'time_out'>('time_in');
 
-  const todayKey = toLocalDate(new Date());
-  const todaysPunches = todayPunches.filter((p) => toLocalDate(new Date(p.timestamp)) === todayKey);
   const punchControl = sessionToControl(session, breaksEnabled);
   const isOpen = session.open;
   const onBreak = session.on_break;
   const [punchNow, setPunchNow] = useState(() => Date.now());
 
-  const workPunches = todayPunches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
+  const workPunches = punches.filter((p) => p.type === 'time_in' || p.type === 'time_out');
   const lastWork = workPunches[workPunches.length - 1] ?? null;
   const lastPunch = lastWork;
 
@@ -132,24 +130,15 @@ export function Home() {
     const gen = ++loadGenRef.current;
     let historyOk = false;
     try {
-      const today = toLocalDate(new Date());
-      // Include yesterday so overnight open sessions still flip Time Out.
-      const historyFrom = toLocalDate(new Date(Date.now() - 86400000));
       await Promise.all([
         api
-          .get<Paginated<Attendance>>(
-            '/api/attendance/history',
-            { from: historyFrom, to: today, per_page: 50 },
-            token,
-          )
+          .get<{ data: Attendance[] }>('/api/attendance/work', undefined, token)
           .then((res) => {
             if (gen !== loadGenRef.current) return;
-            // Newest-first API page → chronological for open-session derivation.
             const sorted = [...res.data].sort(
               (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
             );
-            // Keep just-applied punches if history is empty/stale for a moment.
-            setTodayPunches((prev) => mergeServerAttendance(sorted, prev));
+            setPunches((prev) => mergeServerAttendance(sorted, prev));
             historyOk = true;
           })
           .catch(() => {
@@ -251,7 +240,7 @@ export function Home() {
 
   const finishSuccess = (attendance: Attendance, kind: PendingUpload['kind']) => {
     clearPending();
-    setTodayPunches((prev) => upsertAttendance(prev, attendance));
+    setPunches((prev) => upsertAttendance(prev, attendance));
     setSession((current) => {
       sessionGenRef.current += 1;
       return sessionFromPunch(current, attendance);
@@ -518,8 +507,8 @@ export function Home() {
     : onBreak
         ? 'On Break'
         : isOpen
-          ? 'On Shift'
-          : 'Off Shift';
+          ? 'Clocked in'
+          : 'Clocked out';
 
   const statusTone = loading
     ? colors.muted
@@ -618,8 +607,8 @@ export function Home() {
 
       {result ? <Stamp kind={result.kind} title={result.title} detail={result.detail} /> : null}
 
-      {todaysPunches.length > 0 ? (
-        <SectionCard title="Today's punches">
+      {punches.length > 0 ? (
+        <SectionCard title="Work Punches">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div
               style={{
@@ -638,15 +627,16 @@ export function Home() {
               <div style={{ width: 6, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>Activity</div>
               <div style={{ flexShrink: 0 }}>Time</div>
-              <div style={{ flexShrink: 0, minWidth: 48, textAlign: 'right' }}>Duration</div>
+              <div style={{ flexShrink: 0, minWidth: 72, textAlign: 'right' }}>Duration</div>
             </div>
-            {todaysPunches.map((p, idx) => {
+            {punches.map((p, idx) => {
               const meta: string[] = [];
               if (p.is_late) meta.push('Late');
               if (p.is_overbreak) meta.push('Overbreak');
               if (p.break_kind) {
                 const label = {
                   '15_min': '15 mins break',
+                  '5_min': '5 mins break (test)',
                   lunch_60: '1hr Lunch Break',
                   bio: 'Bio break',
                   phone: 'Phone time',
@@ -660,7 +650,7 @@ export function Home() {
                 p.type === 'time_out' && p.work_minutes != null
                   ? minutesToDuration(p.work_minutes)
                   : p.type === 'break_out' && p.break_minutes != null
-                    ? `${p.break_minutes}m`
+                    ? minutesToDuration(p.break_minutes)
                     : null;
 
               return (
@@ -673,7 +663,7 @@ export function Home() {
                     minHeight: 36,
                     paddingTop: 4,
                     paddingBottom: 4,
-                    borderBottom: idx === todaysPunches.length - 1 ? 'none' : `1px solid ${colors.border}`,
+                    borderBottom: idx === punches.length - 1 ? 'none' : `1px solid ${colors.border}`,
                   }}
                 >
                   <div
@@ -708,7 +698,7 @@ export function Home() {
                     ) : null}
                   </div>
                   <div className="tnum" style={{ fontSize: 13, fontWeight: 700, color: colors.ink, flexShrink: 0 }}>
-                    {formatTime(p.timestamp)}
+                    {formatPunchTime(p.timestamp)}
                   </div>
                   <div
                     className="tnum"
@@ -717,7 +707,7 @@ export function Home() {
                       fontWeight: 700,
                       color: colors.muted,
                       flexShrink: 0,
-                      minWidth: 48,
+                      minWidth: 72,
                       textAlign: 'right',
                     }}
                   >

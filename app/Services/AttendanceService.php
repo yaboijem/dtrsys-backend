@@ -6,13 +6,13 @@ use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
+use App\Jobs\NotifyTimedBreakEndingJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\AttendancePhoto;
 use App\Models\Device;
 use App\Models\Employee;
 use App\Models\GpsLocation;
-use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
@@ -24,7 +24,6 @@ class AttendanceService
 {
     public function __construct(
         private readonly GPSService $gpsService,
-        private readonly ScheduleService $scheduleService,
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly NotificationService $notificationService,
         private readonly ImageService $imageService,
@@ -44,9 +43,8 @@ class AttendanceService
 
             return DB::transaction(function () use ($employee, $data, $now) {
                 $gps = $this->verifyGps($employee, $data);
-                $shift = $this->scheduleService->shiftFor($employee, $now);
 
-                $attendance = $this->createPunch($employee, 'time_in', $now, $data, $shift);
+                $attendance = $this->createPunch($employee, 'time_in', $now, $data);
                 $this->storeGpsLocation($attendance, $employee, $gps);
                 $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
 
@@ -80,10 +78,9 @@ class AttendanceService
                 }
 
                 $gps = $this->verifyGps($employee, $data);
-                $shift = $this->scheduleService->shiftFor($employee, $now);
 
-                $attendance = $this->createPunch($employee, 'time_out', $now, $data, $shift, $timeIn->timestamp);
-                $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now, $shift)]);
+                $attendance = $this->createPunch($employee, 'time_out', $now, $data);
+                $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now)]);
 
                 $this->storeGpsLocation($attendance, $employee, $gps);
                 $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
@@ -122,10 +119,10 @@ class AttendanceService
 
             return DB::transaction(function () use ($employee, $data, $now) {
                 $gps = $this->verifyGps($employee, $data);
-                $shift = $this->scheduleService->shiftFor($employee, $now);
 
-                $attendance = $this->createPunch($employee, 'break_in', $now, $data, $shift);
+                $attendance = $this->createPunch($employee, 'break_in', $now, $data);
                 $this->storeGpsLocation($attendance, $employee, $gps);
+                $this->scheduleTimedBreakAlert($attendance);
 
                 return $attendance->load(['branch', 'gpsLocation']);
             });
@@ -155,9 +152,8 @@ class AttendanceService
     private function writeBreakOut(Employee $employee, Attendance $breakIn, array $data, Carbon $now): Attendance
     {
         $gps = $this->verifyGps($employee, $data);
-        $shift = $this->scheduleService->shiftFor($employee, $now);
         $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($now));
-        $attendance = $this->createPunch($employee, 'break_out', $now, $data, $shift);
+        $attendance = $this->createPunch($employee, 'break_out', $now, $data);
         $attendance->update([
             'break_minutes' => $breakMinutes,
             'is_overbreak' => $breakMinutes > 60,
@@ -209,33 +205,7 @@ class AttendanceService
         }
     }
 
-    public function isLate(Carbon $now, ?Shift $shift): bool
-    {
-        if (! $shift) {
-            return false;
-        }
-
-        $cutoff = $now->copy()->setTimeFromTimeString($shift->start_time)->addMinutes($shift->grace_minutes);
-
-        return $now->gt($cutoff);
-    }
-
-    public function isEarlyTimeout(Carbon $timeOut, ?Shift $shift, ?Carbon $shiftDate = null): bool
-    {
-        if (! $shift) {
-            return false;
-        }
-
-        $end = ($shiftDate ?? $timeOut)->copy()->setTimeFromTimeString($shift->end_time);
-
-        if ($shift->end_time < $shift->start_time) {
-            $end->addDay();
-        }
-
-        return $timeOut->lt($end);
-    }
-
-    public function computeWorkMinutes(Attendance $timeIn, Carbon $timeOut, ?Shift $shift): int
+    public function computeWorkMinutes(Attendance $timeIn, Carbon $timeOut): int
     {
         $total = max(0, (int) $timeIn->timestamp->diffInMinutes($timeOut));
 
@@ -246,34 +216,30 @@ class AttendanceService
             ->where('timestamp', '<=', $timeOut)
             ->sum('break_minutes');
 
-        if ($actualBreakMinutes > 0) {
-            return max(0, $total - $actualBreakMinutes);
+        return max(0, $total - $actualBreakMinutes);
+    }
+
+    private function scheduleTimedBreakAlert(Attendance $attendance): void
+    {
+        if (! in_array($attendance->break_kind, ['15_min', '5_min'], true) || $attendance->expected_end_at === null) {
+            return;
         }
 
-        if (! $shift || ! $shift->break_start || ! $shift->break_end) {
-            return $total;
-        }
-
-        $breakStart = $timeIn->timestamp->copy()->setTimeFromTimeString($shift->break_start);
-        $breakEnd = $timeIn->timestamp->copy()->setTimeFromTimeString($shift->break_end);
-
-        if ($timeIn->timestamp->lte($breakStart) && $timeOut->gte($breakEnd)) {
-            $total -= (int) $breakStart->diffInMinutes($breakEnd);
-        }
-
-        return max(0, $total);
+        NotifyTimedBreakEndingJob::dispatch($attendance->id)
+            ->delay($attendance->expected_end_at->copy()->subMinutes(2));
     }
 
     private function expectedEndAt(?string $kind, Carbon $now): ?Carbon
     {
         return match ($kind) {
             '15_min' => $now->copy()->addMinutes(15),
+            '5_min' => $now->copy()->addMinutes(5), // TEST ONLY: remove before production
             'lunch_60' => $now->copy()->addMinutes(60),
             default => null,
         };
     }
 
-    private function createPunch(Employee $employee, string $type, Carbon $now, array $data, ?Shift $shift, ?Carbon $shiftDate = null): Attendance
+    private function createPunch(Employee $employee, string $type, Carbon $now, array $data): Attendance
     {
         $attributes = [
             'employee_id' => $employee->id,
@@ -285,8 +251,8 @@ class AttendanceService
             'longitude' => $data['longitude'] ?? null,
             'gps_accuracy_meters' => $data['accuracy_meters'] ?? null,
             'is_offline' => (bool) ($data['is_offline'] ?? false),
-            'is_late' => $type === 'time_in' && $this->isLate($now, $shift),
-            'is_early_timeout' => $type === 'time_out' && $this->isEarlyTimeout($now, $shift, $shiftDate),
+            'is_late' => false,
+            'is_early_timeout' => false,
             'break_kind' => $type === 'break_in' ? ($data['break_kind'] ?? null) : null,
             'expected_end_at' => $type === 'break_in' ? $this->expectedEndAt($data['break_kind'] ?? null, $now) : null,
             'break_notify_stage' => $type === 'break_in' ? 'none' : 'none',
@@ -534,6 +500,215 @@ class AttendanceService
             ->first();
 
         return $latest !== null && $latest->type === 'break_in' ? $latest : null;
+    }
+
+    public function latestWorkPunches(Employee $employee)
+    {
+        $boundary = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereIn('type', ['time_in', 'time_out'])
+            ->orderByDesc('timestamp')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($boundary === null) {
+            return Attendance::query()->whereRaw('0 = 1')->get();
+        }
+
+        $timeIn = $boundary->type === 'time_in'
+            ? $boundary
+            : Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->where('type', 'time_in')
+                ->where(function ($query) use ($boundary) {
+                    $query->where('timestamp', '<', $boundary->timestamp)
+                        ->orWhere(function ($query) use ($boundary) {
+                            $query->where('timestamp', $boundary->timestamp)
+                                ->where('id', '<', $boundary->id);
+                        });
+                })
+                ->orderByDesc('timestamp')
+                ->orderByDesc('id')
+                ->first();
+
+        if ($timeIn === null) {
+            return Attendance::query()->whereRaw('0 = 1')->get();
+        }
+
+        $punches = Attendance::query()
+            ->with(['branch', 'photo', 'gpsLocation', 'fraudFlags'])
+            ->where('employee_id', $employee->id)
+            ->where(function ($query) use ($timeIn) {
+                $query->where('timestamp', '>', $timeIn->timestamp)
+                    ->orWhere(function ($query) use ($timeIn) {
+                        $query->where('timestamp', $timeIn->timestamp)
+                            ->where('id', '>=', $timeIn->id);
+                    });
+            });
+
+        if ($boundary->type === 'time_out') {
+            $punches->where(function ($query) use ($boundary) {
+                $query->where('timestamp', '<', $boundary->timestamp)
+                    ->orWhere(function ($query) use ($boundary) {
+                        $query->where('timestamp', $boundary->timestamp)
+                            ->where('id', '<=', $boundary->id);
+                    });
+            });
+        }
+
+        return $punches->orderBy('timestamp')->orderBy('id')->get();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function openSessions(): array
+    {
+        $rows = DB::select(
+            "WITH latest_shift AS (
+                SELECT employee_id, id, type, timestamp,
+                       ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY timestamp DESC, id DESC) AS rn
+                FROM attendance
+                WHERE deleted_at IS NULL
+                  AND type IN ('time_in', 'time_out')
+            ),
+            open_shifts AS (
+                SELECT employee_id, id, timestamp
+                FROM latest_shift
+                WHERE rn = 1 AND type = 'time_in'
+            ),
+            latest_break AS (
+                SELECT a.employee_id, a.break_kind, a.timestamp, a.type,
+                       ROW_NUMBER() OVER (PARTITION BY a.employee_id ORDER BY a.timestamp DESC, a.id DESC) AS rn
+                FROM attendance a
+                INNER JOIN open_shifts o ON o.employee_id = a.employee_id
+                WHERE a.deleted_at IS NULL
+                  AND a.type IN ('break_in', 'break_out')
+                  AND a.timestamp >= o.timestamp
+                  AND a.id > o.id
+            )
+            SELECT o.employee_id, o.timestamp AS time_in_at, b.break_kind, b.timestamp AS break_started_at
+            FROM open_shifts o
+            LEFT JOIN latest_break b
+              ON b.employee_id = o.employee_id AND b.rn = 1 AND b.type = 'break_in'
+            ORDER BY o.timestamp",
+        );
+
+        if ($rows === []) {
+            return [];
+        }
+
+        $employees = Employee::query()
+            ->with(['user', 'branch', 'department'])
+            ->whereIn('id', collect($rows)->pluck('employee_id'))
+            ->get()
+            ->keyBy('id');
+
+        return collect($rows)->map(function ($row) use ($employees) {
+            $employee = $employees->get($row->employee_id);
+            if (! $employee) {
+                return null;
+            }
+
+            $onBreak = $row->break_started_at !== null;
+
+            return [
+                'employee_id' => $employee->id,
+                'employee_code' => $employee->user?->employee_id,
+                'name' => $employee->full_name,
+                'branch' => $employee->branch?->name,
+                'department' => $employee->department?->name,
+                'status' => $onBreak ? 'on_break' : 'time_in',
+                'time_in_at' => Carbon::parse($row->time_in_at)->toISOString(),
+                'break_kind' => $onBreak ? $row->break_kind : null,
+                'break_started_at' => $onBreak ? Carbon::parse($row->break_started_at)->toISOString() : null,
+            ];
+        })->filter()->values()->all();
+    }
+
+    /**
+     * @return list<Attendance>
+     */
+    public function adminOverride(Employee $employee, string $action, ?string $notes = null, ?Carbon $at = null): array
+    {
+        $at ??= now();
+        if ($at->greaterThan(now())) {
+            throw new AttendanceConflictException('Close time cannot be in the future.');
+        }
+
+        $lock = Cache::lock(
+            'attendance:employee:'.$employee->id,
+            config('dtr.attendance.employee_lock_seconds', 15),
+        );
+
+        try {
+            $lock->block(5);
+        } catch (LockTimeoutException) {
+            throw new AttendanceConflictException('Attendance is busy. Please try again.');
+        }
+
+        try {
+            return DB::transaction(function () use ($employee, $action, $notes, $at) {
+                $timeIn = $this->openTimeInAsOf($employee, $at);
+                if (! $timeIn) {
+                    throw new AttendanceConflictException('This employee has no open session.');
+                }
+                if ($at->lt($timeIn->timestamp)) {
+                    throw new AttendanceConflictException('Close time must be after time in.');
+                }
+
+                $break = $this->openBreakFor($employee, $at);
+                $note = $notes ? 'Admin override: '.$notes : 'Admin override';
+                $created = [];
+
+                if ($action === 'break_out') {
+                    if (! $break) {
+                        throw new AttendanceConflictException('This employee is not on break.');
+                    }
+                    if ($at->lt($break->timestamp)) {
+                        throw new AttendanceConflictException('Close time must be after the break started.');
+                    }
+                    $created[] = $this->writeAdminBreakOut($employee, $break, $at, $note);
+
+                    return $created;
+                }
+
+                if ($break) {
+                    if ($at->lt($break->timestamp)) {
+                        throw new AttendanceConflictException('Close time must be after the break started.');
+                    }
+                    $created[] = $this->writeAdminBreakOut($employee, $break, $at, $note);
+                }
+
+                $punch = $this->createPunch($employee, 'time_out', $at, [
+                    'source' => 'admin',
+                    'notes' => $note,
+                ]);
+                $punch->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $at)]);
+                $created[] = $punch->fresh();
+
+                return $created;
+            });
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function writeAdminBreakOut(Employee $employee, Attendance $breakIn, Carbon $at, string $note): Attendance
+    {
+        $breakMinutes = max(0, (int) $breakIn->timestamp->diffInMinutes($at));
+        $attendance = $this->createPunch($employee, 'break_out', $at, [
+            'source' => 'admin',
+            'notes' => $note,
+        ]);
+        $attendance->update([
+            'break_minutes' => $breakMinutes,
+            'is_overbreak' => $breakMinutes > 60,
+            'break_kind' => $breakIn->break_kind,
+            'expected_end_at' => $breakIn->expected_end_at,
+        ]);
+
+        return $attendance->fresh();
     }
 
     public function sessionFor(Employee $employee): array

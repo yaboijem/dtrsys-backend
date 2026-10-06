@@ -10,7 +10,7 @@ class CheckOpenBreaks extends Command
 {
     protected $signature = 'dtr:check-open-breaks';
 
-    protected $description = 'Notify employees with open breaks at 50 and 60 minutes';
+    protected $description = 'Notify employees when a 15-minute break is ending, and at 50 and 60 minutes';
 
     public function handle(NotificationService $notifications): int
     {

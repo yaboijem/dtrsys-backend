@@ -28,7 +28,7 @@ class BranchController extends Controller
             })
             ->when($request->filled('is_active'), fn ($q) => $q->where('is_active', $request->boolean('is_active')))
             ->orderBy('name')
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($this->perPage($request));
 
         return BranchResource::collection($branches);
     }

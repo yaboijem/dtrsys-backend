@@ -48,14 +48,23 @@ export interface DashboardSummary {
   date: string;
   time_ins_today: number;
   time_ins_yesterday: number;
-  late_ins_today: number;
-  late_ins_yesterday: number;
-  early_time_outs_today: number;
-  early_time_outs_yesterday: number;
-  absent_today: number;
-  absent_yesterday: number;
   open_fraud_flags: number;
   open_fraud_by_severity: { high: number; medium: number; low: number };
+  employees_total: number;
+  on_break: number;
+  on_break_by_kind: Record<string, number>;
+}
+
+export interface OpenSession {
+  employee_id: number;
+  employee_code: string | null;
+  name: string;
+  branch: string | null;
+  department: string | null;
+  status: 'time_in' | 'on_break';
+  time_in_at: string;
+  break_kind: string | null;
+  break_started_at: string | null;
 }
 
 export type AttendanceType = 'time_in' | 'time_out' | 'break_in' | 'break_out';
@@ -218,26 +227,8 @@ export interface Position {
   created_at?: string;
 }
 
-export interface Shift {
-  id: number;
-  name: string;
-  start_time: string;
-  end_time: string;
-  grace_minutes: number | null;
-  break_start: string | null;
-  break_end: string | null;
-  is_active: boolean;
-}
-
 export interface AppSettings {
   breaks_enabled: boolean;
-}
-
-export interface ScheduleAdmin {
-  id: number;
-  date: string;
-  employee: { id: number; employee_id: string; name: string; department: string; branch_id: number };
-  shift: { id: number; name: string; start_time: string; end_time: string; grace_minutes: number | null };
 }
 
 export interface AuditLog {

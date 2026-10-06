@@ -221,45 +221,7 @@ class AttendanceAdminApiTest extends TestCase
         $this->actingAs($manager->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
             ->assertOk()
             ->assertJsonPath('time_ins_today', 1)
-            ->assertJsonPath('late_ins_today', 1)
             ->assertJsonPath('open_fraud_flags', 1);
-    }
-
-    #[Test]
-    public function dashboard_counts_absent_employees(): void
-    {
-        $branch = Branch::factory()->create();
-        $hr = $this->makeUser('HR', $branch);
-
-        $present = Employee::factory()->create(['branch_id' => $branch->id]);
-        $present->user->update(['is_active' => true]);
-        Attendance::factory()->create([
-            'employee_id' => $present->id,
-            'branch_id' => $branch->id,
-            'type' => 'time_in',
-            'timestamp' => now(),
-        ]);
-        Employee::factory()->create(['branch_id' => $branch->id]);
-        Employee::factory()->create(['branch_id' => $branch->id]);
-
-        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
-            ->assertOk()
-            ->assertJsonPath('time_ins_today', 1)
-            ->assertJsonPath('absent_today', 3);
-    }
-
-    #[Test]
-    public function dashboard_counts_early_time_outs(): void
-    {
-        $branch = Branch::factory()->create();
-        $hr = $this->makeUser('HR', $branch);
-
-        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => true, 'timestamp' => now()]);
-        $this->makePunch($branch, 'IT', ['type' => 'time_out', 'is_early_timeout' => false, 'timestamp' => now()]);
-
-        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
-            ->assertOk()
-            ->assertJsonPath('early_time_outs_today', 1);
     }
 
     #[Test]
@@ -278,5 +240,115 @@ class AttendanceAdminApiTest extends TestCase
             ->assertJsonStructure([
                 'open_fraud_by_severity' => ['high', 'medium', 'low'],
             ]);
+    }
+
+    #[Test]
+    public function dashboard_counts_people_on_break_by_kind_and_employees(): void
+    {
+        $branchA = Branch::factory()->create();
+        $branchB = Branch::factory()->create();
+        $hr = $this->makeUser('HR', $branchA);
+        $manager = $this->makeUser('Branch Manager', $branchA);
+
+        $this->openBreak($branchA, 'lunch_60');
+        $this->returnedFromBreak($branchA);
+        $this->openBreak($branchB, 'coaching');
+        $this->clockedOutAfterBreak($branchA);
+
+        $this->actingAs($hr->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
+            ->assertOk()
+            ->assertJsonPath('on_break', 2)
+            ->assertJsonPath('on_break_by_kind.lunch_60', 1)
+            ->assertJsonPath('on_break_by_kind.coaching', 1)
+            ->assertJsonPath('on_break_by_kind.bio', 0)
+            ->assertJsonPath('employees_total', 6);
+
+        $this->actingAs($manager->user, 'sanctum')->getJson('/api/admin/dashboard/summary')
+            ->assertOk()
+            ->assertJsonPath('on_break', 1)
+            ->assertJsonPath('on_break_by_kind.lunch_60', 1)
+            ->assertJsonPath('on_break_by_kind.coaching', 0)
+            ->assertJsonPath('employees_total', 5);
+    }
+
+    private function openBreak(Branch $branch, string $kind): void
+    {
+        $employee = Employee::factory()->create(['branch_id' => $branch->id]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'time_in',
+            'timestamp' => now()->subHours(3),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'break_in',
+            'break_kind' => $kind,
+            'timestamp' => now()->subMinutes(20),
+            'is_late' => false,
+        ]);
+    }
+
+    private function returnedFromBreak(Branch $branch): void
+    {
+        $employee = Employee::factory()->create(['branch_id' => $branch->id]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'time_in',
+            'timestamp' => now()->subHours(4),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'break_in',
+            'break_kind' => 'bio',
+            'timestamp' => now()->subHours(2),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'break_out',
+            'timestamp' => now()->subHour(),
+            'is_late' => false,
+        ]);
+    }
+
+    private function clockedOutAfterBreak(Branch $branch): void
+    {
+        $employee = Employee::factory()->create(['branch_id' => $branch->id]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'time_in',
+            'timestamp' => now()->subHours(5),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'break_in',
+            'break_kind' => 'huddle',
+            'timestamp' => now()->subHours(3),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'break_out',
+            'timestamp' => now()->subHours(2),
+            'is_late' => false,
+        ]);
+        Attendance::factory()->create([
+            'employee_id' => $employee->id,
+            'branch_id' => $branch->id,
+            'type' => 'time_out',
+            'timestamp' => now()->subMinutes(30),
+            'is_late' => false,
+        ]);
     }
 }

@@ -61,11 +61,6 @@ class Employee extends Model
         return $this->hasMany(Device::class);
     }
 
-    public function schedules(): HasMany
-    {
-        return $this->hasMany(Schedule::class);
-    }
-
     public function latestDevice(): HasOne
     {
         return $this->hasOne(Device::class)->latestOfMany();

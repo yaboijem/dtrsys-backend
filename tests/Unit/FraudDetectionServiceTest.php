@@ -104,7 +104,7 @@ class FraudDetectionServiceTest extends TestCase
     }
 
     #[Test]
-    public function it_flags_repeated_identical_coordinates(): void
+    public function it_does_not_flag_a_stationary_device_as_gps_spoof(): void
     {
         $employee = Employee::factory()->create();
         $previous = Attendance::factory()->create([
@@ -139,10 +139,7 @@ class FraudDetectionServiceTest extends TestCase
 
         $flags = $this->service()->evaluate($current->fresh());
 
-        $spoof = collect($flags)->firstWhere('type', 'gps_spoof');
-
-        $this->assertNotNull($spoof);
-        $this->assertSame('low', $spoof->severity);
+        $this->assertNull(collect($flags)->firstWhere('type', 'gps_spoof'));
     }
 
     #[Test]

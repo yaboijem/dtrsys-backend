@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\NotifyTimedBreakEndingJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Branch;
@@ -13,6 +14,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -297,6 +299,31 @@ class BreakAttendanceTest extends TestCase
 
         $count = Notification::sent($employee->user, GenericNotification::class)->count();
         $this->assertSame(2, $count);
+    }
+
+    #[Test]
+    public function fifteen_minute_break_schedules_one_alert_for_two_minutes_left(): void
+    {
+        Notification::fake();
+        Queue::fake();
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => '15_min'])
+            ->assertCreated();
+
+        $breakIn = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        Queue::assertPushed(NotifyTimedBreakEndingJob::class, function (NotifyTimedBreakEndingJob $job) use ($breakIn) {
+            return $job->attendanceId === $breakIn->id;
+        });
+
+        $job = new NotifyTimedBreakEndingJob($breakIn->id);
+        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(\App\Services\NotificationService::class));
+
+        $this->assertSame('ending', $breakIn->fresh()->break_notify_stage);
+        $this->assertSame(1, Notification::sent($employee->user, GenericNotification::class)->count());
     }
 
     #[Test]

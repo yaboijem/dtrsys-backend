@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthContext';
 import { LocationPicker } from '../components/LocationPicker';
 import { PageHeader } from '../components/PageHeader';
 import { Badge, Button, Card, ErrorState, Field, Input, Toggle } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 
@@ -30,6 +30,7 @@ export function BranchesPage() {
   const { token } = useAuth();
   const { notify } = useToast();
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<Branch[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function BranchesPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await listBranches({ page, per_page: 20 }, token);
+      const result = await listBranches({ page, per_page: perPage }, token);
       setData(result.data);
       setPaginated(result);
     } catch (err) {
@@ -57,7 +58,7 @@ export function BranchesPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page]);
+  }, [token, page, perPage]);
 
   useEffect(() => {
     void load();
@@ -230,7 +231,18 @@ export function BranchesPage() {
                 },
               ]}
             />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+            {paginated && (
+              <PaginationBar
+                page={page}
+                paginated={paginated}
+                perPage={perPage}
+                onPageChange={setPage}
+                onPerPageChange={(next) => {
+                  setPerPage(next);
+                  setPage(1);
+                }}
+              />
+            )}
           </>
         )}
       </Card>

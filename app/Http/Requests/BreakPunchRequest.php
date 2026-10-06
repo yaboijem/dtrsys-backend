@@ -27,7 +27,7 @@ class BreakPunchRequest extends FormRequest
             'break_kind' => [
                 Rule::requiredIf(fn () => $this->is('api/attendance/break-in')),
                 Rule::excludeIf(fn () => ! $this->is('api/attendance/break-in')),
-                Rule::in(['15_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training']),
+                Rule::in(['15_min', '5_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training']),
             ],
         ];
     }

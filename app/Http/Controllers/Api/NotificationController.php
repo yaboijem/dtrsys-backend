@@ -17,7 +17,7 @@ class NotificationController extends Controller
             ->notifications()
             ->when($request->boolean('unread_only'), fn ($query) => $query->whereNull('read_at'))
             ->latest()
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($this->perPage($request));
 
         return NotificationResource::collection($notifications);
     }

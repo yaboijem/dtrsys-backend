@@ -17,7 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { Avatar, Badge, Button, Card, ErrorState, Field, Input, Select, Toggle } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { DropdownItem, DropdownMenu } from '../components/DropdownMenu';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
@@ -78,6 +78,7 @@ export function EmployeesPage() {
   const [filters, setFilters] = useState<Filters>({ search: '', branch_id: '', department_id: '' });
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -85,8 +86,6 @@ export function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Employee[]>([]);
   const [paginated, setPaginated] = useState<Paginated<Employee> | null>(null);
-
-  const PAGE_SIZE = 20;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -130,7 +129,7 @@ export function EmployeesPage() {
       const result = await listEmployees(
         {
           page,
-          per_page: PAGE_SIZE,
+          per_page: perPage,
           search: filters.search.trim() || undefined,
           branch_id: filters.branch_id || undefined,
           department_id: filters.department_id || undefined,
@@ -146,7 +145,7 @@ export function EmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, filters.search, filters.branch_id, filters.department_id, PAGE_SIZE]);
+  }, [token, page, perPage, filters.search, filters.branch_id, filters.department_id]);
 
   useEffect(() => {
     void loadBranches();
@@ -417,7 +416,16 @@ export function EmployeesPage() {
               ]}
             />
             {paginated && paginated.total > 0 && (
-              <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />
+              <PaginationBar
+                page={page}
+                paginated={paginated}
+                perPage={perPage}
+                onPageChange={setPage}
+                onPerPageChange={(next) => {
+                  setPerPage(next);
+                  setPage(1);
+                }}
+              />
             )}
           </>
         )}

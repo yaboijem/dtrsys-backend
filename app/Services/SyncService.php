@@ -21,7 +21,6 @@ class SyncService
         private readonly GPSService $gpsService,
         private readonly FraudDetectionService $fraudDetectionService,
         private readonly AttendanceService $attendanceService,
-        private readonly ScheduleService $scheduleService,
     ) {}
 
     /**
@@ -205,8 +204,6 @@ class SyncService
         $workMinutes = null;
         $breakMinutes = null;
         $isOverbreak = false;
-        $isEarlyTimeout = false;
-
         $at = \Illuminate\Support\Carbon::instance($timestamp);
         $this->assertTransitionAllowed($employee, $type, $at);
 
@@ -218,17 +215,7 @@ class SyncService
 
         if ($type === 'time_out') {
             $timeIn = $this->attendanceService->openPunchFor($employee, 'time_in', $at);
-            $shift = $this->scheduleService->shiftFor($employee, $timestamp);
-            $workMinutes = $this->attendanceService->computeWorkMinutes(
-                $timeIn,
-                $at,
-                $shift,
-            );
-            $isEarlyTimeout = $this->attendanceService->isEarlyTimeout(
-                $at,
-                $shift,
-                $timeIn->timestamp,
-            );
+            $workMinutes = $this->attendanceService->computeWorkMinutes($timeIn, $at);
         }
 
         $attendance = Attendance::create([
@@ -243,7 +230,7 @@ class SyncService
             'gps_accuracy_meters' => $record['accuracy_meters'] ?? null,
             'is_offline' => true,
             'is_late' => false,
-            'is_early_timeout' => $isEarlyTimeout,
+            'is_early_timeout' => false,
             'work_minutes' => $workMinutes,
             'break_minutes' => $breakMinutes,
             'is_overbreak' => $isOverbreak,

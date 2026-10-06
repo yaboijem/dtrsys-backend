@@ -71,15 +71,30 @@ export function formatClockTime(time: string | null | undefined): string {
 }
 
 export function minutesToDuration(minutes: number | null | undefined): string {
-  if (minutes === null || minutes === undefined) {
+  if (minutes === null || minutes === undefined || Number.isNaN(minutes)) {
     return '—';
   }
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) {
-    return `${m}m`;
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}hr ${m}m`;
+}
+
+export function formatPunchTime(iso: string | null | undefined, now = new Date()): string {
+  if (!iso) {
+    return '—';
   }
-  return `${h}h ${m}m`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  const time = formatTime(iso);
+  if (toLocalDate(date) === toLocalDate(now)) {
+    return time;
+  }
+  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${day}, ${time}`;
 }
 
 export function distanceLabel(meters: number | null | undefined): string {
@@ -119,87 +134,5 @@ export function startOfDay(d: Date): Date {
   return x;
 }
 
-export function parseClockToToday(time: string | null | undefined): Date | null {
-  if (!time) return null;
-  const match = /^(\d{1,2}):(\d{2})/.exec(time);
-  if (!match) return null;
-  const now = new Date();
-  const out = new Date(now);
-  out.setHours(Number(match[1]), Number(match[2]), 0, 0);
-  return out;
-}
 
-export function shiftProgress(start: string | null | undefined, end: string | null | undefined): number {
-  const s = parseClockToToday(start);
-  const e = parseClockToToday(end);
-  if (!s || !e) return 0;
-  let endMs = e.getTime();
-  if (endMs <= s.getTime()) endMs += 86400000;
-  const now = Date.now();
-  if (now <= s.getTime()) return 0;
-  if (now >= endMs) return 100;
-  return Math.round(((now - s.getTime()) / (endMs - s.getTime())) * 100);
-}
-
-export type ShiftSkyKind = 'sun' | 'mid' | 'night';
-
-/** Classify shift sky from start/end clock times (overnight → night). */
-export function shiftSkyKind(
-  start: string | null | undefined,
-  end: string | null | undefined,
-): ShiftSkyKind {
-  const match = start ? /^(\d{1,2}):(\d{2})/.exec(start) : null;
-  if (!match) {
-    return 'mid';
-  }
-  const startHour = Number(match[1]);
-  const endMatch = end ? /^(\d{1,2}):(\d{2})/.exec(end) : null;
-  const endHour = endMatch ? Number(endMatch[1]) : null;
-  // Overnight shift (e.g. 22:00–06:00)
-  if (endHour != null && endHour <= startHour) {
-    return 'night';
-  }
-  if (startHour >= 5 && startHour < 11) {
-    return 'sun';
-  }
-  if (startHour >= 11 && startHour < 17) {
-    return 'mid';
-  }
-  return 'night';
-}
-
-export function shiftSkyStyle(kind: ShiftSkyKind): {
-  background: string;
-  border: string;
-  labelColor: string;
-  valueColor: string;
-  iconColor: string;
-} {
-  switch (kind) {
-    case 'sun':
-      return {
-        background: 'linear-gradient(145deg, #7dd3fc 0%, #bae6fd 42%, #fde68a 100%)',
-        border: '1px solid rgba(14, 165, 233, 0.35)',
-        labelColor: '#0c4a6e',
-        valueColor: '#0f172a',
-        iconColor: '#ea580c',
-      };
-    case 'mid':
-      return {
-        background: 'linear-gradient(145deg, #fb923c 0%, #fdba74 40%, #fed7aa 72%, #ffedd5 100%)',
-        border: '1px solid rgba(234, 88, 12, 0.35)',
-        labelColor: '#9a3412',
-        valueColor: '#0f172a',
-        iconColor: '#ea580c',
-      };
-    case 'night':
-      return {
-        background: 'linear-gradient(145deg, #0f172a 0%, #1e3a5f 55%, #312e81 100%)',
-        border: '1px solid rgba(148, 163, 184, 0.25)',
-        labelColor: '#cbd5e1',
-        valueColor: '#f8fafc',
-        iconColor: '#fde68a',
-      };
-  }
-}
 

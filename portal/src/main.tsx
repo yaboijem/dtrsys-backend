@@ -23,11 +23,6 @@ try {
 } catch {
   // storage unavailable
 }
-if ("serviceWorker" in navigator) {
-  void navigator.serviceWorker.getRegistrations().then((regs) => {
-    for (const reg of regs) void reg.unregister();
-  });
-}
 void indexedDB.deleteDatabase("dtr_portal");
 
 createRoot(document.getElementById("root")!).render(

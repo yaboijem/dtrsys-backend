@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, Clock, Coffee, LogIn, LogOut, MapPin, Monitor, StickyNote } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { listAttendance, listBranches } from '../api/endpoints';
+import { getAppSettings, listAttendance, listBranches, updateAppSettings } from '../api/endpoints';
 import type { AttendanceAdmin, AttendanceSource, AttendanceType, Branch, Paginated } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { EmployeePicker } from '../components/EmployeePicker';
 import { PageHeader } from '../components/PageHeader';
-import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, Input, Select } from '../components/ui';
-import { DataTable, PaginationBar } from '../components/DataTable';
+import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, Input, Select, Toggle } from '../components/ui';
+import { useToast } from '../components/Toast';
+import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataTable';
 import { Drawer } from '../components/Drawer';
 import { LocationMap } from '../components/LocationMap';
 import { PhotoViewer } from '../components/PhotoViewer';
@@ -52,12 +53,15 @@ function filtersFromParams(sp: URLSearchParams): Filters {
 }
 
 export function AttendancePage() {
-  const { token } = useAuth();
+  const { token, hasRole } = useAuth();
+  const { notify } = useToast();
+  const canToggleBreaks = hasRole('Super Admin', 'HR');
   const [searchParams] = useSearchParams();
   const initial = useMemo(() => filtersFromParams(searchParams), [searchParams]);
   const [filters, setFilters] = useState<Filters>(initial);
   const [applied, setApplied] = useState<Filters>(initial);
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<AttendanceAdmin[] | null>(null);
   const [paginated, setPaginated] = useState<Paginated<unknown> | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -66,6 +70,32 @@ export function AttendancePage() {
   const [selected, setSelected] = useState<AttendanceAdmin | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [breaksEnabled, setBreaksEnabled] = useState<boolean | null>(null);
+  const [breaksToggleBusy, setBreaksToggleBusy] = useState(false);
+
+  useEffect(() => {
+    if (!token || !canToggleBreaks) return;
+    void getAppSettings(token)
+      .then((s) => setBreaksEnabled(s.breaks_enabled))
+      .catch(() => setBreaksEnabled(null));
+  }, [token, canToggleBreaks]);
+
+  async function toggleBreaksEnabled() {
+    if (!token || breaksEnabled === null || breaksToggleBusy) return;
+    const next = !breaksEnabled;
+    setBreaksEnabled(next);
+    setBreaksToggleBusy(true);
+    try {
+      const s = await updateAppSettings({ breaks_enabled: next }, token);
+      setBreaksEnabled(s.breaks_enabled);
+      notify('success', s.breaks_enabled ? 'On Break/Done Break enabled.' : 'On Break/Done Break disabled.');
+    } catch (err) {
+      setBreaksEnabled(!next);
+      notify('error', err instanceof ApiError ? err.message : 'Failed to update break setting.');
+    } finally {
+      setBreaksToggleBusy(false);
+    }
+  }
 
   useEffect(() => {
     const next = filtersFromParams(searchParams);
@@ -93,7 +123,7 @@ export function AttendancePage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | number | boolean | undefined> = { page, per_page: 20 };
+      const params: Record<string, string | number | boolean | undefined> = { page, per_page: perPage };
       if (applied.date_from) params.date_from = applied.date_from;
       if (applied.date_to) params.date_to = applied.date_to;
       if (applied.branch_id) params.branch_id = applied.branch_id;
@@ -112,7 +142,7 @@ export function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, applied]);
+  }, [token, page, perPage, applied]);
 
   useEffect(() => {
     void load();
@@ -148,9 +178,22 @@ export function AttendancePage() {
         title="Attendance"
         description="Review punches, selfies and verification results"
         actions={
-          <Button variant="secondary" onClick={clearFilters} disabled={!dirty && !hasApplied}>
-            Clear filters
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {canToggleBreaks && breaksEnabled !== null ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-1.5">
+                <Toggle
+                  checked={breaksEnabled}
+                  onChange={() => void toggleBreaksEnabled()}
+                  disabled={breaksToggleBusy}
+                  label="On Break/Done Break"
+                />
+                <span className="text-xs font-medium text-text">On Break/Done Break</span>
+              </div>
+            ) : null}
+            <Button variant="secondary" onClick={clearFilters} disabled={!dirty && !hasApplied}>
+              Clear filters
+            </Button>
+          </div>
         }
       />
 
@@ -177,8 +220,8 @@ export function AttendancePage() {
                 <option value="">All types</option>
                 <option value="time_in">Time in</option>
                 <option value="time_out">Time out</option>
-                <option value="break_in">Break in</option>
-                <option value="break_out">Break out</option>
+                <option value="break_in">On Break</option>
+                <option value="break_out">Done Break</option>
               </Select>
             </Field>
           </div>
@@ -290,11 +333,11 @@ export function AttendancePage() {
                       </Badge>
                     ) : r.type === 'break_in' ? (
                       <Badge tone="amber">
-                        <Coffee size={11} /> Break in
+                        <Coffee size={11} /> On Break
                       </Badge>
                     ) : (
                       <Badge tone="amber">
-                        <Coffee size={11} /> Break out
+                        <Coffee size={11} /> Done Break
                       </Badge>
                     ),
                 },
@@ -351,7 +394,18 @@ export function AttendancePage() {
                 },
               ]}
             />
-            {paginated && <PaginationBar page={page} paginated={paginated} onPageChange={setPage} />}
+            {paginated && (
+              <PaginationBar
+                page={page}
+                paginated={paginated}
+                perPage={perPage}
+                onPageChange={setPage}
+                onPerPageChange={(next) => {
+                  setPerPage(next);
+                  setPage(1);
+                }}
+              />
+            )}
           </>
         )}
       </Card>
@@ -388,9 +442,9 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
         ) : record.type === 'time_out' ? (
           <Badge tone="blue">Time out</Badge>
         ) : record.type === 'break_in' ? (
-          <Badge tone="amber">Break in</Badge>
+          <Badge tone="amber">On Break</Badge>
         ) : (
-          <Badge tone="amber">Break out</Badge>
+          <Badge tone="amber">Done Break</Badge>
         )}
       </div>
 

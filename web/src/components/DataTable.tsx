@@ -12,7 +12,13 @@ export function DataTable<T>({
   emptyDescription,
   onRowClick,
 }: {
-  columns: { key: string; header: ReactNode; className?: string; render: (row: T) => ReactNode }[];
+  columns: {
+    key: string;
+    header: ReactNode;
+    className?: string;
+    align?: 'left' | 'center' | 'right';
+    render: (row: T) => ReactNode;
+  }[];
   rows: T[];
   keyOf: (row: T) => string | number;
   loading?: boolean;
@@ -51,7 +57,11 @@ export function DataTable<T>({
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-border bg-slate-50 text-[11px] uppercase tracking-wide text-muted">
             {columns.map((col) => (
-              <th key={col.key} className={cn('px-4 py-2.5 font-semibold', col.className)}>
+              <th
+                key={col.key}
+                className={cn('px-4 py-2.5 font-semibold', col.className)}
+                style={col.align ? { textAlign: col.align } : undefined}
+              >
                 {col.header}
               </th>
             ))}
@@ -76,7 +86,11 @@ export function DataTable<T>({
               )}
             >
               {columns.map((col) => (
-                <td key={col.key} className={cn('px-4 py-3 align-middle', col.className)}>
+                <td
+                  key={col.key}
+                  className={cn('px-4 py-3 align-middle', col.className)}
+                  style={col.align ? { textAlign: col.align } : undefined}
+                >
                   {col.render(row)}
                 </td>
               ))}
@@ -88,24 +102,47 @@ export function DataTable<T>({
   );
 }
 
+export const PAGE_SIZES = [10, 30, 50, 100, 500] as const;
+export const DEFAULT_PAGE_SIZE: number = PAGE_SIZES[0];
+
 export function PaginationBar({
   page,
   paginated,
+  perPage,
   onPageChange,
+  onPerPageChange,
 }: {
   page: number;
   paginated: Paginated<unknown>;
+  perPage: number;
   onPageChange: (page: number) => void;
+  onPerPageChange: (perPage: number) => void;
 }) {
   if (paginated.total === 0) return null;
   const from = paginated.from ?? 0;
   const to = paginated.to ?? 0;
   return (
-    <div className="flex items-center justify-between border-t border-border px-4 py-3 text-xs text-muted">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted">
       <span className="font-mono tnum">
         Showing {from}–{to} of {paginated.total}
       </span>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">
+          <span>Show</span>
+          <select
+            value={perPage}
+            aria-label="Rows per page"
+            onChange={(e) => onPerPageChange(Number(e.target.value))}
+            className="h-8 rounded-lg border border-border bg-white px-2 text-xs text-text"
+          >
+            {PAGE_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-center gap-1">
         <button
           type="button"
           disabled={!paginated.prev_page_url}
@@ -127,6 +164,7 @@ export function PaginationBar({
         >
           <ChevronRight size={14} />
         </button>
+        </div>
       </div>
     </div>
   );

@@ -11,9 +11,14 @@ use App\Notifications\GenericNotification;
 
 class NotificationService
 {
+    public function __construct(
+        private readonly WebPushService $webPushService,
+    ) {}
+
     public function send(User $user, string $title, string $body, array $data = []): void
     {
         $user->notify(new GenericNotification($title, $body, $data));
+        $this->webPushService->send($user, $title, $body, $data);
     }
 
     public function fraudFlagCreated(FraudFlag $flag): void
@@ -47,6 +52,18 @@ class NotificationService
                 'action' => $action,
                 'status' => $home->status,
             ],
+        );
+    }
+
+    public function timedBreakEnding(User $user, string $kind): void
+    {
+        $label = $kind === '5_min' ? '5-minute' : '15-minute';
+
+        $this->send(
+            $user,
+            'Break ending soon',
+            "2 minutes left on your {$label} break. Please Done Break.",
+            ['type' => 'break_ending', 'break_kind' => $kind],
         );
     }
 

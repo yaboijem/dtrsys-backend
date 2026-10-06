@@ -27,7 +27,7 @@ class DepartmentController extends Controller
                 $q->where('name', 'like', "%{$search}%");
             })
             ->orderBy('name')
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($this->perPage($request));
 
         return DepartmentResource::collection($departments);
     }

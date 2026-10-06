@@ -6,8 +6,6 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
-use App\Models\Schedule;
-use App\Models\Shift;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -43,19 +41,6 @@ class AdminCrudTest extends TestCase
             'latitude' => 10.3157,
             'longitude' => 123.8854,
             'radius_meters' => 300,
-            'is_active' => true,
-        ], $overrides);
-    }
-
-    private function shiftPayload(array $overrides = []): array
-    {
-        return array_merge([
-            'name' => 'Morning Shift',
-            'start_time' => '08:00:00',
-            'end_time' => '17:00:00',
-            'grace_minutes' => 10,
-            'break_start' => '12:00:00',
-            'break_end' => '13:00:00',
             'is_active' => true,
         ], $overrides);
     }
@@ -124,34 +109,6 @@ class AdminCrudTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('branches', ['id' => $branch->id]);
-    }
-
-    public function test_hr_can_update_shift(): void
-    {
-        $shift = Shift::factory()->create();
-        $admin = $this->makeAdmin();
-
-        $this->actingAs($admin->user, 'sanctum')
-            ->patchJson("/api/admin/shifts/{$shift->id}", ['grace_minutes' => 15])
-            ->assertOk()
-            ->assertJsonPath('data.grace_minutes', 15);
-    }
-
-    public function test_shift_in_use_cannot_be_deleted(): void
-    {
-        $shift = Shift::factory()->create();
-        $employee = Employee::factory()->create();
-        Schedule::create([
-            'employee_id' => $employee->id,
-            'shift_id' => $shift->id,
-            'date' => now()->toDateString(),
-        ]);
-        $admin = $this->makeAdmin();
-
-        $this->actingAs($admin->user, 'sanctum')
-            ->deleteJson("/api/admin/shifts/{$shift->id}")
-            ->assertStatus(422)
-            ->assertJsonPath('code', 'shift_in_use');
     }
 
     public function test_hr_can_create_employee_with_account_and_role(): void

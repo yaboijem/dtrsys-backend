@@ -2,11 +2,10 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
-  CalendarDays,
   CalendarClock,
-  Clock,
   Flag,
   Home,
+  Timer,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -17,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { dashboardSummary } from '../api/endpoints';
+import { dashboardBadges } from '../api/endpoints';
 import { cn } from '../lib/cn';
 import { Avatar } from './ui';
 
@@ -34,6 +33,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ALL_ROLES },
   { to: '/attendance', label: 'Attendance', icon: <CalendarClock size={18} />, roles: ALL_ROLES },
+  { to: '/open-sessions', label: 'Open Sessions', icon: <Timer size={18} />, roles: ['Super Admin', 'HR'] },
   {
     to: '/fraud-flags',
     label: 'Fraud Flags',
@@ -41,12 +41,10 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['Super Admin', 'HR', 'Branch Manager'],
     badgeKey: 'fraud',
   },
-  { to: '/schedules', label: 'Schedules', icon: <CalendarDays size={18} />, roles: ALL_ROLES },
   { to: '/employees', label: 'Employees', icon: <Users size={18} />, roles: ['Super Admin', 'HR'] },
   { to: '/org-structure', label: 'Org structure', icon: <Network size={18} />, roles: ALL_ROLES },
   { to: '/home-locations', label: 'Home locations', icon: <Home size={18} />, roles: ['Super Admin', 'HR'] },
   { to: '/branches', label: 'Branches', icon: <Building2 size={18} />, roles: ['Super Admin', 'HR'] },
-  { to: '/shifts', label: 'Shifts', icon: <Clock size={18} />, roles: ['Super Admin', 'HR'] },
 ];
 
 function NavBadge({ count }: { count: number }) {
@@ -131,7 +129,7 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    void dashboardSummary(token)
+    void dashboardBadges(token)
       .then((s) => {
         if (!cancelled) {
           setBadges({
@@ -145,7 +143,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [token, location.pathname]);
+  }, [token]);
 
   useEffect(() => {
     if (!mobileOpen) return;

@@ -35,7 +35,7 @@ class AttendanceAdminController extends Controller
         $this->applyRoleScope($query, $request->user(), 'branch_id');
 
         $records = $query->latest('timestamp')
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($this->perPage($request));
 
         return AttendanceAdminResource::collection($records);
     }

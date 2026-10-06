@@ -158,4 +158,43 @@ class AttendanceSessionTest extends TestCase
 
         $this->assertSame(1, Attendance::where('employee_id', $employee->id)->where('type', 'time_in')->count());
     }
+
+    #[Test]
+    public function work_punches_span_the_shift_not_the_calendar_day(): void
+    {
+        $employee = $this->employee();
+        $this->punch($employee, 'time_in', '2026-10-03 13:58:02');
+        $this->punch($employee, 'time_out', '2026-10-03 13:58:25');
+        $timeIn = $this->punch($employee, 'time_in', '2026-10-05 02:28:13');
+        $this->punch($employee, 'break_in', '2026-10-05 02:30:53');
+        $this->punch($employee, 'break_out', '2026-10-06 04:02:43');
+        $timeOut = $this->punch($employee, 'time_out', '2026-10-06 04:03:23');
+        $timeOut->update(['work_minutes' => 4]);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->getJson('/api/attendance/work')
+            ->assertOk()
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.type', 'time_in')
+            ->assertJsonPath('data.0.id', $timeIn->id)
+            ->assertJsonPath('data.3.type', 'time_out')
+            ->assertJsonPath('data.3.id', $timeOut->id)
+            ->assertJsonPath('data.3.work_minutes', 4);
+    }
+
+    #[Test]
+    public function work_punches_keep_an_open_shift_from_a_previous_day(): void
+    {
+        $employee = $this->employee();
+        $timeIn = $this->punch($employee, 'time_in', '2026-10-05 02:28:13');
+        $this->punch($employee, 'break_in', '2026-10-05 02:30:53');
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->getJson('/api/attendance/work')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.type', 'time_in')
+            ->assertJsonPath('data.0.id', $timeIn->id)
+            ->assertJsonPath('data.1.type', 'break_in');
+    }
 }

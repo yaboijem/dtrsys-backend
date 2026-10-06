@@ -24,6 +24,12 @@ return [
         'audit_days' => (int) env('RETENTION_AUDIT_DAYS', 730),
     ],
 
+    'push' => [
+        'vapid_subject' => env('VAPID_SUBJECT', 'mailto:admin@localhost'),
+        'vapid_public_key' => env('VAPID_PUBLIC_KEY'),
+        'vapid_private_key' => env('VAPID_PRIVATE_KEY'),
+    ],
+
     'nominatim' => [
         'base_url' => env('NOMINATIM_BASE_URL', 'https://nominatim.openstreetmap.org'),
         'user_agent' => env('NOMINATIM_USER_AGENT', 'DTRSys/1.0 (home-location reverse geocode)'),

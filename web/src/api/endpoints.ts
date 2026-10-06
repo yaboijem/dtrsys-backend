@@ -11,9 +11,8 @@ import type {
   FraudFlag,
   HomeLocation,
   LoginResponse,
+  OpenSession,
   Paginated,
-  ScheduleAdmin,
-  Shift,
   User,
 } from './types';
 
@@ -74,6 +73,18 @@ export function logout(token: string): Promise<void> {
 
 export function dashboardSummary(token: string): Promise<DashboardSummary> {
   return api.get<DashboardSummary>('/api/admin/dashboard/summary', undefined, token);
+}
+
+export function listOpenSessions(params: PaginationParams, token: string): Promise<Paginated<OpenSession>> {
+  return api.get<RawPaginated<OpenSession>>('/api/admin/open-sessions', params, token).then(toPaginated);
+}
+
+export function closeOpenSession(
+  employeeId: number,
+  payload: { action: 'break_out' | 'time_out'; notes?: string; closed_at?: string },
+  token: string,
+): Promise<void> {
+  return api.post<void>(`/api/admin/open-sessions/${employeeId}/close`, payload, token);
 }
 
 export function listAttendance(params: PaginationParams, token: string): Promise<Paginated<AttendanceAdmin>> {
@@ -187,42 +198,8 @@ export function deletePosition(id: number, token: string): Promise<{ message: st
   return api.delete<{ message: string }>(`/api/admin/positions/${id}`, token);
 }
 
-export function listShifts(params: PaginationParams, token: string): Promise<Paginated<Shift>> {
-  return api.get<RawPaginated<Shift>>('/api/admin/shifts', params, token).then(toPaginated);
-}
-
-export interface ShiftPayload {
-  name: string;
-  start_time: string;
-  end_time: string;
-  grace_minutes?: number | null;
-  break_start?: string | null;
-  break_end?: string | null;
-  is_active: boolean;
-}
-
-export function createShift(payload: ShiftPayload, token: string): Promise<Shift> {
-  return api.post<Shift>('/api/admin/shifts', payload, token);
-}
-
-export function updateShift(id: number, payload: Partial<ShiftPayload>, token: string): Promise<Shift> {
-  return api.patch<Shift>(`/api/admin/shifts/${id}`, payload, token);
-}
-
-export function deleteShift(id: number, token: string): Promise<{ message: string }> {
-  return api.delete<{ message: string }>(`/api/admin/shifts/${id}`, token);
-}
-
-export function listSchedules(params: PaginationParams, token: string): Promise<Paginated<ScheduleAdmin>> {
-  return api.get<RawPaginated<ScheduleAdmin>>('/api/admin/schedules', params, token).then(toPaginated);
-}
-
-export function createSchedule(payload: { employee_id: number; shift_id: number; date: string }, token: string): Promise<ScheduleAdmin> {
-  return api.post<ScheduleAdmin>('/api/admin/schedules', payload, token);
-}
-
-export function deleteSchedule(id: number, token: string): Promise<{ message: string }> {
-  return api.delete<{ message: string }>(`/api/admin/schedules/${id}`, token);
+export function dashboardBadges(token: string): Promise<{ open_fraud_flags: number }> {
+  return api.get<{ open_fraud_flags: number }>('/api/admin/dashboard/badges', undefined, token);
 }
 
 export function listAuditLogs(params: PaginationParams, token: string): Promise<Paginated<AuditLog>> {
