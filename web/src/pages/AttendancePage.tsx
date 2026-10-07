@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, Clock, Coffee, LogIn, LogOut, MapPin, Monitor, StickyNote } from 'lucide-react';
+import { ChevronDown, Clock, Coffee, LogIn, LogOut, MapPin, StickyNote } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { getAppSettings, listAttendance, listBranches, updateAppSettings } from '../api/endpoints';
 import type { AttendanceAdmin, AttendanceSource, AttendanceType, Branch, Paginated } from '../api/types';
@@ -23,9 +23,6 @@ interface Filters {
   department: string;
   employee_id: string;
   type: string;
-  is_late: string;
-  is_early_timeout: string;
-  source: string;
   has_open_flags: string;
 }
 
@@ -36,17 +33,12 @@ const EMPTY_FILTERS: Filters = {
   department: '',
   employee_id: '',
   type: '',
-  is_late: '',
-  is_early_timeout: '',
-  source: '',
   has_open_flags: '',
 };
 
 function filtersFromParams(sp: URLSearchParams): Filters {
   return {
     ...EMPTY_FILTERS,
-    is_late: sp.get('is_late') === '1' ? '1' : sp.get('is_late') === '0' ? '0' : '',
-    is_early_timeout: sp.get('is_early_timeout') === '1' ? '1' : sp.get('is_early_timeout') === '0' ? '0' : '',
     type: sp.get('type') ?? '',
     employee_id: sp.get('employee_id') ?? '',
   };
@@ -130,9 +122,6 @@ export function AttendancePage() {
       if (applied.department) params.department = applied.department;
       if (applied.employee_id) params.employee_id = applied.employee_id;
       if (applied.type) params.type = applied.type;
-      if (applied.is_late !== '') params.is_late = applied.is_late === '1';
-      if (applied.is_early_timeout !== '') params.is_early_timeout = applied.is_early_timeout === '1';
-      if (applied.source) params.source = applied.source;
       if (applied.has_open_flags !== '') params.has_open_flags = applied.has_open_flags === '1';
       const result = await listAttendance(params, token);
       setData(result.data);
@@ -250,28 +239,7 @@ export function AttendancePage() {
             <Field label="Department">
               <Input value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} placeholder="e.g. Engineering" />
             </Field>
-            <Field label="Late">
-              <Select value={filters.is_late} onChange={(e) => setFilters({ ...filters, is_late: e.target.value })}>
-                <option value="">All</option>
-                <option value="1">Late only</option>
-                <option value="0">On time</option>
-              </Select>
-            </Field>
-            <Field label="Early out">
-              <Select value={filters.is_early_timeout} onChange={(e) => setFilters({ ...filters, is_early_timeout: e.target.value })}>
-                <option value="">All</option>
-                <option value="1">Early out only</option>
-                <option value="0">Not early</option>
-              </Select>
-            </Field>
-            <Field label="Source">
-              <Select value={filters.source} onChange={(e) => setFilters({ ...filters, source: e.target.value })}>
-                <option value="">All sources</option>
-                <option value="online">Online</option>
-                <option value="sync">Offline sync</option>
-              </Select>
-            </Field>
-            <Field label="Open fraud flags">
+            <Field label="Open red flags">
               <Select value={filters.has_open_flags} onChange={(e) => setFilters({ ...filters, has_open_flags: e.target.value })}>
                 <option value="">All</option>
                 <option value="1">With open flags</option>
@@ -346,16 +314,9 @@ export function AttendancePage() {
                   header: 'Status',
                   render: (r) => (
                     <div className="flex flex-wrap gap-1">
-                      {r.is_late && <Badge tone="amber">Late</Badge>}
-                      {r.type === 'time_out' && r.is_early_timeout && <Badge tone="amber">Early out</Badge>}
                       {r.is_overbreak && <Badge tone="red">Overbreak</Badge>}
-                      {r.is_offline && <Badge tone="gray">Offline</Badge>}
                       {r.photo && <Badge tone="teal">Selfie</Badge>}
-                      {!r.is_late &&
-                        !(r.type === 'time_out' && r.is_early_timeout) &&
-                        !r.is_overbreak &&
-                        !r.is_offline &&
-                        !r.photo && <span className="text-xs text-muted">—</span>}
+                      {!r.is_overbreak && !r.photo && <span className="text-xs text-muted">—</span>}
                     </div>
                   ),
                 },
@@ -467,29 +428,7 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
         <DetailRow label="Branch">
           {record.branch.name} ({record.branch.code})
         </DetailRow>
-        <DetailRow label="Device">
-          {record.device ? (
-            <span className="inline-flex items-center gap-1">
-              <Monitor size={13} />
-              {record.device.name ? `${record.device.name} (${record.device.device_id})` : record.device.device_id}
-            </span>
-          ) : (
-            '—'
-          )}
-        </DetailRow>
         <DetailRow label="Work minutes">{formatMinutes(record.work_minutes)}</DetailRow>
-        <DetailRow label="Early timeout">
-          {record.type === 'time_out' ? (
-            record.is_early_timeout ? <Badge tone="amber">Early out</Badge> : <Badge tone="gray">On time</Badge>
-          ) : (
-            '—'
-          )}
-        </DetailRow>
-        <DetailRow label="Source">
-          <span className="inline-flex items-center gap-1.5">
-            {record.is_offline ? <Badge tone="amber">Offline</Badge> : <Badge tone="gray">{record.source}</Badge>}
-          </span>
-        </DetailRow>
       </Card>
 
       <Card className="overflow-hidden p-0">
@@ -514,7 +453,7 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
 
       {record.fraud_flags.length > 0 && (
         <Card className="px-4 py-3">
-          <div className="mb-2 text-xs font-semibold text-muted">Fraud flags</div>
+          <div className="mb-2 text-xs font-semibold text-muted">Red flags</div>
           <div className="flex flex-wrap gap-1.5">
             {record.fraud_flags.map((f) => (
               <Badge key={f.id} tone={FLAG_TONES[f.type]}>
@@ -536,7 +475,7 @@ function AttendanceDetail({ record, token }: { record: AttendanceAdmin; token: s
       )}
 
       {!record.photo && !record.gps_location && record.fraud_flags.length === 0 && (
-        <EmptyState title="No additional data" description="This record has no selfie, GPS data or fraud flags." />
+        <EmptyState title="No additional data" description="This record has no selfie, GPS data or red flags." />
       )}
     </div>
   );

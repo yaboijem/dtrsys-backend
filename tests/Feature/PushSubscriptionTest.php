@@ -58,4 +58,15 @@ class PushSubscriptionTest extends TestCase
 
         $this->assertSame(0, PushSubscription::query()->count());
     }
+
+    #[Test]
+    public function test_alert_endpoint_is_removed(): void
+    {
+        $employee = Employee::factory()->create();
+        $employee->user->syncRoles(['Employee']);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/push/test', [])
+            ->assertStatus(405);
+    }
 }

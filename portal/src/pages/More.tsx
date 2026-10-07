@@ -2,58 +2,26 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
-import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/Button';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { Avatar, Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { enableDevicePush, pushErrorMessage, pushSupported } from '../lib/push';
 import { useProfilePhoto } from '../lib/useProfilePhoto';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
 export function More() {
   const colors = useThemeColors();
   const navigate = useNavigate();
-  const { user, logout, api, token } = useAuth();
+  const { user, logout } = useAuth();
   const { src: photoSrc, error: photoError, clearError, setFromDataUrl, remove } = useProfilePhoto(
     user?.employee_id,
   );
 
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushNote, setPushNote] = useState<string | null>(null);
 
   const displayName = user?.employee?.full_name ?? user?.name ?? '—';
-
-  async function enableAlerts() {
-    if (!token) return;
-    setPushBusy(true);
-    setPushNote(null);
-    try {
-      await enableDevicePush(api, token);
-      setPushNote('This phone can receive alerts, including when a break is about to end.');
-    } catch (err) {
-      setPushNote(pushErrorMessage(err));
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function sendTestAlert() {
-    if (!token) return;
-    setPushBusy(true);
-    setPushNote(null);
-    try {
-      await api.post('/api/push/test', {}, token);
-      setPushNote('Test alert sent. If the phone is allowed, it should appear now.');
-    } catch (err) {
-      setPushNote(err instanceof ApiError ? err.message : 'Could not send the test alert.');
-    } finally {
-      setPushBusy(false);
-    }
-  }
 
   return (
     <Screen>
@@ -141,7 +109,7 @@ export function More() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: fontSize.md, fontWeight: 700, color: colors.ink }}>Consent preferences</div>
             <div style={{ fontSize: fontSize.sm, marginTop: 2, color: colors.muted }}>
-              Biometric photos and GPS location
+              Biometric photos, GPS location, and device alerts
             </div>
           </div>
           <ChevronRight size={18} color={colors.muted} />
@@ -170,23 +138,6 @@ export function More() {
           </div>
           <ChevronRight size={18} color={colors.muted} />
         </button>
-      </SectionCard>
-
-      <SectionCard title="Device alerts">
-        <div style={{ fontSize: fontSize.sm, color: colors.muted, marginBottom: spacing.md }}>
-          {pushSupported()
-            ? 'Allow alerts on this phone. Break warnings are also saved in Alerts.'
-            : 'This browser cannot show device alerts.'}
-        </div>
-        {pushNote ? (
-          <div style={{ marginBottom: spacing.md }}>
-            <Banner kind="info" title={pushNote} />
-          </div>
-        ) : null}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-          <Button title="Enable device alerts" onClick={() => void enableAlerts()} loading={pushBusy} disabled={!pushSupported()} />
-          <Button title="Send test alert" variant="secondary" onClick={() => void sendTestAlert()} loading={pushBusy} />
-        </div>
       </SectionCard>
 
       <SectionCard title="Appearance">

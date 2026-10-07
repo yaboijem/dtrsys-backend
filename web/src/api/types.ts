@@ -75,7 +75,8 @@ export type FraudFlagType =
   | 'rapid_clock'
   | 'out_of_radius'
   | 'face_mismatch'
-  | 'no_face';
+  | 'no_face'
+  | 'overbreak';
 export type FraudFlagSeverity = 'low' | 'medium' | 'high';
 export type FraudFlagStatus = 'open' | 'reviewed' | 'dismissed';
 

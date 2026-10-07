@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { dashboardBadges } from '../api/endpoints';
 import { cn } from '../lib/cn';
+import { FRAUD_FLAGS_CHANGED_EVENT } from '../lib/flags';
 import { Avatar } from './ui';
 
 const ALL_ROLES = ['Super Admin', 'HR', 'Branch Manager', 'Department Head'];
@@ -36,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/open-sessions', label: 'Open Sessions', icon: <Timer size={18} />, roles: ['Super Admin', 'HR'] },
   {
     to: '/fraud-flags',
-    label: 'Fraud Flags',
+    label: 'Red Flags',
     icon: <Flag size={18} />,
     roles: ['Super Admin', 'HR', 'Branch Manager'],
     badgeKey: 'fraud',
@@ -129,19 +130,24 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    void dashboardBadges(token)
-      .then((s) => {
-        if (!cancelled) {
-          setBadges({
-            fraud: s.open_fraud_flags ?? 0,
-          });
-        }
-      })
-      .catch(() => {
-        /* non-fatal */
-      });
+    const loadBadges = () => {
+      void dashboardBadges(token)
+        .then((s) => {
+          if (!cancelled) {
+            setBadges({
+              fraud: s.open_fraud_flags ?? 0,
+            });
+          }
+        })
+        .catch(() => {
+          /* non-fatal */
+        });
+    };
+    loadBadges();
+    window.addEventListener(FRAUD_FLAGS_CHANGED_EVENT, loadBadges);
     return () => {
       cancelled = true;
+      window.removeEventListener(FRAUD_FLAGS_CHANGED_EVENT, loadBadges);
     };
   }, [token]);
 

@@ -21,6 +21,8 @@ class MysqlSchemaTest extends TestCase
                 '2026_10_03_130000_add_break_kind_to_attendance_table',
                 '2026_10_05_000000_drop_two_factor_columns_from_users',
                 '2026_10_06_000000_drop_shifts_and_schedules',
+                '2026_10_06_120000_create_push_subscriptions_table',
+                '2026_10_07_000000_add_overbreak_fraud_flag_type',
             ],
             DB::table('migrations')->pluck('migration')->all(),
         );

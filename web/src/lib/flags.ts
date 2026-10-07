@@ -1,5 +1,7 @@
 import type { FraudFlagSeverity, FraudFlagStatus, FraudFlagType } from '../api/types';
 
+export const FRAUD_FLAGS_CHANGED_EVENT = 'fraud-flags:changed';
+
 export const FLAG_LABELS: Record<FraudFlagType, string> = {
   impossible_jump: 'Impossible travel',
   rapid_clock: 'Rapid clock in/out',
@@ -8,12 +10,14 @@ export const FLAG_LABELS: Record<FraudFlagType, string> = {
   gps_spoof: 'GPS spoofing',
   face_mismatch: 'Face mismatch',
   no_face: 'No face detected',
+  overbreak: 'Overbreak',
 };
 
 export const FLAG_FILTER_TYPES: FraudFlagType[] = [
   'impossible_jump',
   'rapid_clock',
   'out_of_radius',
+  'overbreak',
 ];
 
 export const FLAG_RULES: { type: FraudFlagType; rule: string }[] = [
@@ -29,6 +33,10 @@ export const FLAG_RULES: { type: FraudFlagType; rule: string }[] = [
     type: 'rapid_clock',
     rule: 'The same punch type was recorded again within 1 minute.',
   },
+  {
+    type: 'overbreak',
+    rule: 'A timed break is still open 5 minutes after its due time.',
+  },
 ];
 
 export const FLAG_TONES: Record<FraudFlagType, 'red' | 'amber' | 'violet' | 'blue' | 'gray'> = {
@@ -38,6 +46,7 @@ export const FLAG_TONES: Record<FraudFlagType, 'red' | 'amber' | 'violet' | 'blu
   out_of_radius: 'amber',
   face_mismatch: 'red',
   no_face: 'red',
+  overbreak: 'red',
 };
 
 export const SEVERITY_TONES: Record<FraudFlagSeverity, 'red' | 'amber' | 'gray' | 'solidRed' | 'solidAmber' | 'solidGray'> = {

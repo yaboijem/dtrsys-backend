@@ -40,7 +40,7 @@ const ACTION_DEFS: Record<string, ActivityDef> = {
   'schedule.created': { label: 'created a schedule', icon: <CalendarDays size={15} />, tone: 'bg-blue-50 text-blue-700' },
   'schedule.updated': { label: 'updated a schedule', icon: <CalendarDays size={15} />, tone: 'bg-blue-50 text-blue-700' },
   'schedule.deleted': { label: 'deleted a schedule', icon: <AlertTriangle size={15} />, tone: 'bg-red-50 text-danger' },
-  'fraud_flag.reviewed': { label: 'reviewed a fraud flag', icon: <Flag size={15} />, tone: 'bg-red-50 text-danger' },
+  'fraud_flag.reviewed': { label: 'reviewed a red flag', icon: <Flag size={15} />, tone: 'bg-red-50 text-danger' },
   'mfa.enabled': { label: 'enabled two-factor authentication', icon: <ShieldCheck size={15} />, tone: 'bg-emerald-50 text-emerald-700' },
   'mfa.disabled': { label: 'disabled two-factor authentication', icon: <ShieldCheck size={15} />, tone: 'bg-amber-50 text-warning' },
 };

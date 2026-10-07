@@ -98,6 +98,8 @@ export function coerceAttendance(
     work_minutes: row?.work_minutes ?? null,
     break_minutes: row?.break_minutes ?? null,
     is_overbreak: Boolean(row?.is_overbreak),
+    break_kind: row?.break_kind ?? null,
+    expected_end_at: row?.expected_end_at ?? null,
     source: row?.source ?? 'app',
     notes: row?.notes ?? null,
     synced_at: row?.synced_at ?? null,

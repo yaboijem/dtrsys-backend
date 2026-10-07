@@ -54,7 +54,7 @@ class ImportSqlite extends Command
             'source' => ['app', 'sync', 'admin'],
         ],
         'fraud_flags' => [
-            'type' => ['gps_spoof', 'impossible_jump', 'face_mismatch', 'rapid_clock', 'out_of_radius', 'no_face'],
+            'type' => ['gps_spoof', 'impossible_jump', 'face_mismatch', 'rapid_clock', 'out_of_radius', 'no_face', 'overbreak'],
             'severity' => ['low', 'medium', 'high'],
             'status' => ['open', 'reviewed', 'dismissed'],
         ],

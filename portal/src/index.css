@@ -428,8 +428,15 @@ textarea::placeholder {
   .animate-stamp,
   .gps-pulse-ok,
   .gps-pulse-bad,
-  .portal-tabbar__item {
+  .portal-tabbar__item,
+  .portal-switch,
+  .portal-switch span {
     animation: none !important;
     transition: none !important;
   }
+}
+
+.portal-switch:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

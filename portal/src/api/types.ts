@@ -91,7 +91,7 @@ export interface AppNotification {
 
 export interface Consent {
   id: number;
-  type: 'biometric_photos' | 'gps_location';
+  type: 'biometric_photos' | 'gps_location' | 'device_alerts';
   granted: boolean;
   granted_at: string | null;
   revoked_at: string | null;

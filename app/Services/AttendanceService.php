@@ -6,6 +6,7 @@ use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
+use App\Jobs\NotifyBreakPastDueJob;
 use App\Jobs\NotifyTimedBreakEndingJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
@@ -221,12 +222,17 @@ class AttendanceService
 
     private function scheduleTimedBreakAlert(Attendance $attendance): void
     {
-        if (! in_array($attendance->break_kind, ['15_min', '5_min'], true) || $attendance->expected_end_at === null) {
+        if ($attendance->expected_end_at === null) {
             return;
         }
 
-        NotifyTimedBreakEndingJob::dispatch($attendance->id)
-            ->delay($attendance->expected_end_at->copy()->subMinutes(2));
+        if (in_array($attendance->break_kind, ['15_min', '5_min'], true)) {
+            NotifyTimedBreakEndingJob::dispatch($attendance->id)
+                ->delay($attendance->expected_end_at->copy()->subMinutes(2));
+        }
+
+        NotifyBreakPastDueJob::dispatch($attendance->id)
+            ->delay($attendance->expected_end_at->copy()->addMinutes(5));
     }
 
     private function expectedEndAt(?string $kind, Carbon $now): ?Carbon

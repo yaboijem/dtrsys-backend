@@ -77,6 +77,23 @@ class NotificationService
         );
     }
 
+    public function breakPastDue(User $user, string $kind, int $minutesPastDue): void
+    {
+        $label = match ($kind) {
+            '5_min' => '5-minute',
+            '15_min' => '15-minute',
+            'lunch_60' => 'lunch',
+            default => 'timed',
+        };
+
+        $this->send(
+            $user,
+            'Break past due',
+            "Your {$label} break is {$minutesPastDue} minutes past due. Please Done Break.",
+            ['type' => 'break_past_due', 'break_kind' => $kind, 'minutes_past_due' => $minutesPastDue],
+        );
+    }
+
     public function breakOverbreak(User $user, int $elapsedMinutes): void
     {
         $this->send(

@@ -40,7 +40,7 @@ class NotifyFraudFlagJob implements ShouldQueue
         foreach ($users as $user) {
             $notificationService->send(
                 $user,
-                'New fraud flag',
+                'New red flag',
                 "Attendance record #{$flag->attendance_id} flagged as {$flag->type}.",
                 ['fraud_flag_id' => $flag->id, 'attendance_id' => $flag->attendance_id],
             );

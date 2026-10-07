@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\NotifyBreakPastDueJob;
 use App\Jobs\NotifyTimedBreakEndingJob;
 use App\Models\AppSetting;
 use App\Models\Attendance;
@@ -358,6 +359,74 @@ class BreakAttendanceTest extends TestCase
             ->assertSuccessful()
             ->assertJsonPath('data.type', 'break_out');
 
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function timed_break_is_flagged_and_notifies_five_minutes_past_due(): void
+    {
+        Notification::fake();
+        Queue::fake();
+        $employee = $this->makeEmployee('EMP-PAST');
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => '5_min'])
+            ->assertCreated();
+
+        $breakIn = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        Queue::assertPushed(NotifyBreakPastDueJob::class, function (NotifyBreakPastDueJob $job) use ($breakIn) {
+            return $job->attendanceId === $breakIn->id
+                && Carbon::parse($job->delay)->equalTo($breakIn->expected_end_at->copy()->addMinutes(5));
+        });
+
+        $job = new NotifyBreakPastDueJob($breakIn->id);
+        $job->handle(app(\App\Services\NotificationService::class));
+        $this->assertDatabaseCount('fraud_flags', 0);
+
+        Carbon::setTestNow($breakIn->expected_end_at->copy()->addMinutes(5));
+        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(\App\Services\NotificationService::class));
+
+        $this->assertDatabaseHas('fraud_flags', [
+            'attendance_id' => $breakIn->id,
+            'type' => 'overbreak',
+            'severity' => 'medium',
+            'status' => 'open',
+        ]);
+        $this->assertSame(1, Notification::sent($employee->user, GenericNotification::class)->count());
+        Notification::assertSentTo($employee->user, GenericNotification::class, function (GenericNotification $notification) {
+            return $notification->title === 'Break past due'
+                && $notification->data['type'] === 'break_past_due';
+        });
+
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function past_due_alert_is_skipped_when_the_break_already_ended(): void
+    {
+        Notification::fake();
+        Queue::fake();
+        $employee = $this->makeEmployee('EMP-CLOSED');
+        $this->timeIn($employee);
+        $this->breakIn($employee, '15_min');
+
+        $breakIn = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
+        Carbon::setTestNow($breakIn->expected_end_at->copy()->addMinutes(6));
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-out', $this->gps($employee->branch))
+            ->assertSuccessful();
+
+        $job = new NotifyBreakPastDueJob($breakIn->id);
+        $job->handle(app(\App\Services\NotificationService::class));
+
+        $this->assertDatabaseMissing('fraud_flags', [
+            'attendance_id' => $breakIn->id,
+            'type' => 'overbreak',
+        ]);
+        Notification::assertNothingSent();
         Carbon::setTestNow();
     }
 }

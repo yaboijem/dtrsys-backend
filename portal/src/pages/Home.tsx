@@ -241,10 +241,9 @@ export function Home() {
   const finishSuccess = (attendance: Attendance, kind: PendingUpload['kind']) => {
     clearPending();
     setPunches((prev) => upsertAttendance(prev, attendance));
-    setSession((current) => {
-      sessionGenRef.current += 1;
-      return sessionFromPunch(current, attendance);
-    });
+    sessionGenRef.current += 1;
+    setSession((current) => sessionFromPunch(current, attendance));
+    if (kind === 'break_in') setPunchNow(Date.now());
     const distance = attendance.gps_location?.distance_from_branch_meters;
     if (kind === 'time_in' || kind === 'time_out') {
       setResult({

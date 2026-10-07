@@ -50,7 +50,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/push/vapid-public-key', [PushSubscriptionController::class, 'publicKey']);
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);
     Route::delete('/push/subscribe', [PushSubscriptionController::class, 'destroy']);
-    Route::post('/push/test', [PushSubscriptionController::class, 'test']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);

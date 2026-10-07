@@ -14,7 +14,7 @@ class PurgeRetainedData extends Command
         {--audit-days= : Audit logs older than this many days (defaults to config).}
         {--dry-run : Show what would be deleted without deleting anything.}';
 
-    protected $description = 'Delete attendance records (photos, GPS, fraud flags), sync logs and audit logs older than the retention period.';
+    protected $description = 'Delete attendance records (photos, GPS, red flags), sync logs and audit logs older than the retention period.';
 
     public function handle(): int
     {

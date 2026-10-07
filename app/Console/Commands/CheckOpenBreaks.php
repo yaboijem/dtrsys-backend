@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\NotifyBreakPastDueJob;
 use App\Models\Attendance;
 use App\Services\NotificationService;
 use Illuminate\Console\Command;
@@ -35,6 +36,10 @@ class CheckOpenBreaks extends Command
             $user = $breakIn->employee?->user;
             if (! $user) {
                 continue;
+            }
+
+            if ($breakIn->expected_end_at !== null && now()->gte($breakIn->expected_end_at->copy()->addMinutes(5))) {
+                (new NotifyBreakPastDueJob($breakIn->id))->handle($notifications);
             }
 
             $elapsed = (int) $breakIn->timestamp->diffInMinutes(now());

@@ -77,6 +77,40 @@ class ConsentApiTest extends TestCase
     }
 
     #[Test]
+    public function employee_can_grant_and_revoke_device_alerts_consent(): void
+    {
+        $employee = $this->makeEmployee();
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/employee/consent', [
+            'type' => 'device_alerts',
+            'granted' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.type', 'device_alerts')
+            ->assertJsonPath('data.granted', true);
+
+        $this->assertDatabaseHas('consents', [
+            'employee_id' => $employee->id,
+            'type' => 'device_alerts',
+            'granted' => 1,
+        ]);
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/employee/consent', [
+            'type' => 'device_alerts',
+            'granted' => false,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.granted', false)
+            ->assertJsonPath('data.granted_at', null);
+
+        $this->assertDatabaseHas('consents', [
+            'employee_id' => $employee->id,
+            'type' => 'device_alerts',
+            'granted' => 0,
+        ]);
+    }
+
+    #[Test]
     public function unknown_consent_type_is_rejected(): void
     {
         $employee = $this->makeEmployee();

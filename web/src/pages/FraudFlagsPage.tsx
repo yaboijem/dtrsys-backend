@@ -11,7 +11,7 @@ import { DataTable, DEFAULT_PAGE_SIZE, PaginationBar } from '../components/DataT
 import { Drawer } from '../components/Drawer';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { useToast } from '../components/Toast';
-import { FLAG_FILTER_TYPES, FLAG_LABELS, FLAG_RULES, FLAG_TONES, SEVERITY_TONES, STATUS_TONES } from '../lib/flags';
+import { FLAG_FILTER_TYPES, FLAG_LABELS, FLAG_RULES, FLAG_TONES, FRAUD_FLAGS_CHANGED_EVENT, SEVERITY_TONES, STATUS_TONES } from '../lib/flags';
 import { cn } from '../lib/cn';
 import { formatDateTime, formatMeters } from '../lib/format';
 
@@ -55,12 +55,19 @@ export function FraudFlagsPage() {
     setPage(1);
   }, [initialFilters]);
 
-  useEffect(() => {
+  const loadSeverityCounts = useCallback(async () => {
     if (!token) return;
-    void dashboardSummary(token)
-      .then((s) => setSeverityCounts(s.open_fraud_by_severity ?? { high: 0, medium: 0, low: 0 }))
-      .catch(() => undefined);
+    try {
+      const summary = await dashboardSummary(token);
+      setSeverityCounts(summary.open_fraud_by_severity ?? { high: 0, medium: 0, low: 0 });
+    } catch {
+      /* non-fatal */
+    }
   }, [token]);
+
+  useEffect(() => {
+    void loadSeverityCounts();
+  }, [loadSeverityCounts]);
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -90,7 +97,7 @@ export function FraudFlagsPage() {
       setData(result.data);
       setPaginated(result);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to load fraud flags.');
+      setError(err instanceof ApiError ? err.message : 'Failed to load red flags.');
     } finally {
       setLoading(false);
     }
@@ -126,6 +133,8 @@ export function FraudFlagsPage() {
     try {
       const updated = await reviewFraudFlag(flag.id, status, notes || undefined, token);
       refreshFlag(updated);
+      void loadSeverityCounts();
+      window.dispatchEvent(new Event(FRAUD_FLAGS_CHANGED_EVENT));
       notify('success', status === 'reviewed' ? 'Flag marked as reviewed.' : 'Flag dismissed.');
       void load();
     } catch (err) {
@@ -145,7 +154,7 @@ export function FraudFlagsPage() {
   return (
     <div>
       <PageHeader
-        title="Fraud flags"
+        title="Red Flags"
         description="Triage suspicious attendance and verification issues"
         actions={
           <Button variant="secondary" onClick={resetFilters} disabled={!dirty && !hasApplied}>
@@ -248,7 +257,7 @@ export function FraudFlagsPage() {
               loading={loading && !data}
               rows={data ?? []}
               keyOf={(r) => r.id}
-              emptyTitle="No fraud flags found"
+              emptyTitle="No red flags found"
               emptyDescription="Adjust the filters and try again."
               onRowClick={setSelected}
               columns={[
@@ -353,7 +362,7 @@ export function FraudFlagsPage() {
         )}
       </Card>
 
-      <Drawer open={selected !== null} onClose={() => setSelected(null)} title="Fraud flag review" wide dark>
+      <Drawer open={selected !== null} onClose={() => setSelected(null)} title="Red flag review" wide dark>
         {selected && (
           <FlagReview
             flag={selected}
@@ -384,6 +393,9 @@ const DETAIL_LABELS: Record<string, string> = {
   previous_punch_at: 'Previous punch',
   identical_coordinates: 'Identical coordinates',
   elapsed_minutes: 'Elapsed since previous punch',
+  break_kind: 'Break',
+  expected_end_at: 'Due',
+  minutes_past_due: 'Minutes past due',
 };
 
 function humanizeKey(key: string): string {
@@ -392,10 +404,24 @@ function humanizeKey(key: string): string {
 
 function formatDetailValue(key: string, value: unknown): string {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (key === 'previous_punch_at' && typeof value === 'string') return formatDateTime(value);
+  if ((key === 'previous_punch_at' || key === 'expected_end_at') && typeof value === 'string') return formatDateTime(value);
+  if (key === 'break_kind' && typeof value === 'string') {
+    return (
+      {
+        '15_min': '15 mins break',
+        '5_min': '5 mins break (test)',
+        lunch_60: '1hr Lunch Break',
+        bio: 'Bio break',
+        phone: 'Phone break',
+        coaching: 'Coaching',
+        huddle: 'Huddle',
+        training: 'Training',
+      }[value] ?? value
+    );
+  }
   if (typeof value === 'number' && (key === 'distance_meters' || key === 'accuracy_meters')) return formatMeters(value);
   if (typeof value === 'number' && key === 'estimated_speed_kmh') return `${value.toFixed(1)} km/h`;
-  if (typeof value === 'number' && (key === 'duration_minutes' || key === 'elapsed_minutes')) return `${Math.round(value)} min`;
+  if (typeof value === 'number' && (key === 'duration_minutes' || key === 'elapsed_minutes' || key === 'minutes_past_due')) return `${Math.round(value)} min`;
   if (typeof value === 'number' && key === 'confidence') return `${(value * 100).toFixed(0)}%`;
   if (typeof value === 'string' && value) return value;
   return String(value);
@@ -551,7 +577,7 @@ function FlagReview({
                 disabled={busy}
                 onClick={() => onReview('reviewed', notes)}
               >
-                Confirm as fraud
+                Confirm flag
               </Button>
             </div>
           </div>

@@ -136,7 +136,7 @@ export function DashboardPage() {
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Security & alerts</h2>
         <div className="metric-grid--security">
           <MetricCard
-            label="Open fraud flags"
+            label="Open red flags"
             value={summary.open_fraud_flags}
             icon={<Flag size={18} />}
             tone="danger"

@@ -5,12 +5,15 @@ import { useAuth } from '../auth/AuthContext';
 import { BackPill } from '../components/BackPill';
 import { Banner, SectionCard } from '../components/Feedback';
 import { Screen } from '../components/Screen';
+import { Switch } from '../components/Switch';
 import { errorMessage, formatDateTime } from '../lib/format';
+import { disableDevicePush, enableDevicePush, pushErrorMessage, pushSupported } from '../lib/push';
 import { fontSize, spacing, useThemeColors } from '../theme';
 
 const CONSENT_TYPES = [
   { key: 'biometric_photos', label: 'Biometric photos', description: 'Allow capture and storage of selfies on time-in/out.' },
   { key: 'gps_location', label: 'GPS location', description: 'Allow capture and storage of your location when punching in or out.' },
+  { key: 'device_alerts', label: 'Device alerts', description: 'Allow this phone to show break and alert notifications.' },
 ] as const;
 
 export function Consent() {
@@ -64,6 +67,29 @@ export function Consent() {
     }
   };
 
+  const toggleDeviceAlerts = async (granted: boolean) => {
+    if (!token) {
+      return;
+    }
+    setSaving('device_alerts');
+    try {
+      if (granted) {
+        await enableDevicePush(api, token);
+      } else {
+        await disableDevicePush(api, token);
+      }
+      const updated = await api.post<{ data: ConsentType }>('/api/employee/consent', { type: 'device_alerts', granted }, token);
+      setConsents((prev) => {
+        const others = prev.filter((c) => c.type !== 'device_alerts');
+        return [...others, updated.data];
+      });
+    } catch (err) {
+      window.alert(`${granted ? 'Could not enable' : 'Could not disable'} device alerts: ${pushErrorMessage(err)}`);
+    } finally {
+      setSaving(null);
+    }
+  };
+
   return (
     <Screen>
       <BackPill to="/more" label="Back" ariaLabel="Back to More" />
@@ -79,6 +105,7 @@ export function Consent() {
         {loading ? <div style={{ fontSize: fontSize.sm, color: colors.muted }}>Loading…</div> : null}
         {CONSENT_TYPES.map(({ key, label, description }) => {
           const entry = consents.find((c) => c.type === key);
+          const unsupported = key === 'device_alerts' && !pushSupported();
           return (
             <div
               key={key}
@@ -95,7 +122,9 @@ export function Consent() {
             >
               <div style={{ flex: 1, marginRight: spacing.md }}>
                 <div style={{ fontSize: fontSize.md, fontWeight: '700', color: colors.ink }}>{label}</div>
-                <div style={{ fontSize: fontSize.sm, color: colors.muted }}>{description}</div>
+                <div style={{ fontSize: fontSize.sm, color: colors.muted }}>
+                  {unsupported ? 'This browser cannot show device alerts.' : description}
+                </div>
                 {entry ? (
                   <div style={{ fontSize: fontSize.sm, marginTop: spacing.xs, color: colors.muted }}>
                     {entry.granted
@@ -106,17 +135,13 @@ export function Consent() {
                   </div>
                 ) : null}
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={grantedFor(key)}
-                onChange={(e) => toggleConsent(key, e.target.checked)}
-                disabled={saving === key}
-                aria-label={label}
-                style={{
-                  width: 20,
-                  height: 20,
-                  cursor: saving === key ? 'not-allowed' : 'pointer',
-                }}
+                onChange={(next) =>
+                  key === 'device_alerts' ? toggleDeviceAlerts(next) : toggleConsent(key, next)
+                }
+                disabled={saving === key || unsupported}
+                label={label}
               />
             </div>
           );

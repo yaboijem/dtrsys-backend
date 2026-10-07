@@ -64,6 +64,23 @@ export async function enableDevicePush(api: ApiClient, token: string): Promise<s
   return json.endpoint;
 }
 
+export async function disableDevicePush(api: ApiClient, token: string): Promise<void> {
+  if (!pushSupported()) {
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+
+  if (!subscription) {
+    return;
+  }
+
+  const endpoint = subscription.endpoint;
+  await subscription.unsubscribe();
+  await api.delete('/api/push/subscribe', token, { endpoint });
+}
+
 export function pushErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;

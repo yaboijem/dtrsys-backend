@@ -41,7 +41,7 @@ class FraudFlagController extends Controller
     {
         if (! $this->canAccess($request->user(), $fraudFlag)) {
             return response()->json([
-                'message' => 'You are not allowed to review this fraud flag.',
+                'message' => 'You are not allowed to review this red flag.',
                 'code' => 'not_authorized',
             ], 403);
         }

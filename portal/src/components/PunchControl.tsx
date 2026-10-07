@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { BREAK_OPTIONS, type BreakKind } from '../api/types';
 import type { PunchControlState } from '../lib/punchPolicy';
-import { fontSize, spacing, useThemeColors } from '../theme';
+import { fontSize, spacing, useIsDark, useThemeColors } from '../theme';
 import { Button } from './Button';
 
 type Props = {
@@ -34,6 +34,7 @@ export function PunchControl({
   onDoneBreak,
 }: Props) {
   const colors = useThemeColors();
+  const isDark = useIsDark();
   const [open, setOpen] = useState(false);
 
   if (state.mode === 'time_in') {
@@ -48,7 +49,9 @@ export function PunchControl({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         {timed && remaining > 0 ? (
-          <div style={{ fontSize: fontSize.sm, color: colors.muted, textAlign: 'center' }}>{formatRemaining(remaining)} left</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: isDark ? colors.successText : colors.muted, textAlign: 'center' }}>
+            {formatRemaining(remaining)} left
+          </div>
         ) : null}
         {aboutToEnd ? (
           <div style={{ fontSize: fontSize.sm, fontWeight: 700, color: colors.warningText, textAlign: 'center' }}>
@@ -56,7 +59,7 @@ export function PunchControl({
           </div>
         ) : null}
         {pastDue ? (
-          <div style={{ fontSize: fontSize.sm, fontWeight: 700, color: colors.dangerText, textAlign: 'center' }}>Past due</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: colors.dangerText, textAlign: 'center' }}>Past due</div>
         ) : null}
         <Button title="Done Break" variant="primary" size="large" onClick={onDoneBreak} loading={punching} />
         <Button title="Time Out" variant="danger" size="large" onClick={onTimeOut} loading={punching} />

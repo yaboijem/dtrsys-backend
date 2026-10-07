@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PushSubscription;
-use App\Services\NotificationService;
 use App\Services\WebPushService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +12,6 @@ class PushSubscriptionController extends Controller
 {
     public function __construct(
         private readonly WebPushService $webPushService,
-        private readonly NotificationService $notificationService,
     ) {}
 
     public function publicKey(): JsonResponse
@@ -65,17 +63,5 @@ class PushSubscriptionController extends Controller
             ->delete();
 
         return response()->json(['message' => 'Device alerts turned off.']);
-    }
-
-    public function test(Request $request): JsonResponse
-    {
-        $this->notificationService->send(
-            $request->user(),
-            'Test alert',
-            'Device push is working.',
-            ['type' => 'push_test'],
-        );
-
-        return response()->json(['message' => 'Test alert sent.']);
     }
 }

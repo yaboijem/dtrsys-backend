@@ -165,7 +165,7 @@ export class ApiClient {
     return this.request<T>('PATCH', path, { token, json });
   }
 
-  delete<T>(path: string, token?: string | null): Promise<T> {
-    return this.request<T>('DELETE', path, { token });
+  delete<T>(path: string, token?: string | null, json?: unknown): Promise<T> {
+    return this.request<T>('DELETE', path, { token, json });
   }
 }

@@ -14,7 +14,7 @@ class UpdateConsentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'in:biometric_photos,gps_location'],
+            'type' => ['required', 'string', 'in:biometric_photos,gps_location,device_alerts'],
             'granted' => ['required', 'boolean'],
         ];
     }
