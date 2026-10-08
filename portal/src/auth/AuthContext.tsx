@@ -14,6 +14,7 @@ interface AuthContextValue {
   serverUrl: string;
   api: ApiClient;
   login: (employeeId: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
   setDeviceId: (id: string) => Promise<void>;
@@ -113,6 +114,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [completeLogin],
   );
 
+  const loginWithGoogle = useCallback(
+    async (idToken: string): Promise<void> => {
+      const result = await apiRef.current.post<LoginSuccess>('/api/auth/google', {
+        id_token: idToken,
+        device_id: deviceIdRef.current,
+        platform: 'web',
+        app_version: APP_VERSION,
+      });
+
+      if (typeof result !== 'object' || result === null || !('token' in result) || !result.token || !result.user) {
+        throw new ApiError(
+          'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
+          0,
+          'invalid_response',
+        );
+      }
+
+      await completeLogin(result.token, result.user);
+    },
+    [completeLogin],
+  );
+
   const logout = useCallback(async () => {
     if (token) {
       await apiRef.current.post('/api/auth/logout', {}, token).catch(() => undefined);
@@ -156,12 +179,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       serverUrl,
       api: apiRef.current,
       login,
+      loginWithGoogle,
       logout,
       refreshMe,
       setDeviceId,
       setServerUrl,
     }),
-    [status, user, token, deviceId, serverUrl, login, logout, refreshMe, setDeviceId, setServerUrl],
+    [status, user, token, deviceId, serverUrl, login, loginWithGoogle, logout, refreshMe, setDeviceId, setServerUrl],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

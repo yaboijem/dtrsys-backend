@@ -34,6 +34,8 @@ php artisan serve --host=0.0.0.0 --port=8000
 
 `/api` is proxied to `http://127.0.0.1:8000`. Override with env `VITE_API_PROXY` if needed.
 
+Google sign-in needs `VITE_GOOGLE_CLIENT_ID`, the same Web client id as API `GOOGLE_CLIENT_ID`. Leave it empty to hide the button. Authorized JavaScript origins must include this portal origin. No client secret.
+
 ## Production build & Laravel deploy
 
 ```bash

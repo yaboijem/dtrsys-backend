@@ -237,7 +237,7 @@ Installable Progressive Web App for employees.
 
 | Screen | Capabilities |
 |--------|----------------|
-| **Login** | Employee ID + password; theme toggle; session restore |
+| **Login** | Employee ID + password, or Google when configured; theme toggle; session restore |
 | **Home** | GPS status; Time In (selfie + GPS); after clock-in, a dropdown of 15 mins break, 1hr Lunch Break, Bio break, Phone time, Coaching, Huddle, Training, and Time Out; on a break, Done Break (GPS only) and Time Out; today's punches. The button follows `GET /api/attendance/session`, not the history list. A dropped upload replays the same `client_uuid` up to 3 times, then offers Retry. Nothing is kept after the page closes. No schedule card. No offline queue. |
 | **History** | Attendance history with filters. Break rows show the break kind. No offline tag. |
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
