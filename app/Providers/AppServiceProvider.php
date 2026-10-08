@@ -4,10 +4,14 @@ namespace App\Providers;
 
 use App\Models\Attendance;
 use App\Observers\AttendanceObserver;
+use App\Services\GoogleAuthIdTokenVerifier;
+use App\Services\GoogleIdTokenVerifier;
+use Google\Auth\AccessToken;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +23,19 @@ class AppServiceProvider extends ServiceProvider
             unset($connections['sqlite']);
         }
         config(['database.connections' => $connections]);
+
+        $this->app->singleton(GoogleIdTokenVerifier::class, function () {
+            $cache = new FilesystemAdapter(
+                'google-auth',
+                0,
+                storage_path('framework/cache/google-auth'),
+            );
+
+            return new GoogleAuthIdTokenVerifier(
+                new AccessToken(null, $cache),
+                (string) config('services.google.client_id'),
+            );
+        });
     }
 
     public function boot(): void
