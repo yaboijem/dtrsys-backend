@@ -89,6 +89,7 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 | Method | Path | Access | Description |
 |---|---|---|---|
 | POST | `/auth/login` | public | `{ employee_id, password, device_id?, platform?, model?, app_version? }`. Returns a token for every role |
+| POST | `/auth/google` | public | Portal Google sign-in. Body: id_token, optional device_id, platform, model, app_version. Verified email must already match an active employee. No self-signup |
 | POST | `/auth/logout` | authenticated | Revokes current token |
 | GET | `/auth/me` | authenticated | Current user profile + roles + employee |
 

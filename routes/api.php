@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/auth/google', [AuthController::class, 'google'])->middleware('throttle:login');
 
 Route::get('/login', function () {
     return response()->json([

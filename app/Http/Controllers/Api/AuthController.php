@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\GoogleLoginRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
@@ -20,6 +21,22 @@ class AuthController extends Controller
         $result = $this->authService->login(
             $request->input('employee_id'),
             $request->input('password'),
+            $request->only(['device_id', 'platform', 'model', 'app_version']),
+        );
+
+        $result['user']->load(['employee.branch', 'employee.department', 'employee.position']);
+
+        return response()->json([
+            'message' => 'Login successful.',
+            'token' => $result['token'],
+            'user' => new UserResource($result['user']),
+        ]);
+    }
+
+    public function google(GoogleLoginRequest $request): JsonResponse
+    {
+        $result = $this->authService->loginWithGoogle(
+            $request->string('id_token')->toString(),
             $request->only(['device_id', 'platform', 'model', 'app_version']),
         );
 

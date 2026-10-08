@@ -20,17 +20,19 @@ Timezone: **Asia/Manila**.
 
 | Feature | Details |
 |---------|---------|
-| Login | Employee ID + password → Sanctum bearer token for every role |
+| Login | Employee ID + password, or portal Google sign-in when the Google email already matches an active user. No self-signup. Sanctum bearer token for every role |
 | Multi-device | Devices auto-register on login (`device_id`, platform, model, app version); shared/kiosk devices supported |
 | Inactive accounts | Deactivated users cannot log in |
 | Session | Logout revokes current token; `GET /auth/me` returns user + roles + employee + branch |
 | Rate limits | Login 5/min, general authenticated API 60/min |
+| Google sign-in | Portal only. Verified Google email must match users.email. Inactive users and users without an employee profile are rejected. |
 
 ### API
 
 | Method | Path | Access |
 |--------|------|--------|
 | POST | `/api/auth/login` | Public |
+| POST | `/api/auth/google` | Public. Body: id_token, optional device_id, platform, model, app_version |
 | POST | `/api/auth/logout` | Authenticated |
 | GET | `/api/auth/me` | Authenticated |
 
