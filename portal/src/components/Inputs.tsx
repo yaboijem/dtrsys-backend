@@ -6,6 +6,10 @@ interface LabeledInputProps extends React.InputHTMLAttributes<HTMLInputElement |
   label: string;
   onChangeText?: (text: string) => void;
   multiline?: boolean;
+  hint?: string;
+  error?: string;
+  invalid?: boolean;
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 export function LabeledInput({
@@ -16,14 +20,21 @@ export function LabeledInput({
   multiline,
   id,
   type,
+  hint,
+  error,
+  invalid,
+  inputRef,
   ...props
 }: LabeledInputProps) {
   const colors = useThemeColors();
   const generatedId = useId();
   const inputId = id ?? generatedId;
+  const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const isPassword = type === 'password';
+  const showInvalid = invalid || !!error;
 
   const inputStyles: React.CSSProperties = {
     width: '100%',
@@ -36,7 +47,7 @@ export function LabeledInput({
     paddingBottom: 12,
     fontSize: fontSize.md,
     backgroundColor: colors.card,
-    borderColor: focused ? colors.primary : colors.border,
+    borderColor: showInvalid ? colors.danger : focused ? colors.primary : colors.border,
     boxShadow: focused ? `0 0 0 3px color-mix(in srgb, ${colors.primary} 18%, transparent)` : undefined,
     color: colors.ink,
     outline: 'none',
@@ -47,6 +58,7 @@ export function LabeledInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChangeText?.(e.target.value);
   };
+  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
 
   return (
     <div style={{ marginBottom: spacing.md }}>
@@ -75,6 +87,8 @@ export function LabeledInput({
           }}
           onChange={handleChange}
           {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+          aria-invalid={showInvalid || undefined}
+          aria-describedby={describedBy}
         />
       ) : (
         <div style={{ position: 'relative' }}>
@@ -92,6 +106,9 @@ export function LabeledInput({
             }}
             onChange={handleChange}
             {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
+            ref={inputRef}
+            aria-invalid={showInvalid || undefined}
+            aria-describedby={describedBy}
           />
           {isPassword ? (
             <button
@@ -120,6 +137,16 @@ export function LabeledInput({
           ) : null}
         </div>
       )}
+      {hint ? (
+        <div id={hintId} style={{ marginTop: 6, fontSize: fontSize.sm, lineHeight: 1.4, color: colors.muted }}>
+          {hint}
+        </div>
+      ) : null}
+      {error ? (
+        <div id={errorId} style={{ marginTop: 6, fontSize: fontSize.sm, lineHeight: 1.4, color: colors.dangerText }}>
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }

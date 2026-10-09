@@ -57,13 +57,24 @@ class AuthTest extends TestCase
             ->assertJsonPath('user.roles', ['Employee']);
     }
 
+    public function test_login_rejects_employee_id_with_different_case(): void
+    {
+        $this->makeEmployee();
+
+        $this->postJson('/api/auth/login', $this->loginPayload('emp-test'))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('employee_id')
+            ->assertJsonPath('errors.employee_id.0', 'That employee ID and password do not match. Check both and try again.');
+    }
+
     public function test_login_fails_with_incorrect_password(): void
     {
         $this->makeEmployee();
 
         $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'wrong-password'))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('employee_id');
+            ->assertJsonValidationErrors('employee_id')
+            ->assertJsonPath('errors.employee_id.0', 'That employee ID and password do not match. Check both and try again.');
     }
 
     public function test_inactive_user_cannot_login(): void

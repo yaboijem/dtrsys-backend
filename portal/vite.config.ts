@@ -1,12 +1,15 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import basicSsl from "@vitejs/plugin-basic-ssl";
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 
 const apiTarget = process.env.VITE_API_PROXY ?? "http://127.0.0.1:8000";
 const useHttps = process.env.VITE_HTTPS === "1" || process.env.VITE_HTTPS === "true";
 
 export default defineConfig({
+  envDir: fileURLToPath(new URL("..", import.meta.url)),
+  envPrefix: ["VITE_", "GOOGLE_CLIENT_ID"],
   plugins: [
     react(),
     tailwindcss(),

@@ -45,7 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/employees', label: 'Employees', icon: <Users size={18} />, roles: ['Super Admin', 'HR'] },
   { to: '/org-structure', label: 'Org structure', icon: <Network size={18} />, roles: ALL_ROLES },
   { to: '/home-locations', label: 'Home locations', icon: <Home size={18} />, roles: ['Super Admin', 'HR'] },
-  { to: '/branches', label: 'Branches', icon: <Building2 size={18} />, roles: ['Super Admin', 'HR'] },
+  { to: '/branches', label: 'Branches', icon: <Building2 size={18} />, roles: ['Super Admin'] },
 ];
 
 function NavBadge({ count }: { count: number }) {

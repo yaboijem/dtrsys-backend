@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { AlertTriangle, Loader2, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { avatarHue, initialsOf } from '../lib/avatar';
@@ -250,9 +250,11 @@ const inputClass =
 const inputLight = 'border-border bg-white text-text placeholder:text-muted/70 focus:border-primary';
 const inputDark = 'border-deep-border bg-deep-2 text-slate-100 placeholder:text-slate-500 focus:border-teal-400';
 
-export function Input({ dark = false, ...props }: InputHTMLAttributes<HTMLInputElement> & { dark?: boolean }) {
-  return <input {...props} className={cn(inputClass, dark ? inputDark : inputLight, props.className)} />;
-}
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { dark?: boolean }>(
+  function Input({ dark = false, ...props }, ref) {
+    return <input ref={ref} {...props} className={cn(inputClass, dark ? inputDark : inputLight, props.className)} />;
+  },
+);
 
 export function Select({ dark = false, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { dark?: boolean }) {
   return <select {...props} className={cn(inputClass, 'pr-8', dark ? inputDark : inputLight, props.className)} />;

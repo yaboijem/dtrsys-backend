@@ -18,9 +18,13 @@ class AuthService
     {
         $user = User::where('employee_id', $employeeId)->first();
 
+        if ($user !== null && $user->employee_id !== $employeeId) {
+            $user = null;
+        }
+
         if (! $user || ! Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
-                'employee_id' => ['The provided credentials are incorrect.'],
+                'employee_id' => ['That employee ID and password do not match. Check both and try again.'],
             ]);
         }
 

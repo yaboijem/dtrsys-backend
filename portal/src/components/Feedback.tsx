@@ -22,6 +22,7 @@ export function Banner({
   return (
     <div
       className="portal-card"
+      role={kind === 'error' ? 'alert' : undefined}
       style={{
         padding: `${spacing.md}px ${spacing.lg}px`,
         backgroundColor: plate.bg,

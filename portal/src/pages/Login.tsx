@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
@@ -13,16 +14,46 @@ import { GOOGLE_CLIENT_ID } from '../config';
 import { errorMessage } from '../lib/format';
 import { cardShadow, fontSize, microLabel, radius, spacing, useIsDark, useThemeColors } from '../theme';
 
+function loginFailure(err: unknown): { alert: string | null; fields: Record<string, string>; credentials: boolean } {
+  if (err instanceof ApiError && (err.status === 0 || err.code === 'network_error')) {
+    return { alert: 'Connect to the internet and try again.', fields: {}, credentials: false };
+  }
+  if (!(err instanceof ApiError)) {
+    return { alert: errorMessage(err), fields: {}, credentials: false };
+  }
+  const fields: Record<string, string> = {};
+  const idMsg = err.errors?.employee_id?.[0] ?? '';
+  const passwordMsg = err.errors?.password?.[0] ?? '';
+  if (/required/i.test(idMsg)) fields.employee_id = 'Enter your employee ID.';
+  if (/required/i.test(passwordMsg)) fields.password = 'Enter your password.';
+  if (Object.keys(fields).length > 0) {
+    return { alert: null, fields, credentials: false };
+  }
+  const raw = idMsg || passwordMsg || err.message;
+  if (/credentials are incorrect|do(?:es)? not match/i.test(raw)) {
+    return {
+      alert: 'That employee ID and password do not match. Check both and try again.',
+      fields: {},
+      credentials: true,
+    };
+  }
+  return { alert: raw || 'Could not sign in. Try again.', fields: {}, credentials: false };
+}
+
 export function Login() {
   const colors = useThemeColors();
   const isDark = useIsDark();
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const employeeIdRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [credentialsFailed, setCredentialsFailed] = useState(false);
   const busy = useRef(false);
 
   useEffect(() => {
@@ -36,20 +67,32 @@ export function Login() {
     };
   }, []);
 
-  const fail = (err: unknown) => {
-    if (err instanceof ApiError && (err.status === 0 || err.code === 'network_error')) {
-      setError('Connect to the internet and try again.');
-    } else if (err instanceof ApiError && err.errors) {
-      const messages = Object.values(err.errors).flat();
-      setError(messages[0] ?? err.message);
-    } else {
-      setError(errorMessage(err));
-    }
+  const clearFailure = () => {
+    setError(null);
+    setFieldErrors({});
+    setCredentialsFailed(false);
+  };
+
+  const focusField = (field: 'employee_id' | 'password', select = false) => {
+    const el = field === 'employee_id' ? employeeIdRef.current : passwordRef.current;
+    el?.focus();
+    if (select) el?.select();
   };
 
   const handleLogin = async () => {
-    setError(null);
+    const id = employeeId.trim();
+    const nextFields: Record<string, string> = {};
+    if (!id) nextFields.employee_id = 'Enter your employee ID.';
+    if (!password) nextFields.password = 'Enter your password.';
+    if (Object.keys(nextFields).length > 0) {
+      setError(null);
+      setCredentialsFailed(false);
+      setFieldErrors(nextFields);
+      focusField(nextFields.employee_id ? 'employee_id' : 'password');
+      return;
+    }
     if (!navigator.onLine) {
+      clearFailure();
       setError('Connect to the internet and try again.');
       return;
     }
@@ -57,12 +100,19 @@ export function Login() {
       return;
     }
     busy.current = true;
+    clearFailure();
     setLoading(true);
     try {
-      await login(employeeId.trim(), password);
+      await login(id, password);
       navigate('/home');
     } catch (err) {
-      fail(err);
+      const failure = loginFailure(err);
+      setError(failure.alert);
+      setFieldErrors(failure.fields);
+      setCredentialsFailed(failure.credentials);
+      if (failure.fields.employee_id) focusField('employee_id');
+      else if (failure.fields.password) focusField('password');
+      else if (failure.credentials) focusField('employee_id', true);
     } finally {
       busy.current = false;
       setLoading(false);
@@ -73,7 +123,7 @@ export function Login() {
     if (busy.current) {
       return;
     }
-    setError(null);
+    clearFailure();
     if (!navigator.onLine) {
       setError('Connect to the internet and try again.');
       return;
@@ -84,11 +134,23 @@ export function Login() {
       await loginWithGoogle(idToken);
       navigate('/home');
     } catch (err) {
-      fail(err);
+      if (err instanceof ApiError && (err.status === 0 || err.code === 'network_error')) {
+        setError('Connect to the internet and try again.');
+      } else if (err instanceof ApiError && err.errors) {
+        const messages = Object.values(err.errors).flat();
+        setError(messages[0] ?? err.message);
+      } else {
+        setError(errorMessage(err));
+      }
     } finally {
       busy.current = false;
       setLoading(false);
     }
+  };
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void handleLogin();
   };
 
   return (
@@ -115,7 +177,6 @@ export function Login() {
           paddingRight: spacing.xl,
           paddingTop: spacing.xxl,
           paddingBottom: spacing.xxl,
-          marginBottom: spacing.xl,
           backgroundColor: colors.card,
           borderColor: colors.border,
           ...cardShadow(isDark),
@@ -131,21 +192,36 @@ export function Login() {
           Employee sign-in
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginTop: spacing.xl }}>
+        <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg, marginTop: spacing.xl }}>
           <LabeledInput
             label="Employee ID"
             value={employeeId}
-            onChangeText={setEmployeeId}
+            inputRef={employeeIdRef}
+            onChangeText={(value) => {
+              setEmployeeId(value);
+              clearFailure();
+            }}
             placeholder="Enter your employee ID"
+            autoComplete="username"
+            error={fieldErrors.employee_id}
+            invalid={credentialsFailed}
           />
           <LabeledInput
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            inputRef={passwordRef}
+            onChangeText={(value) => {
+              setPassword(value);
+              clearFailure();
+            }}
             type="password"
             placeholder="Enter your password"
+            autoComplete="current-password"
+            error={fieldErrors.password}
+            invalid={credentialsFailed}
           />
-          <Button title="Login" onClick={handleLogin} loading={loading} disabled={loading} />
+          {error ? <Banner kind="error" title="Could not sign in" detail={error} /> : null}
+          <Button title="Login" type="submit" onClick={() => {}} loading={loading} disabled={loading} />
           {GOOGLE_CLIENT_ID ? (
             <div>
               <div style={{ textAlign: 'center', color: colors.muted, fontSize: fontSize.sm }}>or</div>
@@ -157,16 +233,22 @@ export function Login() {
                   onCredential={(idToken) => {
                     void handleGoogle(idToken);
                   }}
-                  onOffline={() => setError('Connect to the internet and try again.')}
-                  onError={setError}
+                  onOffline={() => {
+                    setCredentialsFailed(false);
+                    setFieldErrors({});
+                    setError('Connect to the internet and try again.');
+                  }}
+                  onError={(message) => {
+                    setCredentialsFailed(false);
+                    setFieldErrors({});
+                    setError(message);
+                  }}
                 />
               </div>
             </div>
           ) : null}
-        </div>
+        </form>
       </div>
-
-      {error ? <Banner kind="error" title="Login failed" detail={error} /> : null}
     </Screen>
   );
 }

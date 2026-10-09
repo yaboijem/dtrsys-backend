@@ -131,7 +131,7 @@ function AppRoutes() {
         element={
           <RequireAuth>
             <Layout>
-              <RequireRole roles={['Super Admin', 'HR']}>
+              <RequireRole roles={['Super Admin']}>
                 <BranchesPage />
               </RequireRole>
             </Layout>
