@@ -97,6 +97,16 @@ class DepartmentPositionCrudTest extends TestCase
     }
 
     #[Test]
+    public function department_head_cannot_create_departments(): void
+    {
+        $dh = $this->makeAdmin('Department Head');
+
+        $this->actingAs($dh->user, 'sanctum')
+            ->postJson('/api/admin/departments', ['name' => 'Secret'])
+            ->assertForbidden();
+    }
+
+    #[Test]
     public function position_crud_mirrors_department(): void
     {
         $admin = $this->makeAdmin();

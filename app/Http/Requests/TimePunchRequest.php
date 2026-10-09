@@ -19,7 +19,6 @@ class TimePunchRequest extends FormRequest
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0'],
             'device_id' => ['nullable', 'string', 'max:64'],
-            'is_offline' => ['nullable', 'boolean'],
             'client_uuid' => [
                 config('dtr.attendance.client_uuid_required_online') ? 'required' : 'nullable',
                 'uuid',

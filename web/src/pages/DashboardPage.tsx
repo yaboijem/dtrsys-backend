@@ -14,7 +14,7 @@ const BREAK_KIND_ORDER = ['15_min', '5_min', 'lunch_60', 'bio', 'phone', 'coachi
 
 const BREAK_KIND_LABELS: Record<string, string> = {
   '15_min': '15 mins break',
-  '5_min': '5 mins break (test)',
+  '5_min': '5 mins break',
   lunch_60: '1hr Lunch Break',
   bio: 'Bio break',
   phone: 'Phone time',

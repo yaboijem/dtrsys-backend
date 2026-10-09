@@ -9,14 +9,10 @@ return [
 
     'attendance' => [
         // public | s3 | database (MySQL LONGTEXT — no object storage)
-        'photo_disk' => env('ATTENDANCE_PHOTO_DISK', 'public'),
+        'photo_disk' => env('ATTENDANCE_PHOTO_DISK', 'local'),
         'client_uuid_required_online' => env('ATTENDANCE_CLIENT_UUID_REQUIRED', false),
         'employee_lock_seconds' => (int) env('ATTENDANCE_EMPLOYEE_LOCK_SECONDS', 15),
-    ],
-
-    'sync' => [
-        'max_records' => (int) env('ATTENDANCE_SYNC_MAX_RECORDS', 100),
-        'max_records_with_photos' => (int) env('ATTENDANCE_SYNC_MAX_WITH_PHOTOS', 5),
+        'open_session_lookback_days' => (int) env('OPEN_SESSION_LOOKBACK_DAYS', 30),
     ],
 
     'retention' => [

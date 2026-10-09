@@ -14,4 +14,4 @@ $servePortal = function () {
 };
 
 // Employee PWA SPA — static files under public/ are served by the web server first.
-Route::get('/{any?}', $servePortal)->where('any', '.*');
+Route::get('/{any?}', $servePortal)->where('any', '^(?!api(?:/|$)).*$');

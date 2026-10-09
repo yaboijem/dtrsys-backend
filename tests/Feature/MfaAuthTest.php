@@ -52,7 +52,8 @@ class MfaAuthTest extends TestCase
         $this->postJson('/api/auth/login', $this->loginPayload($employee))
             ->assertOk()
             ->assertJsonMissingPath('mfa_required')
-            ->assertJsonStructure(['token', 'user']);
+            ->assertCookie('dtr_token')
+            ->assertJsonStructure(['user']);
     }
 
     #[Test]
@@ -64,7 +65,8 @@ class MfaAuthTest extends TestCase
             ->assertOk()
             ->assertJsonMissingPath('mfa_required')
             ->assertJsonPath('user.roles', ['HR'])
-            ->assertJsonStructure(['token', 'user']);
+            ->assertCookie('dtr_token')
+            ->assertJsonStructure(['user']);
     }
 
     #[Test]
@@ -75,7 +77,7 @@ class MfaAuthTest extends TestCase
         $this->postJson('/api/auth/login', $this->loginPayload($admin))
             ->assertOk()
             ->assertJsonMissingPath('mfa_required')
-            ->assertJsonStructure(['token']);
+            ->assertCookie('dtr_token');
     }
 
     #[Test]

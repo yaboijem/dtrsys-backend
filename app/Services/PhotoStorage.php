@@ -91,7 +91,7 @@ class PhotoStorage
         return Storage::disk($this->disk())->get($path);
     }
 
-    public function response(string $path, string $filename): Response
+    public function response(string $path, string $filename, int $maxAge = 3600): Response
     {
         $bytes = $this->get($path);
 
@@ -102,7 +102,7 @@ class PhotoStorage
         return response($bytes, 200, [
             'Content-Type' => 'image/jpeg',
             'Content-Disposition' => 'inline; filename="'.$filename.'"',
-            'Cache-Control' => 'private, max-age=3600',
+            'Cache-Control' => 'private, max-age='.$maxAge,
             'Content-Length' => (string) strlen($bytes),
         ]);
     }

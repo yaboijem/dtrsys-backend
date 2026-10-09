@@ -52,9 +52,11 @@ class AuthTest extends TestCase
         $response = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST'));
 
         $response->assertOk()
-            ->assertJsonStructure(['token', 'user' => ['employee_id', 'roles', 'employee']])
+            ->assertCookie('dtr_token')
+            ->assertJsonStructure(['user' => ['employee_id', 'roles', 'employee']])
             ->assertJsonPath('user.employee_id', 'EMP-TEST')
             ->assertJsonPath('user.roles', ['Employee']);
+        $this->assertArrayNotHasKey('token', $response->json());
     }
 
     public function test_login_rejects_employee_id_with_different_case(): void
@@ -110,7 +112,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'new-phone-01'))
             ->assertOk()
-            ->assertJsonStructure(['token']);
+            ->assertCookie('dtr_token');
 
         $this->assertDatabaseHas('devices', [
             'employee_id' => $employee->id,
@@ -136,7 +138,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'new-phone-02'))
             ->assertOk()
-            ->assertJsonStructure(['token']);
+            ->assertCookie('dtr_token');
 
         $this->assertDatabaseHas('devices', [
             'employee_id' => $employee->id,
@@ -162,7 +164,7 @@ class AuthTest extends TestCase
 
         $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST', 'password', 'shared-device'))
             ->assertOk()
-            ->assertJsonStructure(['token']);
+            ->assertCookie('dtr_token');
 
         $this->assertDatabaseHas('devices', [
             'device_id' => 'shared-device',
@@ -175,22 +177,32 @@ class AuthTest extends TestCase
     {
         $this->makeEmployee();
 
-        $token = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST'))->json('token');
+        $login = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST'));
+        $cookie = $login->getCookie('dtr_token', false);
 
-        $this->withToken($token)->postJson('/api/auth/logout')->assertOk();
+        $this->withCredentials()
+            ->withUnencryptedCookie('dtr_token', $cookie->getValue())
+            ->postJson('/api/auth/logout', [], ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk();
 
         $this->app['auth']->forgetGuards();
 
-        $this->withToken($token)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->withCredentials()
+            ->withUnencryptedCookie('dtr_token', $cookie->getValue())
+            ->getJson('/api/auth/me')
+            ->assertUnauthorized();
     }
 
     public function test_me_returns_user_with_roles(): void
     {
         $this->makeEmployee();
 
-        $token = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST'))->json('token');
+        $login = $this->postJson('/api/auth/login', $this->loginPayload('EMP-TEST'));
+        $cookie = $login->getCookie('dtr_token', false);
 
-        $this->withToken($token)->getJson('/api/auth/me')
+        $this->withCredentials()
+            ->withUnencryptedCookie('dtr_token', $cookie->getValue())
+            ->getJson('/api/auth/me')
             ->assertOk()
             ->assertJsonPath('data.employee_id', 'EMP-TEST')
             ->assertJsonPath('data.roles', ['Employee'])

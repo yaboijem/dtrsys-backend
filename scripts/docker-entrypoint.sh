@@ -1,39 +1,55 @@
-#!/usr/bin/env sh
+#!/bin/sh
 set -e
 
 cd /var/www/html
 
-# Render injects PORT and external URL
-export PORT="${PORT:-10000}"
-
-if [ -n "$RENDER_EXTERNAL_URL" ]; then
-  export APP_URL="$RENDER_EXTERNAL_URL"
-fi
-
-if [ -z "$DB_URL" ] && [ -n "$DATABASE_URL" ]; then
-  export DB_URL="$DATABASE_URL"
-fi
+mkdir -p \
+  /tmp/nginx/client_body \
+  /tmp/nginx/proxy \
+  /tmp/nginx/fastcgi \
+  /tmp/nginx/uwsgi \
+  /tmp/nginx/scgi \
+  storage/framework/cache/data \
+  storage/framework/sessions \
+  storage/framework/views \
+  storage/logs \
+  bootstrap/cache
 
 if [ -z "$APP_KEY" ]; then
-  echo "WARNING: APP_KEY is empty. Set APP_KEY in the host environment."
+  echo "WARNING: APP_KEY is empty. Set APP_KEY before serving traffic."
 fi
 
-php artisan config:clear || true
 php artisan migrate --force --no-interaction
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
-# Seed only when explicitly requested (first deploy)
-if [ "$RUN_SEEDERS" = "true" ]; then
-  php artisan db:seed --force --no-interaction || true
+php-fpm --nodaemonize &
+PHP_PID=$!
+
+if [ "${ENABLE_SCHEDULER:-true}" = "true" ]; then
+  (
+    while true; do
+      php artisan schedule:run --no-interaction || true
+      sleep 60
+    done
+  ) &
 fi
 
-php artisan config:cache || true
-php artisan route:cache || true
-php artisan view:cache || true
-
-# Free tier: no separate worker. Use QUEUE_CONNECTION=sync or database + inline.
-# Optional lightweight loop for scheduled break checks (every 60s) in background.
-if [ "$ENABLE_SCHEDULER" = "true" ]; then
-  php artisan schedule:work &
+if [ "${QUEUE_CONNECTION:-sync}" != "sync" ]; then
+  (
+    while true; do
+      php artisan queue:work --stop-when-empty --max-time=55 || true
+      sleep 5
+    done
+  ) &
 fi
 
-exec php artisan serve --host=0.0.0.0 --port="$PORT"
+cleanup() {
+  kill "$PHP_PID" 2>/dev/null || true
+}
+trap cleanup TERM INT
+
+nginx -g 'daemon off;' &
+NGINX_PID=$!
+wait "$NGINX_PID"

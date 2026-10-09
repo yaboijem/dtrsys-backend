@@ -19,7 +19,6 @@ class BreakPunchRequest extends FormRequest
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0'],
             'device_id' => ['nullable', 'string', 'max:64'],
-            'is_offline' => ['nullable', 'boolean'],
             'client_uuid' => [
                 config('dtr.attendance.client_uuid_required_online') ? 'required' : 'nullable',
                 'uuid',
@@ -27,7 +26,7 @@ class BreakPunchRequest extends FormRequest
             'break_kind' => [
                 Rule::requiredIf(fn () => $this->is('api/attendance/break-in')),
                 Rule::excludeIf(fn () => ! $this->is('api/attendance/break-in')),
-                Rule::in(['15_min', '5_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training']),
+                Rule::in(['15_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training']),
             ],
         ];
     }

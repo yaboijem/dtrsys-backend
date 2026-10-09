@@ -1,12 +1,11 @@
 # DTR System — Backend API
 
-Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with mandatory selfies, automated fraud detection, offline sync, role-scoped administration, and data-privacy compliance (consent, data access/deletion requests, retention purging).
+Attendance and time-tracking backend for a multi-branch organization, built with **Laravel 12**. Handles GPS-verified clock-ins with mandatory selfies, automated fraud detection, role-scoped administration, and data-privacy compliance (consent, data access/deletion requests, retention purging). Punches require a live connection.
 
 ## Feature Checklist
 
-- **Authentication** — employee ID + password (Laravel Sanctum tokens), multi-device login (devices auto-register per employee; shared kiosk devices optional)
+- **Authentication** — employee ID + password (Sanctum session in an httpOnly cookie), multi-device login (devices auto-register per employee; shared kiosk devices optional)
 - **Attendance validation** — GPS radius check against the assigned branch, mandatory selfie per punch, rapid clock-in and impossible location-jump fraud rules
-- **Offline sync** — queued batch upload of offline records with server-side validation and fraud re-checks (`sync_logs` trail)
 - **Role-based access control** — Super Admin, HR, Branch Manager (own branch), Department Head (own department), Employee (own data)
 - **Admin tools** — employee/branch management, attendance review with selfie streaming, dashboard summary, fraud-flag review
 - **Notifications** — per-user inbox with unread count, read/mark-all-read, and delete endpoints
@@ -80,7 +79,7 @@ Seeded branches: `MAK-001` (Makati HQ, 14.554729, 121.0244452, radius 300 m) and
 
 Base URL: `http://localhost:8000/api`. All responses are JSON; single resources are wrapped in `{ "data": ... }`, lists in `{ "data": [...], "links": ..., "meta": ... }`.
 
-Authentication header: `Authorization: Bearer <token>` (token returned by `POST /auth/login`).
+Browsers authenticate with an httpOnly `dtr_token` cookie set by `POST /auth/login`. The JSON body does not include the token. Send `X-Requested-With: XMLHttpRequest` on cookie-authenticated writes.
 
 Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated routes 60. Exhausted limits return `429 { code: "too_many_attempts" }`.
 
@@ -88,7 +87,7 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | `/auth/login` | public | `{ employee_id, password, device_id?, platform?, model?, app_version? }`. Returns a token for every role |
+| POST | `/auth/login` | public | `{ employee_id, password, device_id?, platform?, model?, app_version? }`. Sets an httpOnly cookie. JSON has no token |
 | POST | `/auth/google` | public | Portal Google sign-in. Body: id_token, optional device_id, platform, model, app_version. Verified email must already match an active employee. No self-signup |
 | POST | `/auth/logout` | authenticated | Revokes current token |
 | GET | `/auth/me` | authenticated | Current user profile + roles + employee |
@@ -97,13 +96,12 @@ Rate limits (per minute): `login` 5, `attendance` 30, all other authenticated ro
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/attendance/time-in` | `{ selfie: file, latitude, longitude, accuracy_meters?, device_id?, is_offline? }` → 201. Runs GPS check and fraud checks |
+| POST | `/attendance/time-in` | `{ selfie: file, latitude, longitude, accuracy_meters?, device_id? }` → 201. Runs GPS check and fraud checks. Requires a live connection |
 | POST | `/attendance/time-out` | Same payload. Completes the open punch, computes `work_minutes` (excludes break minutes). Rejects if still on break. |
 | POST | `/attendance/break-in` | `{ latitude, longitude, accuracy_meters?, device_id? }` — GPS only (no selfie). One break per open shift. |
 | POST | `/attendance/break-out` | Same GPS payload. Sets `break_minutes`, `is_overbreak` if > 60 min. |
 | GET | `/attendance/history` | Paginated own records; filters `from`, `to`, `type` (`time_in`/`time_out`/`break_in`/`break_out`), `per_page` |
 | GET | `/attendance/session` | Open shift for the punch button: `{ open, on_break, time_in, break }`. Two indexed lookups, not the history list. |
-| POST | `/attendance/sync` | `{ device_id?, records: [{ client_uuid, type, timestamp, latitude, longitude, ... }] }` (max 100). Deduplicates by `client_uuid`, validates each record, re-runs fraud rules |
 
 | GET | `/notifications` | Inbox, `unread_only` + `per_page` filters |
 | GET | `/notifications/unread-count` | `{ count }` |
@@ -149,7 +147,7 @@ Errors use `{ "message": "...", "code": "..." }` with an appropriate HTTP status
 
 | HTTP | Code | Meaning |
 |---|---|---|
-| 401 | `unauthenticated` | Missing/invalid bearer token |
+| 401 | `unauthenticated` | Missing or expired session cookie |
 | 403 | `forbidden` | Role not permitted (`spatie` middleware) |
 
 | 404 | `not_found` | Resource not found / not yours |
@@ -183,15 +181,13 @@ vendor/bin/pint --test  # style check
 
 ## Deployment Notes
 
-**Production (Render + MySQL 8):** see **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+**Production (Hostinger + MySQL 8):** see **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
-Summary of free defaults:
-
-- Employee PWA + API: one Render **Docker** web service (`Dockerfile`)
-- Admin: Render **Static Site** with `VITE_API_URL` pointing at the API
+- Employee PWA + API: Docker image (`nginx` + PHP-FPM) or Hostinger with document root `public/`
+- Admin: static build with `VITE_API_URL` pointing at the API
 - DB: MySQL 8 (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`)
-- Photos: Cloudflare R2 (`ATTENDANCE_PHOTO_DISK=s3`)
-- No paid Redis/worker: `QUEUE_CONNECTION=sync`, `CACHE_STORE=database`
+- Photos: private local disk (`ATTENDANCE_PHOTO_DISK=local`); S3 remains optional
+- Queue / cache: `database` (or `sync` on one small box)
 
 When scaling later:
 
@@ -207,7 +203,7 @@ Before a shift-start load test or production go-live at this scale:
 1. **Redis up** — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `SESSION_DRIVER=redis` (if sessions used). Locks and rate limiters depend on Redis under load.
 2. **Queue workers** — run enough workers, e.g. `php artisan queue:work redis --queue=default --tries=3` (or Horizon). Fraud notification fan-out lands here.
 3. **MySQL** — raise `max_connections` above `(app servers × PHP workers) + queue workers + admin headroom`. Prefer InnoDB; watch slow query log on `attendance` indexes.
-4. **Object storage** — production: `ATTENDANCE_PHOTO_DISK=s3` (or R2-compatible). Local/staging may use `public` disk; ensure disk I/O and permissions will not bottleneck selfie writes.
+4. **Photos** — default `ATTENDANCE_PHOTO_DISK=local` (private). Use `s3` when you have object storage. Do not use the public disk for selfies.
 5. **Telescope off** — `TELESCOPE_ENABLED=false` (do not run Telescope in production load paths; it amplifies DB/write cost).
 6. **App hardening** — `APP_DEBUG=false`, HTTPS only, adequate PHP-FPM/Octane workers (see sizing note above).
 
@@ -218,6 +214,7 @@ Script: [`scripts/load/punch-storm.k6.js`](scripts/load/punch-storm.k6.js) — r
 ```bash
 # Install k6: https://k6.io/docs/get-started/installation/
 # Prefer a pre-issued Sanctum token (one employee or a pool) so login is not part of the storm.
+# Without TOKEN, each VU logs in and keeps the httpOnly cookie.
 
 k6 run \
   -e BASE_URL=https://api.example.com \
@@ -229,13 +226,11 @@ k6 run \
 
 Optional env: `LOGIN_EMPLOYEE_ID` / `LOGIN_PASSWORD` if `TOKEN` is omitted (each VU logs in once — not ideal for pure punch load).
 
-**Reconnect storm:** the script documents a second scenario (`syncStorm`) — 1000 VUs each calling `POST /api/attendance/sync` with one offline record. Uncomment that scenario in the k6 file; reconnect storms are often harder than live punches (batch validation + photos + fraud re-checks).
-
 ## Repository Layout
 
 ```
 app/Console/Commands/PurgeRetainedData.php   # retention purge
-app/Services/                                # business logic (attendance, gps, sync, fraud, reports, ...)
+app/Services/                                # business logic (attendance, gps, fraud, reports, ...)
 app/Http/Controllers/Api/                    # REST controllers (employee + admin)
 app/Http/Requests/                           # form requests / validation
 app/Http/Resources/                          # JSON resources

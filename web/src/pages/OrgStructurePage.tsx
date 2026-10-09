@@ -30,6 +30,7 @@ function MasterSection({
   createFn,
   updateFn,
   deleteFn,
+  canWrite = true,
 }: {
   title: string;
   entityLabel: string;
@@ -38,6 +39,7 @@ function MasterSection({
   createFn: (payload: { name: string }, token: string) => Promise<MasterItem>;
   updateFn: (id: number, payload: { name: string }, token: string) => Promise<MasterItem>;
   deleteFn: (id: number, token: string) => Promise<{ message: string }>;
+  canWrite?: boolean;
 }) {
   const { notify } = useToast();
   const [page, setPage] = useState(1);
@@ -134,10 +136,12 @@ function MasterSection({
     <Card className="overflow-hidden shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
         <h2 className="text-sm font-semibold text-text">{title}</h2>
-        <Button onClick={openCreate}>
-          <Plus size={15} />
-          Add
-        </Button>
+        {canWrite && (
+          <Button onClick={openCreate}>
+            <Plus size={15} />
+            Add
+          </Button>
+        )}
       </div>
 
       {error ? (
@@ -163,11 +167,12 @@ function MasterSection({
                 header: 'Employees',
                 render: (r) => <span className="text-sm text-text">{r.employees_count ?? 0}</span>,
               },
-              {
+              ...(canWrite
+                ? [{
                 key: 'actions',
                 header: '',
                 className: 'w-20',
-                render: (r) => (
+                render: (r: MasterItem) => (
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -189,7 +194,8 @@ function MasterSection({
                     </button>
                   </div>
                 ),
-              },
+              }]
+                : []),
             ]}
           />
           {paginated && (
@@ -242,7 +248,8 @@ function MasterSection({
 }
 
 export function OrgStructurePage() {
-  const { token } = useAuth();
+  const { token, hasRole } = useAuth();
+  const canWrite = hasRole('Super Admin', 'HR');
   if (!token) return null;
 
   return (
@@ -260,6 +267,7 @@ export function OrgStructurePage() {
           createFn={createDepartment}
           updateFn={(id, payload, t) => updateDepartment(id, payload, t)}
           deleteFn={deleteDepartment}
+          canWrite={canWrite}
         />
         <MasterSection
           title="Positions"
@@ -269,6 +277,7 @@ export function OrgStructurePage() {
           createFn={createPosition}
           updateFn={(id, payload, t) => updatePosition(id, payload, t)}
           deleteFn={deletePosition}
+          canWrite={canWrite}
         />
       </div>
     </div>

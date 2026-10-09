@@ -409,7 +409,7 @@ function formatDetailValue(key: string, value: unknown): string {
     return (
       {
         '15_min': '15 mins break',
-        '5_min': '5 mins break (test)',
+        '5_min': '5 mins break',
         lunch_60: '1hr Lunch Break',
         bio: 'Bio break',
         phone: 'Phone break',

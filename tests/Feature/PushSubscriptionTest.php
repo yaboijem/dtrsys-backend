@@ -67,6 +67,6 @@ class PushSubscriptionTest extends TestCase
 
         $this->actingAs($employee->user, 'sanctum')
             ->postJson('/api/push/test', [])
-            ->assertStatus(405);
+            ->assertNotFound();
     }
 }

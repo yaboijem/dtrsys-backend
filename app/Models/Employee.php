@@ -71,6 +71,11 @@ class Employee extends Model
         return $this->hasMany(Consent::class);
     }
 
+    public function hasGrantedConsent(string $type): bool
+    {
+        return $this->consents()->where('type', $type)->where('granted', true)->exists();
+    }
+
     public function homeLocationAssignments(): HasMany
     {
         return $this->hasMany(EmployeeHomeLocation::class);

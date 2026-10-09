@@ -21,9 +21,8 @@ const AuthContext = createContext<AuthState | null>(null);
 
 function readStored(): { token: string | null; user: User | null } {
   try {
-    const token = localStorage.getItem(TOKEN_KEY);
     const userRaw = localStorage.getItem(USER_KEY);
-    return { token, user: userRaw ? (JSON.parse(userRaw) as User) : null };
+    return { token: null, user: userRaw ? (JSON.parse(userRaw) as User) : null };
   } catch {
     return { token: null, user: null };
   }
@@ -36,19 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     async function validate() {
-      const stored = readStored();
-      if (!stored.token) {
-        setLoading(false);
-        return;
-      }
+      localStorage.removeItem(TOKEN_KEY);
       try {
-        const me = await fetchMe(stored.token);
+        const me = await fetchMe('session');
         if (cancelled) return;
         localStorage.setItem(USER_KEY, JSON.stringify(me));
-        setState({ token: stored.token, user: me });
+        setState({ token: 'session', user: me });
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
-          localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(USER_KEY);
           if (!cancelled) setState({ token: null, user: null });
         }
@@ -62,28 +56,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = useCallback((nextToken: string, nextUser: User) => {
-    localStorage.setItem(TOKEN_KEY, nextToken);
+  const signIn = useCallback((_nextToken: string, nextUser: User) => {
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-    setState({ token: nextToken, user: nextUser });
+    setState({ token: 'session', user: nextUser });
   }, []);
 
   const signOut = useCallback(() => {
-    const stored = readStored();
-    if (stored.token) {
-      api.post('/api/auth/logout', {}, stored.token).catch(() => undefined);
-    }
+    api.post('/api/auth/logout', {}).catch(() => undefined);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setState({ token: null, user: null });
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const stored = readStored();
-    if (!stored.token) return;
-    const me = await fetchMe(stored.token);
+    const me = await fetchMe('session');
     localStorage.setItem(USER_KEY, JSON.stringify(me));
-    setState({ token: stored.token, user: me });
+    setState({ token: 'session', user: me });
   }, []);
 
   const hasRole = useCallback(

@@ -68,9 +68,7 @@ export class ApiClient {
       body = options.form;
     }
 
-    if (options.token) {
-      headers.Authorization = `Bearer ${options.token}`;
-    }
+    headers['X-Requested-With'] = 'XMLHttpRequest';
 
     const isFormUpload = options.form !== undefined;
     const controller = new AbortController();
@@ -83,6 +81,7 @@ export class ApiClient {
         method,
         headers,
         body,
+        credentials: 'include',
         ...(isFormUpload ? {} : { signal: controller.signal }),
       });
     } catch (error) {

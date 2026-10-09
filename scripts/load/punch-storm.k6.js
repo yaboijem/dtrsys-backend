@@ -3,15 +3,11 @@
  *
  * Env:
  *   BASE_URL  API origin (default http://localhost:8000)
- *   TOKEN     Sanctum bearer token (preferred). If empty, LOGIN_EMPLOYEE_ID + LOGIN_PASSWORD are used once per VU.
+ *   TOKEN     Pre-issued Sanctum bearer token (preferred). If empty, login sets an httpOnly cookie for the VU.
  *   LAT, LNG  Branch GPS (defaults: Makati HQ seed)
  *
  * Example:
  *   k6 run -e BASE_URL=https://api.example.com -e TOKEN=... -e LAT=14.554729 -e LNG=121.0244452 scripts/load/punch-storm.k6.js
- *
- * Second scenario (commented below): reconnect storm — 1000 VUs each POST
- * /api/attendance/sync with one offline record. Often worse than live punches
- * (batch validation + optional photos + fraud re-checks).
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -28,16 +24,6 @@ export const options = {
         { duration: '30s', target: 0 },
       ],
     },
-    // reconnect_storm: {
-    //   executor: 'ramping-vus',
-    //   startVUs: 0,
-    //   stages: [
-    //     { duration: '30s', target: 1000 },
-    //     { duration: '1m', target: 1000 },
-    //     { duration: '30s', target: 0 },
-    //   ],
-    //   exec: 'syncStorm',
-    // },
   },
   thresholds: {
     http_req_failed: ['rate<0.01'],
@@ -59,10 +45,14 @@ function clientUuid() {
 }
 
 function authHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`,
+  const headers = {
     Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
   };
+  if (token && token !== 'cookie') {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 function resolveToken() {
@@ -86,13 +76,7 @@ function resolveToken() {
     throw new Error(`login failed: ${res.status} ${res.body}`);
   }
 
-  const body = res.json();
-  const token = body.token || body.data?.token;
-  if (!token) {
-    throw new Error('login response missing token');
-  }
-
-  return token;
+  return 'cookie';
 }
 
 let vuToken;
@@ -124,38 +108,6 @@ export default function (data) {
 
   check(res, {
     'time-in accepted (2xx)': (r) => r.status >= 200 && r.status < 300,
-  });
-
-  sleep(0.5);
-}
-
-/**
- * Reconnect storm: each VU flushes one offline time_in via /api/attendance/sync.
- * Enable by uncommenting the reconnect_storm scenario and setting exec: 'syncStorm'.
- */
-export function syncStorm(data) {
-  if (!vuToken) {
-    vuToken = data.token || resolveToken();
-  }
-
-  const uuid = clientUuid();
-  const payload = {
-    device_id: `k6-device-${__VU}`,
-    'records[0][client_uuid]': uuid,
-    'records[0][type]': 'time_in',
-    'records[0][timestamp]': new Date().toISOString(),
-    'records[0][latitude]': LAT,
-    'records[0][longitude]': LNG,
-    'records[0][accuracy_meters]': '10',
-    'records[0][selfie]': http.file(TINY_JPEG, 'selfie.jpg', 'image/jpeg'),
-  };
-
-  const res = http.post(`${BASE_URL}/api/attendance/sync`, payload, {
-    headers: authHeaders(vuToken),
-  });
-
-  check(res, {
-    'sync accepted (2xx)': (r) => r.status >= 200 && r.status < 300,
   });
 
   sleep(0.5);

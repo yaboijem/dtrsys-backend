@@ -2,9 +2,13 @@
 
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
+use App\Exceptions\ConsentRequiredException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
+use App\Http\Middleware\AuthenticateFromCookie;
+use App\Http\Middleware\TrustConfiguredProxies;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,8 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Render / reverse proxies terminate TLS; trust all proxies so HTTPS URLs and client IP work.
-        $middleware->trustProxies(at: '*');
+        $middleware->prepend(TrustConfiguredProxies::class);
+
+        $middleware->api(prepend: [
+            EncryptCookies::class,
+            AuthenticateFromCookie::class,
+        ]);
 
         $middleware->alias([
             'role' => RoleMiddleware::class,
@@ -68,6 +76,13 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => $e->getMessage(),
                 'code' => 'breaks_disabled',
+            ], 422);
+        });
+
+        $exceptions->render(function (ConsentRequiredException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => $e->errorCode,
             ], 422);
         });
     })->create();

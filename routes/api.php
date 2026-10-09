@@ -20,6 +20,10 @@ use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/attendance-photos/{attendance}', [AttendanceAdminController::class, 'signedPhoto'])
+    ->middleware('signed')
+    ->name('attendance.photo');
+
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/auth/google', [AuthController::class, 'google'])->middleware('throttle:login');
 
@@ -40,8 +44,6 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/attendance/break-in', [AttendanceController::class, 'breakIn']);
         Route::post('/attendance/break-out', [AttendanceController::class, 'breakOut']);
     });
-    Route::post('/attendance/sync', [AttendanceController::class, 'sync'])
-        ->middleware('throttle:attendance-sync');
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
     Route::get('/attendance/session', [AttendanceController::class, 'session']);
     Route::get('/attendance/work', [AttendanceController::class, 'work']);
@@ -77,6 +79,8 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR'])->prefix('admin')->gro
 
     Route::apiResource('branches', BranchController::class);
     Route::apiResource('employees', EmployeeController::class);
+    Route::apiResource('departments', DepartmentController::class)->except(['index', 'show']);
+    Route::apiResource('positions', PositionController::class)->except(['index', 'show']);
 
     Route::get('/open-sessions', [OpenSessionController::class, 'index']);
     Route::post('/open-sessions/{employee}/close', [OpenSessionController::class, 'close']);
@@ -89,9 +93,10 @@ Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager'])->prefi
 
 Route::middleware(['auth:sanctum', 'role:Super Admin|HR|Branch Manager|Department Head'])->prefix('admin')->group(function () {
     Route::get('/attendance', [AttendanceAdminController::class, 'index']);
+    Route::get('/attendance/{attendance}/photo-url', [AttendanceAdminController::class, 'photoUrl']);
     Route::get('/attendance/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/dashboard/badges', [DashboardController::class, 'badges']);
-    Route::apiResource('departments', DepartmentController::class);
-    Route::apiResource('positions', PositionController::class);
+    Route::apiResource('departments', DepartmentController::class)->only(['index', 'show']);
+    Route::apiResource('positions', PositionController::class)->only(['index', 'show']);
 });

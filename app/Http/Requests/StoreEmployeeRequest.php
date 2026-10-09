@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\GuardsSuperAdminRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreEmployeeRequest extends FormRequest
 {
+    use GuardsSuperAdminRole;
+
     public const ROLES = [
         'Super Admin',
         'HR',
@@ -18,6 +21,11 @@ class StoreEmployeeRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    public function withValidator($validator): void
+    {
+        $this->guardSuperAdminRole($validator);
     }
 
     public function rules(): array

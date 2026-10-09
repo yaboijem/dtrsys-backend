@@ -4,23 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BreakPunchRequest;
-use App\Http\Requests\SyncAttendanceRequest;
 use App\Http\Requests\TimePunchRequest;
 use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
 use App\Services\AttendanceService;
-use App\Services\SyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class AttendanceController extends Controller
 {
     public function __construct(
         private readonly AttendanceService $attendanceService,
-        private readonly SyncService $syncService,
     ) {}
 
     public function timeIn(TimePunchRequest $request): JsonResponse
@@ -95,40 +90,5 @@ class AttendanceController extends Controller
             ->latest('timestamp');
 
         return AttendanceResource::collection($query->paginate($this->perPage($request)));
-    }
-
-    public function sync(SyncAttendanceRequest $request): JsonResponse
-    {
-        $records = json_decode($request->input('records'), true);
-
-        if (! is_array($records)) {
-            throw ValidationException::withMessages(['records' => 'records must be a valid JSON array.']);
-        }
-
-        Validator::make(['records' => $records], [
-            'records' => ['required', 'array', 'min:1', 'max:100'],
-            'records.*.client_uuid' => ['required', 'string', 'max:64'],
-            'records.*.type' => ['required', 'string', 'in:time_in,time_out,break_in,break_out'],
-            'records.*.timestamp' => ['required', 'date'],
-            'records.*.latitude' => ['required', 'numeric', 'between:-90,90'],
-            'records.*.longitude' => ['required', 'numeric', 'between:-180,180'],
-            'records.*.accuracy_meters' => ['nullable', 'numeric', 'min:0'],
-            'records.*.notes' => ['nullable', 'string', 'max:500'],
-        ])->validate();
-
-        $result = $this->syncService->sync(
-            $request->user(),
-            $records,
-            $request->input('device_id'),
-            $request->file('photos') ?? [],
-        );
-
-        return response()->json([
-            'message' => $result['failed'] > 0 ? 'Sync completed with some failures.' : 'Sync completed.',
-            'synced' => $result['synced'],
-            'failed' => $result['failed'],
-            'duplicates' => $result['duplicates'],
-            'records' => $result['records'],
-        ]);
     }
 }

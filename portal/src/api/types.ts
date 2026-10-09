@@ -110,32 +110,12 @@ export interface Paginated<T> {
 }
 
 export interface LoginSuccess {
-  token: string;
   user: User;
-}
-
-export interface SyncRecordResult {
-  index: number;
-  status: 'created' | 'duplicate' | 'failed';
-  uuid?: string;
-  message?: string;
-  photo?: {
-    present: boolean;
-    flags?: string[];
-  };
-}
-
-export interface SyncResult {
-  message: string;
-  synced: number;
-  failed: number;
-  duplicates: number;
-  records: SyncRecordResult[];
 }
 
 export type BreakKind =
   | '15_min'
-  | '5_min' // TEST ONLY: remove before production
+  | '5_min'
   | 'lunch_60'
   | 'bio'
   | 'phone'
@@ -145,7 +125,6 @@ export type BreakKind =
 
 export const BREAK_OPTIONS: { kind: BreakKind; label: string }[] = [
   { kind: '15_min', label: '15 mins break' },
-  { kind: '5_min', label: '5 mins break (test)' },
   { kind: 'lunch_60', label: '1hr Lunch Break' },
   { kind: 'bio', label: 'Bio break' },
   { kind: 'phone', label: 'Phone time' },
@@ -162,20 +141,6 @@ export type PunchSession = {
   time_in: Attendance | null;
   break: Attendance | null;
 };
-
-export interface OfflinePunch {
-  client_uuid: string;
-  type: PunchType;
-  timestamp: string;
-  latitude: number;
-  longitude: number;
-  accuracy_meters: number | null;
-  notes?: string;
-  queued_at: string;
-  selfieUri?: string;
-  attempts?: number;
-  last_error?: string;
-}
 
 export interface GpsOutOfRangeDetails {
   distance_meters?: number;

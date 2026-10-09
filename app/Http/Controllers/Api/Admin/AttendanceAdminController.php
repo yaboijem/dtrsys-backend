@@ -8,8 +8,10 @@ use App\Models\Attendance;
 use App\Models\User;
 use App\Services\PhotoStorage;
 use App\Support\ScopesByRole;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 class AttendanceAdminController extends Controller
@@ -54,6 +56,35 @@ class AttendanceAdminController extends Controller
         }
 
         return $storage->response($photo->path, 'selfie_'.$attendance->id.'.jpg');
+    }
+
+    public function photoUrl(Request $request, Attendance $attendance): JsonResponse
+    {
+        if (! $this->canView($request->user(), $attendance)) {
+            abort(403, 'You are not allowed to view this attendance record.');
+        }
+
+        $expiresAt = now()->addMinutes(5);
+        $absolute = URL::temporarySignedRoute('attendance.photo', $expiresAt, ['attendance' => $attendance->id]);
+        $parts = parse_url($absolute);
+        $relative = ($parts['path'] ?? '').(isset($parts['query']) ? '?'.$parts['query'] : '');
+
+        return response()->json([
+            'url' => $relative,
+            'expires_at' => $expiresAt->toISOString(),
+        ]);
+    }
+
+    public function signedPhoto(Attendance $attendance): Response
+    {
+        $photo = $attendance->loadMissing('photo')->photo;
+        $storage = app(PhotoStorage::class);
+
+        if (! $photo || ! $storage->exists($photo->path)) {
+            abort(404, 'No photo found for this attendance record.');
+        }
+
+        return $storage->response($photo->path, 'selfie_'.$attendance->id.'.jpg', 300);
     }
 
     private function canView(User $user, Attendance $attendance): bool

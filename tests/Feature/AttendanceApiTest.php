@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Branch;
-use App\Models\Device;
 use App\Models\Employee;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -194,61 +193,26 @@ class AttendanceApiTest extends TestCase
     }
 
     #[Test]
-    public function offline_records_can_be_synced(): void
+    public function offline_sync_endpoint_is_not_available(): void
     {
         $employee = $this->makeEmployee();
-        Device::factory()->create([
-            'employee_id' => $employee->id,
-            'device_id' => 'sync-phone',
-        ]);
-        $branch = $employee->branch;
 
-        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
-            'device_id' => 'sync-phone',
-            'records' => json_encode([
-                [
-                    'client_uuid' => 'rec-a',
-                    'type' => 'time_in',
-                    'timestamp' => now()->subHours(2)->toDateTimeString(),
-                    'latitude' => (float) $branch->latitude + 0.0001,
-                    'longitude' => (float) $branch->longitude + 0.0001,
-                    'accuracy_meters' => 10,
-                ],
-                [
-                    'client_uuid' => 'rec-b',
-                    'type' => 'time_out',
-                    'timestamp' => now()->subHour()->toDateTimeString(),
-                    'latitude' => (float) $branch->latitude + 0.0001,
-                    'longitude' => (float) $branch->longitude + 0.0001,
-                    'accuracy_meters' => 10,
-                ],
-            ]),
-        ])->assertOk()
-            ->assertJsonPath('synced', 2)
-            ->assertJsonPath('failed', 0);
-
-        $this->assertDatabaseHas('attendance', ['uuid' => 'rec-a', 'source' => 'sync']);
-        $this->assertDatabaseHas('attendance', ['uuid' => 'rec-b', 'source' => 'sync']);
-        $this->assertDatabaseHas('sync_logs', ['employee_id' => $employee->id, 'status' => 'success']);
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/sync', ['records' => '[]'])
+            ->assertNotFound();
     }
 
     #[Test]
-    public function sync_rejects_future_timestamps(): void
+    public function punch_requires_gps_consent(): void
     {
-        $employee = $this->makeEmployee();
+        $employee = Employee::factory()->withoutConsents()->create();
+        $employee->user->syncRoles(['Employee']);
 
-        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/sync', [
-            'records' => json_encode([
-                [
-                    'client_uuid' => 'rec-future',
-                    'type' => 'time_in',
-                    'timestamp' => now()->addDay()->toDateTimeString(),
-                    'latitude' => 14.55,
-                    'longitude' => 121.02,
-                ],
-            ]),
-        ])->assertOk()
-            ->assertJsonPath('synced', 0)
-            ->assertJsonPath('failed', 1);
+        $this->actingAs($employee->user, 'sanctum')
+            ->post('/api/attendance/time-in', $this->punchPayload($employee->branch, [
+                'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+            ]))
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'gps_consent_required');
     }
 }

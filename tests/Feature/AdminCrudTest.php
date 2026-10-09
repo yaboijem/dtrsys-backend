@@ -18,7 +18,7 @@ class AdminCrudTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['Super Admin', 'HR', 'Employee'] as $role) {
+        foreach (['Super Admin', 'HR', 'Branch Manager', 'Employee'] as $role) {
             Role::findOrCreate($role, 'web');
         }
     }
@@ -175,12 +175,34 @@ class AdminCrudTest extends TestCase
 
         $this->actingAs($admin->user, 'sanctum')
             ->patchJson("/api/admin/employees/{$employee->id}", [
-                'role' => 'Super Admin',
+                'role' => 'Branch Manager',
                 'branch_id' => $newBranch->id,
             ])
             ->assertOk()
-            ->assertJsonPath('data.roles', ['Super Admin'])
+            ->assertJsonPath('data.roles', ['Branch Manager'])
             ->assertJsonPath('data.branch.id', $newBranch->id);
+    }
+
+    public function test_hr_cannot_assign_super_admin(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->postJson('/api/admin/employees', $this->employeePayload(['role' => 'Super Admin']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('role');
+    }
+
+    public function test_password_change_revokes_existing_tokens(): void
+    {
+        $admin = $this->makeAdmin();
+        $admin->user->createToken('mobile');
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->patchJson("/api/admin/employees/{$admin->id}", ['password' => 'new-password-1'])
+            ->assertOk();
+
+        $this->assertSame(0, $admin->user->fresh()->tokens()->count());
     }
 
     public function test_deleting_employee_deactivates_account(): void

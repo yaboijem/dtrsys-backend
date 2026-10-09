@@ -36,7 +36,8 @@ class GoogleLoginTest extends TestCase
             ->assertJsonPath('message', 'Login successful.')
             ->assertJsonPath('user.email', 'Emp@Company.com')
             ->assertJsonPath('user.employee.id', $employee->id);
-        $this->assertNotEmpty($response->json('token'));
+        $response->assertCookie('dtr_token');
+        $this->assertArrayNotHasKey('token', $response->json());
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $employee->user->id,
             'name' => 'mobile',

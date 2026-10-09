@@ -34,7 +34,8 @@ class ConsentApiTest extends TestCase
     #[Test]
     public function employee_lists_consents_and_grants_biometric_consent(): void
     {
-        $employee = $this->makeEmployee();
+        $employee = Employee::factory()->withoutConsents()->create(['branch_id' => Branch::factory()]);
+        $employee->user->syncRoles(['Employee']);
 
         $this->actingAs($employee->user, 'sanctum')->getJson('/api/employee/consent')
             ->assertOk()

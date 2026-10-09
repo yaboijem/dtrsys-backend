@@ -4,7 +4,7 @@ End-to-end acceptance smoke test for the DTR backend API.
 
 .DESCRIPTION
 Runs the full user journey against a live server: auth, attendance
-punches (GPS + selfie), sync, schedule, notifications, consent, data
+punches (GPS + selfie), schedule, notifications, consent, data
 requests, admin scoped views, reports, payroll exports, fraud review
 access, and the retention dry-run. Prints [PASS]/[WARN]/[FAIL] per step
 and exits with 1 if any step failed.
@@ -122,24 +122,9 @@ try {
     elseif ($punch.Status -eq 409) { Report 'WARN' 'time-out no open punch (409)' }
     else { Report 'FAIL' 'time-out' "status=$($punch.Status) body=$($punch.Body.Substring(0, [Math]::Min(200, $punch.Body.Length)))" }
 
-    # --- 6. History + offline sync ---
+    # --- 6. History ---
     $history = Invoke-RestMethod -Uri "$BaseUrl/api/attendance/history?per_page=5" -Headers @{ Authorization = "Bearer $empToken" }
     Report 'PASS' 'attendance history' ("records=$($history.meta.total)")
-
-    $sync = JsonPost "$BaseUrl/api/attendance/sync" @{
-        device_id = 'demo-device-1'
-        records   = @(@{
-            client_uuid   = [guid]::NewGuid().ToString()
-            type          = 'time_in'
-            timestamp     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-            latitude      = 14.554729
-            longitude     = 121.0244452
-            accuracy_meters = 25
-        })
-    } @{ Authorization = "Bearer $empToken" }
-    if ($sync.failed -eq 0 -and $sync.synced -ge 1) { Report 'PASS' 'offline sync' "synced=$($sync.synced) dupes=$($sync.duplicates)" }
-    elseif ($sync.synced -eq 0 -and $sync.failed -ge 1) { Report 'WARN' 'offline sync record rejected' "failed=$($sync.failed) (already clocked in)" }
-    else { Report 'FAIL' 'offline sync' "synced=$($sync.synced) failed=$($sync.failed)" }
 
     # --- 7. Consent ---
     $consent = JsonPost "$BaseUrl/api/employee/consent" @{ type = 'gps_location'; granted = $true } @{ Authorization = "Bearer $empToken" }

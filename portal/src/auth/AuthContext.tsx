@@ -40,8 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const storedToken = localStorage.getItem(STORAGE_KEYS.token);
-        const storedUser = localStorage.getItem(STORAGE_KEYS.user);
+        localStorage.removeItem(STORAGE_KEYS.token);
         const storedUrl = localStorage.getItem(STORAGE_KEYS.serverUrl);
         const storedDevice = localStorage.getItem(STORAGE_KEYS.deviceId);
 
@@ -53,19 +52,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setDeviceIdState(dev);
         deviceIdRef.current = dev;
 
-        if (storedToken && storedUser) {
-          try {
-            const me = await apiRef.current.get<{ data: User }>('/api/auth/me', undefined, storedToken);
-            setToken(storedToken);
-            setUser(me.data);
-            localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me.data));
-            setStatus('authed');
-            return;
-          } catch (err) {
-            if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-              localStorage.removeItem(STORAGE_KEYS.token);
-              localStorage.removeItem(STORAGE_KEYS.user);
-            }
+        try {
+          const me = await apiRef.current.get<{ data: User }>('/api/auth/me');
+          setToken('session');
+          setUser(me.data);
+          localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(me.data));
+          setStatus('authed');
+          return;
+        } catch (err) {
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+            localStorage.removeItem(STORAGE_KEYS.user);
           }
         }
       } catch {
@@ -75,11 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const completeLogin = useCallback(async (newToken: string, newUser: User) => {
-    setToken(newToken);
+  const completeLogin = useCallback(async (newUser: User) => {
+    setToken('session');
     setUser(newUser);
     setStatus('authed');
-    localStorage.setItem(STORAGE_KEYS.token, newToken);
+    localStorage.removeItem(STORAGE_KEYS.token);
     localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(newUser));
   }, []);
 
@@ -101,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      if (!('token' in result) || !result.token || !result.user) {
+      if (!result.user) {
         throw new ApiError(
           'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
           0,
@@ -109,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      await completeLogin(result.token, result.user);
+      await completeLogin(result.user);
     },
     [completeLogin],
   );
@@ -123,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         app_version: APP_VERSION,
       });
 
-      if (typeof result !== 'object' || result === null || !('token' in result) || !result.token || !result.user) {
+      if (typeof result !== 'object' || result === null || !result.user) {
         throw new ApiError(
           'The server returned an unexpected response. Check that the backend is running and the server URL is correct.',
           0,
@@ -131,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      await completeLogin(result.token, result.user);
+      await completeLogin(result.user);
     },
     [completeLogin],
   );

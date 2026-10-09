@@ -33,4 +33,24 @@ class EmployeeFactory extends Factory
             'date_hired' => fake()->date(),
         ];
     }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Employee $employee) {
+            foreach (['biometric_photos', 'gps_location'] as $type) {
+                $employee->consents()->create([
+                    'type' => $type,
+                    'granted' => true,
+                    'granted_at' => now(),
+                ]);
+            }
+        });
+    }
+
+    public function withoutConsents(): static
+    {
+        return $this->afterCreating(function (Employee $employee) {
+            $employee->consents()->delete();
+        });
+    }
 }

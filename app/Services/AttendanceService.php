@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
+use App\Exceptions\ConsentRequiredException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
 use App\Jobs\NotifyBreakPastDueJob;
@@ -33,6 +34,7 @@ class AttendanceService
     public function timeIn(User $user, array $data): Attendance
     {
         return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $this->assertConsent($employee, true);
             $now = now();
 
             if ($this->openPunchFor($employee, 'time_in')) {
@@ -47,7 +49,7 @@ class AttendanceService
 
                 $attendance = $this->createPunch($employee, 'time_in', $now, $data);
                 $this->storeGpsLocation($attendance, $employee, $gps);
-                $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
+                $this->storePunchPhoto($employee, $attendance, $data['selfie'] ?? null);
 
                 $this->runFraudChecks($attendance);
 
@@ -59,6 +61,7 @@ class AttendanceService
     public function timeOut(User $user, array $data): Attendance
     {
         return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $this->assertConsent($employee, true);
             $now = now();
 
             $timeIn = $this->openPunchFor($employee, 'time_in');
@@ -84,7 +87,7 @@ class AttendanceService
                 $attendance->update(['work_minutes' => $this->computeWorkMinutes($timeIn, $now)]);
 
                 $this->storeGpsLocation($attendance, $employee, $gps);
-                $this->captureAndVerifyPhoto($employee, $attendance, $data['selfie'] ?? null);
+                $this->storePunchPhoto($employee, $attendance, $data['selfie'] ?? null);
 
                 $this->runFraudChecks($attendance);
 
@@ -96,6 +99,7 @@ class AttendanceService
     public function breakIn(User $user, array $data): Attendance
     {
         return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $this->assertConsent($employee, false);
             if (! AppSetting::current()->breaks_enabled) {
                 throw new BreaksDisabledException('Break in/out is currently disabled by an administrator.');
             }
@@ -133,6 +137,7 @@ class AttendanceService
     public function breakOut(User $user, array $data): Attendance
     {
         return $this->withEmployeeLock($user, $data, function (Employee $employee) use ($data) {
+            $this->assertConsent($employee, false);
             $now = now();
 
             $breakIn = $this->openBreakFor($employee);
@@ -239,7 +244,6 @@ class AttendanceService
     {
         return match ($kind) {
             '15_min' => $now->copy()->addMinutes(15),
-            '5_min' => $now->copy()->addMinutes(5), // TEST ONLY: remove before production
             'lunch_60' => $now->copy()->addMinutes(60),
             default => null,
         };
@@ -256,7 +260,7 @@ class AttendanceService
             'latitude' => $data['latitude'] ?? null,
             'longitude' => $data['longitude'] ?? null,
             'gps_accuracy_meters' => $data['accuracy_meters'] ?? null,
-            'is_offline' => (bool) ($data['is_offline'] ?? false),
+            'is_offline' => false,
             'is_late' => false,
             'is_early_timeout' => false,
             'break_kind' => $type === 'break_in' ? ($data['break_kind'] ?? null) : null,
@@ -423,7 +427,24 @@ class AttendanceService
         ]);
     }
 
-    public function captureAndVerifyPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
+    public function assertConsent(Employee $employee, bool $requiresPhoto): void
+    {
+        if (! $employee->hasGrantedConsent('gps_location')) {
+            throw new ConsentRequiredException(
+                'Grant GPS location consent before punching.',
+                'gps_consent_required',
+            );
+        }
+
+        if ($requiresPhoto && ! $employee->hasGrantedConsent('biometric_photos')) {
+            throw new ConsentRequiredException(
+                'Grant photo consent before punching.',
+                'biometric_consent_required',
+            );
+        }
+    }
+
+    public function storePunchPhoto(Employee $employee, Attendance $attendance, ?UploadedFile $selfie): ?AttendancePhoto
     {
         if (! $selfie) {
             return null;
@@ -461,8 +482,7 @@ class AttendanceService
 
     /**
      * Latest open time_in as of $asOf (chronological), not merely "unclosed by id today".
-     * Prevents late offline time_in syncs from inserting a second clock-in inside an already
-     * closed session, and supports overnight shifts that span calendar days.
+     * Prevents a second clock-in inside an already closed session, and supports overnight shifts.
      */
     public function openPunchFor(Employee $employee, string $type, ?Carbon $asOf = null): ?Attendance
     {
@@ -577,6 +597,7 @@ class AttendanceService
                 FROM attendance
                 WHERE deleted_at IS NULL
                   AND type IN ('time_in', 'time_out')
+                  AND timestamp >= ?
             ),
             open_shifts AS (
                 SELECT employee_id, id, timestamp
@@ -598,6 +619,7 @@ class AttendanceService
             LEFT JOIN latest_break b
               ON b.employee_id = o.employee_id AND b.rn = 1 AND b.type = 'break_in'
             ORDER BY o.timestamp",
+            [now()->subDays((int) config('dtr.attendance.open_session_lookback_days', 30))->toDateTimeString()],
         );
 
         if ($rows === []) {

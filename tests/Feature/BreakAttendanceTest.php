@@ -8,8 +8,9 @@ use App\Models\AppSetting;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\Employee;
-use App\Models\User;
 use App\Notifications\GenericNotification;
+use App\Services\AttendanceService;
+use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -227,7 +228,7 @@ class BreakAttendanceTest extends TestCase
         $this->assertNotNull($breakOut);
         $this->assertSame('coaching', $breakOut->break_kind);
         $this->assertNull($breakOut->expected_end_at);
-        $this->assertNull($this->app->make(\App\Services\AttendanceService::class)->openBreakFor($employee));
+        $this->assertNull($this->app->make(AttendanceService::class)->openBreakFor($employee));
     }
 
     #[Test]
@@ -320,8 +321,8 @@ class BreakAttendanceTest extends TestCase
         });
 
         $job = new NotifyTimedBreakEndingJob($breakIn->id);
-        $job->handle(app(\App\Services\NotificationService::class));
-        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(NotificationService::class));
+        $job->handle(app(NotificationService::class));
 
         $this->assertSame('ending', $breakIn->fresh()->break_notify_stage);
         $this->assertSame(1, Notification::sent($employee->user, GenericNotification::class)->count());
@@ -371,7 +372,7 @@ class BreakAttendanceTest extends TestCase
         $this->timeIn($employee);
 
         $this->actingAs($employee->user, 'sanctum')
-            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => '5_min'])
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => '15_min'])
             ->assertCreated();
 
         $breakIn = Attendance::where('employee_id', $employee->id)->where('type', 'break_in')->first();
@@ -381,12 +382,12 @@ class BreakAttendanceTest extends TestCase
         });
 
         $job = new NotifyBreakPastDueJob($breakIn->id);
-        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(NotificationService::class));
         $this->assertDatabaseCount('fraud_flags', 0);
 
         Carbon::setTestNow($breakIn->expected_end_at->copy()->addMinutes(5));
-        $job->handle(app(\App\Services\NotificationService::class));
-        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(NotificationService::class));
+        $job->handle(app(NotificationService::class));
 
         $this->assertDatabaseHas('fraud_flags', [
             'attendance_id' => $breakIn->id,
@@ -420,7 +421,7 @@ class BreakAttendanceTest extends TestCase
             ->assertSuccessful();
 
         $job = new NotifyBreakPastDueJob($breakIn->id);
-        $job->handle(app(\App\Services\NotificationService::class));
+        $job->handle(app(NotificationService::class));
 
         $this->assertDatabaseMissing('fraud_flags', [
             'attendance_id' => $breakIn->id,
@@ -428,5 +429,17 @@ class BreakAttendanceTest extends TestCase
         ]);
         Notification::assertNothingSent();
         Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function five_minute_test_break_is_rejected(): void
+    {
+        $employee = $this->makeEmployee('EMP-FIVE');
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [...$this->gps($employee->branch), 'break_kind' => '5_min'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('break_kind');
     }
 }

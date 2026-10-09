@@ -189,6 +189,33 @@ class AttendanceAdminApiTest extends TestCase
     }
 
     #[Test]
+    public function selfie_link_is_short_lived_and_signed(): void
+    {
+        Storage::fake('public');
+        $branch = Branch::factory()->create();
+        $hr = $this->makeUser('HR', $branch);
+        $punch = $this->makePunch($branch);
+        Storage::disk('public')->put('attendance/selfie.jpg', 'fake-image-bytes');
+        AttendancePhoto::create([
+            'attendance_id' => $punch->id,
+            'path' => 'attendance/selfie.jpg',
+            'captured_at' => now(),
+        ]);
+
+        $url = $this->actingAs($hr->user, 'sanctum')
+            ->getJson("/api/admin/attendance/{$punch->id}/photo-url")
+            ->assertOk()
+            ->json('url');
+
+        $this->assertIsString($url);
+        $this->assertStringContainsString('signature=', $url);
+        $this->get($url)->assertOk()->assertHeader('content-type', 'image/jpeg');
+
+        $this->travel(6)->minutes();
+        $this->get($url)->assertForbidden();
+    }
+
+    #[Test]
     public function selfie_view_returns_404_when_missing(): void
     {
         $branch = Branch::factory()->create();

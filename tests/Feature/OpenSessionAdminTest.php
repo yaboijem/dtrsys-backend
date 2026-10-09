@@ -138,6 +138,23 @@ class OpenSessionAdminTest extends TestCase
     }
 
     #[Test]
+    public function open_sessions_ignore_punches_older_than_the_lookback(): void
+    {
+        $hr = $this->makeUser('HR');
+        $stale = $this->makeUser('Employee');
+        $recent = $this->makeUser('Employee');
+        $this->punch($stale, 'time_in', now()->subDays(31));
+        $this->punch($recent, 'time_in', now()->subHour());
+
+        $this->actingAs($hr->user, 'sanctum')
+            ->getJson('/api/admin/open-sessions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonFragment(['employee_id' => $recent->id])
+            ->assertJsonMissing(['employee_id' => $stale->id]);
+    }
+
+    #[Test]
     public function branch_manager_cannot_override_sessions(): void
     {
         $manager = $this->makeUser('Branch Manager');

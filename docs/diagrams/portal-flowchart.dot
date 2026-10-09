@@ -55,8 +55,8 @@ digraph "DTR Portal" {
     timeout [label = "Time Out\ntake selfie, share location"]
   }
 
-  net [label = "No internet?" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
-  queue [label = "Saved on the phone\nsyncs when back online" fillcolor = "#fff7ed" color = "#c2410c"]
+  net [label = "Internet required" shape = diamond fillcolor = "#fefce8" color = "#a16207" width = 2.2 height = 1.1]
+  blocked [label = "Punch blocked\nuntil you are online" fillcolor = "#fff7ed" color = "#c2410c"]
   extras [label = "Also available:\nHistory · Alerts · WFH home pin"]
   end [label = "Done" shape = oval fillcolor = "#0c1b2a" fontcolor = "#eef4f7" width = 1.2]
 
@@ -74,8 +74,8 @@ digraph "DTR Portal" {
   breakq -> timeout [label = "No"]
   timeout -> net
   timein -> net [style = dashed]
-  net -> queue [label = "Offline"]
+  net -> blocked [label = "Offline"]
   net -> extras [label = "Online"]
-  queue -> extras
+  blocked -> extras
   extras -> end
 }

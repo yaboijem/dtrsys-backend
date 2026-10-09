@@ -145,7 +145,7 @@ class EmployeeController extends Controller
                 $securityFieldsChanged = true;
             }
 
-            if ($securityFieldsChanged && $request->user()->id !== $employee->user->id) {
+            if ($securityFieldsChanged) {
                 $employee->user->tokens()->delete();
             }
 

@@ -26,7 +26,8 @@ export function PhotoViewer({ url, token, alt, className, fallbackText = 'No pho
 
     async function load() {
       try {
-        const response = await api.request<Response>('GET', url, { token, raw: true });
+        const link = await api.request<{ url: string }>('GET', `${url}-url`, { token });
+        const response = await api.request<Response>('GET', link.url, { token, raw: true });
         const blob = await response.blob();
         if (cancelled) return;
         urlToRevoke = URL.createObjectURL(blob);

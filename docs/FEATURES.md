@@ -1,6 +1,6 @@
 # DTR System — Feature Inventory
 
-**Product:** Daily Time Record (DTR) — multi-branch attendance with GPS validation, offline sync, role-based administration, and privacy controls.
+**Product:** Daily Time Record (DTR) — multi-branch attendance with GPS validation, role-based administration, and privacy controls. Punches require a live internet connection.
 
 **Surfaces:**
 
@@ -49,11 +49,11 @@ Timezone: **Asia/Manila**.
 | GPS validation | Haversine vs assigned branch lat/lng + `radius_meters`; optional accuracy |
 | Photo pipeline | Compress ≤1024px JPEG, strip EXIF; store on local or S3-compatible disk |
 | Employee locking | Per-employee lock prevents concurrent punch races |
-| Client UUID | Optional online idempotency; required for offline sync dedupe |
+| Client UUID | Optional online idempotency for a retried live punch |
 | Schedule gate | Punch requires an assigned shift for the day (`no_schedule`) |
 | Conflict rules | Already clocked in / no open punch → `attendance_conflict`. The 409 includes `session` so the button can follow the open shift. |
 | History | Own records; filters `from`, `to`, `type`, pagination |
-| Rate limit | Attendance 30/min; sync has a separate throttle |
+| Rate limit | Attendance 30/min |
 
 ### API
 
@@ -65,27 +65,18 @@ Timezone: **Asia/Manila**.
 | POST | `/api/attendance/break-out` | GPS payload |
 | GET | `/api/attendance/history` | Own records |
 | GET | `/api/attendance/session` | Open shift for the punch button: `{ open, on_break, time_in, break }`. Two indexed lookups, not the history list. |
-| POST | `/api/attendance/sync` | Offline batch (max 100; lower with photos) |
 
 ---
 
-## 3. Offline sync
+## 3. Live connection
 
-| Feature | Details |
-|---------|---------|
-| Batch sync | Up to 100 records with optional photos per request |
-| Client UUID | Idempotent dedupe by `client_uuid` |
-| Ordered apply | Timestamp-ordered transitions (time_in → break → time_out) |
-| Re-validation | GPS and fraud checks re-run on sync |
-| Sync trail | `sync_logs` records outcomes |
-| Portal upload | A dropped live upload replays the same `client_uuid` up to 3 times in memory, then offers Retry. It is not stored after the page closes. |
-| Mobile queue | Parallel offline queue on Expo app |
+Punches are accepted only while the device is online. There is no offline queue and no `POST /api/attendance/sync`. A dropped live upload may replay the same `client_uuid` in memory, then offer Retry. It is not stored after the page closes.
 
 ---
 
 ## 4. Fraud detection
 
-Automated flags evaluated on punches (live and sync):
+Automated flags evaluated on live punches:
 
 | Flag type | Meaning |
 |-----------|---------|
@@ -278,7 +269,7 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 | Cache / locks | Database default; Redis supported for scale |
 | Media disk | Local or S3/R2-compatible (`ATTENDANCE_PHOTO_DISK`) |
 | Security | HTTPS, rate limits, `APP_DEBUG=false` in production |
-| Load testing | `scripts/load/punch-storm.k6.js` (live punch + optional sync storm) |
+| Load testing | `scripts/load/punch-storm.k6.js` (live punches only) |
 | Demo data | Seeded roles, branches (Makati HQ, QC), employees, shifts |
 | Tests | PHPUnit feature/unit suite |
 | Style | Laravel Pint |
@@ -294,7 +285,6 @@ Shared UI: `EmployeePicker` (typeahead single/multi), `DataTable`, drawers, toas
 | `AttendanceService` | Time in/out, break in/out, late/work minutes, photo capture |
 | `GPSService` | Distance and geofence verify |
 | `FraudDetectionService` | Automated fraud rules |
-| `SyncService` | Offline batch apply |
 | `ScheduleService` | Shift for date / week |
 | `NotificationService` | In-app database notifications |
 | `AuditService` | Audit log writes |

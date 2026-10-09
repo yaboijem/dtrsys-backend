@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Consent;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
@@ -67,7 +68,7 @@ class EmployeeSeeder extends Seeder
 
         $user->syncRoles([$role]);
 
-        Employee::updateOrCreate(
+        $employee = Employee::updateOrCreate(
             ['user_id' => $user->id],
             [
                 'branch_id' => $branch->id,
@@ -78,5 +79,12 @@ class EmployeeSeeder extends Seeder
                 'date_hired' => now()->subYears(rand(1, 5))->subMonths(rand(0, 11)),
             ],
         );
+
+        foreach (['biometric_photos', 'gps_location'] as $type) {
+            Consent::updateOrCreate(
+                ['employee_id' => $employee->id, 'type' => $type],
+                ['granted' => true, 'granted_at' => now(), 'revoked_at' => null],
+            );
+        }
     }
 }

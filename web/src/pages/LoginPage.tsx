@@ -81,8 +81,8 @@ export function LoginPage() {
     setLoading(true);
     try {
       const result = await login(id, password);
-      if (result.token) {
-        signIn(result.token, result.user);
+      if (result.user) {
+        signIn('session', result.user);
         navigate('/');
       }
     } catch (err) {
