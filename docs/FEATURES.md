@@ -46,7 +46,7 @@ Timezone: **Asia/Manila**.
 | **Time Out** | Selfie + GPS; closes open punch; computes `work_minutes` (excludes break); blocked if still on break; early-timeout flag |
 | **Break In** | GPS only (no selfie); one break per open shift |
 | **Break Out** | GPS; sets `break_minutes`; `is_overbreak` if break exceeds 60 minutes |
-| GPS validation | Haversine vs assigned branch lat/lng + `radius_meters`; optional accuracy |
+| GPS validation | Haversine vs assigned branch lat/lng + `radius_meters`; accuracy expands the fence by at most the branch `accuracy_allowance_meters`; accuracy worse than the branch `accuracy_ceiling_meters` is rejected |
 | Photo pipeline | Compress ≤1024px JPEG, strip EXIF; store on local or S3-compatible disk |
 | Employee locking | Per-employee lock prevents concurrent punch races |
 | Client UUID | Optional online idempotency for a retried live punch |

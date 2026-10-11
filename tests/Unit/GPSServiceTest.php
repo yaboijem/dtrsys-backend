@@ -103,4 +103,70 @@ class GPSServiceTest extends TestCase
 
         $this->assertFalse($result['is_within_radius']);
     }
+
+    #[Test]
+    public function it_caps_accuracy_expansion_at_the_branch_allowance(): void
+    {
+        $branch = Branch::factory()->create([
+            'latitude' => 14.554729,
+            'longitude' => 121.024445,
+            'radius_meters' => 200,
+            'accuracy_allowance_meters' => 30,
+        ]);
+
+        // ~400 m north: inside 200 m + 9999 m under the old math, outside 200 m + 30 m.
+        $result = (new GPSService)->verify($branch, 14.558329, 121.024445, 9999);
+
+        $this->assertFalse($result['is_within_radius']);
+    }
+
+    #[Test]
+    public function it_uses_each_branchs_own_allowance(): void
+    {
+        $strict = Branch::factory()->create([
+            'latitude' => 14.554729,
+            'longitude' => 121.024445,
+            'radius_meters' => 200,
+            'accuracy_allowance_meters' => 0,
+        ]);
+        $tolerant = Branch::factory()->create([
+            'latitude' => 14.554729,
+            'longitude' => 121.024445,
+            'radius_meters' => 200,
+            'accuracy_allowance_meters' => 50,
+        ]);
+
+        // ~206 m north: outside both raw radii; only the tolerant branch's allowance covers it.
+        $this->assertFalse((new GPSService)->verify($strict, 14.556579, 121.024445, 50)['is_within_radius']);
+        $this->assertTrue((new GPSService)->verify($tolerant, 14.556579, 121.024445, 50)['is_within_radius']);
+    }
+
+    #[Test]
+    public function it_still_allows_a_small_accuracy_allowance(): void
+    {
+        $branch = Branch::factory()->create([
+            'latitude' => 14.554729,
+            'longitude' => 121.024445,
+            'radius_meters' => 200,
+            'accuracy_allowance_meters' => 30,
+        ]);
+
+        // ~206 m north: just outside the raw radius, inside radius + allowance.
+        $this->assertFalse((new GPSService)->verify($branch, 14.556579, 121.024445, null)['is_within_radius']);
+        $this->assertTrue((new GPSService)->verify($branch, 14.556579, 121.024445, 20)['is_within_radius']);
+    }
+
+    #[Test]
+    public function it_never_shrinks_the_radius_for_negative_accuracy(): void
+    {
+        $branch = Branch::factory()->create([
+            'latitude' => 14.554729,
+            'longitude' => 121.024445,
+            'radius_meters' => 200,
+            'accuracy_allowance_meters' => 30,
+        ]);
+
+        // ~178 m north: inside the raw radius; negative accuracy must not shrink it.
+        $this->assertTrue((new GPSService)->verify($branch, 14.556329, 121.024445, -50)['is_within_radius']);
+    }
 }

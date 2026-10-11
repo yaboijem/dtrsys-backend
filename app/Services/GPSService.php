@@ -32,6 +32,7 @@ class GPSService
             $latitude,
             $longitude,
             $accuracyMeters,
+            (float) ($branch->accuracy_allowance_meters ?? 0.0),
         );
     }
 
@@ -42,6 +43,7 @@ class GPSService
         ?float $latitude,
         ?float $longitude,
         ?float $accuracyMeters = null,
+        float $accuracyAllowanceMeters = 0.0,
     ): array {
         if ($latitude === null || $longitude === null) {
             return [
@@ -68,7 +70,10 @@ class GPSService
             $longitude,
         );
 
-        $effectiveRadius = $radiusMeters + ($accuracyMeters ?? 0);
+        $accuracy = max(0.0, (float) ($accuracyMeters ?? 0.0));
+        $allowance = min($accuracy, max(0.0, $accuracyAllowanceMeters));
+
+        $effectiveRadius = $radiusMeters + $allowance;
 
         return [
             'distance_meters' => round($distance, 2),

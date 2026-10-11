@@ -283,6 +283,7 @@ class AttendanceService
         $lat = isset($data['latitude']) ? (float) $data['latitude'] : null;
         $lng = isset($data['longitude']) ? (float) $data['longitude'] : null;
         $acc = isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null;
+        $allowance = (float) ($employee->branch->accuracy_allowance_meters ?? 0.0);
 
         if ($employee->isWfh()) {
             $home = $employee->primaryHomeLocation();
@@ -298,6 +299,7 @@ class AttendanceService
                 $lat,
                 $lng,
                 $acc,
+                $allowance,
             );
 
             $result['verified_against_type'] = 'home_location';
@@ -321,6 +323,7 @@ class AttendanceService
                 $lat,
                 $lng,
                 $acc,
+                $allowance,
             );
             $branchResult['verified_against_type'] = 'branch';
             $branchResult['verified_against_id'] = $branch->id;
@@ -332,6 +335,7 @@ class AttendanceService
                 $lat,
                 $lng,
                 $acc,
+                $allowance,
             );
             $homeResult['verified_against_type'] = 'home_location';
             $homeResult['verified_against_id'] = $home->id;
