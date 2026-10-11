@@ -30,6 +30,10 @@ trait GuardsSuperAdminRole
                     $validator->errors()->add('role', 'The last Super Admin cannot be demoted.');
                 }
             }
+
+            if ($targetIsSuper && $this->has('is_active') && ! $this->boolean('is_active') && $target->isLastActiveSuperAdmin()) {
+                $validator->errors()->add('is_active', 'The last Super Admin cannot be deactivated.');
+            }
         });
     }
 }

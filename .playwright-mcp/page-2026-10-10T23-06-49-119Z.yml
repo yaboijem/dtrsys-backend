@@ -1,0 +1,68 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e26]:
+    - complementary [ref=f1e27]:
+      - generic [ref=f1e29]:
+        - generic [ref=f1e30]: DTR Admin
+        - generic [ref=f1e31]: Time & Attendance
+      - navigation [ref=f1e32]:
+        - link "Dashboard" [ref=f1e33] [cursor=pointer]:
+          - /url: /
+        - link "Attendance" [ref=f1e42] [cursor=pointer]:
+          - /url: /attendance
+        - link "Open Sessions" [ref=f1e49] [cursor=pointer]:
+          - /url: /open-sessions
+        - link "Red Flags" [ref=f1e55] [cursor=pointer]:
+          - /url: /fraud-flags
+        - link "Employees" [ref=f1e60] [cursor=pointer]:
+          - /url: /employees
+        - link "Org structure" [ref=f1e68] [cursor=pointer]:
+          - /url: /org-structure
+        - link "Home locations" [ref=f1e76] [cursor=pointer]:
+          - /url: /home-locations
+        - link "Branches" [ref=f1e82] [cursor=pointer]:
+          - /url: /branches
+      - button "Collapse sidebar" [ref=f1e90] [cursor=pointer]:
+        - generic [ref=f1e94]: Collapse
+      - generic [ref=f1e95]:
+        - generic [ref=f1e96]:
+          - generic [aria-hidden] [ref=f1e97]: JB
+          - generic [ref=f1e98]:
+            - generic [ref=f1e99]: Jeremy Bantol
+            - generic [ref=f1e100]: ADMIN001 · Super Admin
+        - button "Sign out" [ref=f1e101] [cursor=pointer]
+    - main [ref=f1e106]:
+      - generic [ref=f1e108]:
+        - generic [ref=f1e109]:
+          - heading "Dashboard" [level=1] [ref=f1e111]
+          - time [ref=f1e113]:
+            - generic [ref=f1e114]: Today
+            - generic [ref=f1e115]: Sunday, October 11, 2026
+        - generic [ref=f1e116]:
+          - heading "Attendance" [level=2] [ref=f1e117]
+          - generic [ref=f1e118]:
+            - button "0 Time-ins today Same as yesterday" [ref=f1e119] [cursor=pointer]:
+              - generic [ref=f1e121]:
+                - generic [ref=f1e122]: "0"
+                - generic [ref=f1e123]: Time-ins today
+              - generic [ref=f1e129]: Same as yesterday
+            - generic [ref=f1e131]:
+              - generic [ref=f1e133]:
+                - generic [ref=f1e134]: "0"
+                - generic [ref=f1e135]: On break
+              - paragraph [ref=f1e139]: No one on break
+            - button "17 Employees" [ref=f1e140] [cursor=pointer]:
+              - generic [ref=f1e142]:
+                - generic [ref=f1e143]: "17"
+                - generic [ref=f1e144]: Employees
+        - generic [ref=f1e151]:
+          - heading "Security & alerts" [level=2] [ref=f1e152]
+          - button "0 Open red flags" [ref=f1e154] [cursor=pointer]:
+            - generic [ref=f1e156]:
+              - generic [ref=f1e157]: "0"
+              - generic [ref=f1e158]: Open red flags
+        - generic [ref=f1e162]:
+          - heading "Recent activity" [level=2] [ref=f1e166]
+          - generic [ref=f1e167]:
+            - generic [ref=f1e168]: No recent activity
+            - generic [ref=f1e169]: Actions across the system will show up here.
+  - status

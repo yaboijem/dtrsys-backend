@@ -199,6 +199,25 @@ class EmployeeController extends Controller
 
     public function destroy(Request $request, Employee $employee): JsonResponse
     {
+        $target = $employee->user;
+        $actor = $request->user();
+
+        if ($target->hasRole('Super Admin')) {
+            if (! $actor->hasRole('Super Admin')) {
+                return response()->json([
+                    'message' => 'Only a Super Admin can deactivate a Super Admin.',
+                    'code' => 'forbidden',
+                ], 403);
+            }
+
+            if ($target->isLastActiveSuperAdmin()) {
+                return response()->json([
+                    'message' => 'The last Super Admin cannot be deactivated.',
+                    'code' => 'last_super_admin',
+                ], 422);
+            }
+        }
+
         $employee->user->update(['is_active' => false]);
 
         $employee->user->tokens()->delete();

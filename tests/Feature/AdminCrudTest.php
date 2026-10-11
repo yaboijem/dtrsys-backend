@@ -32,6 +32,14 @@ class AdminCrudTest extends TestCase
         return $employee;
     }
 
+    private function makeSuperAdmin(): Employee
+    {
+        $employee = Employee::factory()->create();
+        $employee->user->syncRoles(['Super Admin']);
+
+        return $employee;
+    }
+
     private function branchPayload(array $overrides = []): array
     {
         return array_merge([
@@ -247,6 +255,68 @@ class AdminCrudTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseHas('users', ['id' => $employee->user_id, 'is_active' => false]);
+    }
+
+    public function test_hr_cannot_deactivate_super_admin(): void
+    {
+        $admin = $this->makeAdmin();
+        $superAdmin = $this->makeSuperAdmin();
+        $this->makeSuperAdmin();
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->deleteJson("/api/admin/employees/{$superAdmin->id}")
+            ->assertForbidden()
+            ->assertJsonPath('code', 'forbidden');
+
+        $this->assertDatabaseHas('users', ['id' => $superAdmin->user_id, 'is_active' => true]);
+    }
+
+    public function test_last_super_admin_cannot_be_deactivated(): void
+    {
+        $superAdmin = $this->makeSuperAdmin();
+
+        $this->actingAs($superAdmin->user, 'sanctum')
+            ->deleteJson("/api/admin/employees/{$superAdmin->id}")
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'last_super_admin');
+
+        $this->assertDatabaseHas('users', ['id' => $superAdmin->user_id, 'is_active' => true]);
+    }
+
+    public function test_super_admin_can_deactivate_another_super_admin(): void
+    {
+        $superAdmin = $this->makeSuperAdmin();
+        $other = $this->makeSuperAdmin();
+
+        $this->actingAs($superAdmin->user, 'sanctum')
+            ->deleteJson("/api/admin/employees/{$other->id}")
+            ->assertOk();
+
+        $this->assertDatabaseHas('users', ['id' => $other->user_id, 'is_active' => false]);
+    }
+
+    public function test_last_super_admin_cannot_be_deactivated_via_update(): void
+    {
+        $superAdmin = $this->makeSuperAdmin();
+
+        $this->actingAs($superAdmin->user, 'sanctum')
+            ->patchJson("/api/admin/employees/{$superAdmin->id}", ['is_active' => false])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('is_active');
+
+        $this->assertDatabaseHas('users', ['id' => $superAdmin->user_id, 'is_active' => true]);
+    }
+
+    public function test_super_admin_can_deactivate_another_super_admin_via_update(): void
+    {
+        $superAdmin = $this->makeSuperAdmin();
+        $other = $this->makeSuperAdmin();
+
+        $this->actingAs($superAdmin->user, 'sanctum')
+            ->patchJson("/api/admin/employees/{$other->id}", ['is_active' => false])
+            ->assertOk();
+
+        $this->assertDatabaseHas('users', ['id' => $other->user_id, 'is_active' => false]);
     }
 
     public function test_employee_role_cannot_access_admin_endpoints(): void

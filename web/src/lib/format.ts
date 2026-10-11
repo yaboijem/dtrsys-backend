@@ -16,6 +16,33 @@ export function formatDate(iso: string | null | undefined): string {
   return formatInManila(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+export type ManilaDateParts = {
+  weekday: string;
+  day: string;
+  month: string;
+  year: string;
+};
+
+export function manilaDateParts(iso: string | null | undefined): ManilaDateParts | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-PH', {
+    timeZone: MANILA_TIMEZONE,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).formatToParts(date);
+  const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  const weekday = pick('weekday');
+  const day = pick('day');
+  const month = pick('month');
+  const year = pick('year');
+  if (!weekday || !day || !month || !year) return null;
+  return { weekday, day, month, year };
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   return formatInManila(iso, {

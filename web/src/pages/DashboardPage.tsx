@@ -8,7 +8,7 @@ import { useAuth } from '../auth/AuthContext';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar, Card, ErrorState, MetricCard, Spinner } from '../components/ui';
 import { activityDef } from '../lib/activities';
-import { deltaLabel, formatDate, formatRelative } from '../lib/format';
+import { deltaLabel, formatRelative, manilaDateParts } from '../lib/format';
 
 const BREAK_KIND_ORDER = ['15_min', '5_min', 'lunch_60', 'bio', 'phone', 'coaching', 'huddle', 'training', 'unspecified'];
 
@@ -23,6 +23,27 @@ const BREAK_KIND_LABELS: Record<string, string> = {
   training: 'Training',
   unspecified: 'Unspecified',
 };
+
+function TodayDate({ date }: { date?: string }) {
+  const parts = manilaDateParts(date);
+  if (!date || !parts) {
+    return (
+      <div className="ml-auto text-right" aria-hidden>
+        <div className="ml-auto h-3 w-14 animate-pulse rounded bg-slate-200" />
+        <div className="ml-auto mt-2 h-6 w-60 animate-pulse rounded bg-slate-200" />
+      </div>
+    );
+  }
+
+  return (
+    <time dateTime={date} className="ml-auto block text-right">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-primary-dark">Today</span>
+      <span className="mt-1 block text-xl font-bold leading-tight tracking-tight tnum text-text sm:text-2xl">
+        {parts.weekday}, {parts.month} {parts.day}, {parts.year}
+      </span>
+    </time>
+  );
+}
 
 function breakBreakdown(counts: Record<string, number> | undefined) {
   const byKind = counts ?? {};
@@ -83,7 +104,7 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" description={summary ? `Today · ${formatDate(summary.date)}` : 'Today'} />
+      <PageHeader title="Dashboard" actions={<TodayDate date={summary?.date} />} />
       {loading || !summary ? <Spinner label="Loading dashboard…" /> : null}
       {summary ? (
       <>

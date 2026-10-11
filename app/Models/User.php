@@ -47,4 +47,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(PushSubscription::class);
     }
+
+    public function isLastActiveSuperAdmin(): bool
+    {
+        if (! $this->hasRole('Super Admin')) {
+            return false;
+        }
+
+        return ! static::role('Super Admin')
+            ->where('id', '!=', $this->getKey())
+            ->where('is_active', true)
+            ->exists();
+    }
 }
