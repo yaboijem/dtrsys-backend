@@ -19,11 +19,23 @@ interface FormState {
   latitude: string;
   longitude: string;
   radius_meters: string;
+  accuracy_ceiling_meters: string;
+  accuracy_allowance_meters: string;
   is_active: boolean;
 }
 
 function emptyForm(): FormState {
-  return { name: '', code: '', address: '', latitude: '', longitude: '', radius_meters: '300', is_active: true };
+  return {
+    name: '',
+    code: '',
+    address: '',
+    latitude: '',
+    longitude: '',
+    radius_meters: '300',
+    accuracy_ceiling_meters: '100',
+    accuracy_allowance_meters: '30',
+    is_active: true,
+  };
 }
 
 export function BranchesPage() {
@@ -80,6 +92,8 @@ export function BranchesPage() {
       latitude: String(branch.latitude),
       longitude: String(branch.longitude),
       radius_meters: String(branch.radius_meters),
+      accuracy_ceiling_meters: String(branch.accuracy_ceiling_meters),
+      accuracy_allowance_meters: String(branch.accuracy_allowance_meters),
       is_active: branch.is_active,
     });
     setFieldErrors({});
@@ -99,6 +113,8 @@ export function BranchesPage() {
         latitude: Number(form.latitude),
         longitude: Number(form.longitude),
         radius_meters: Number(form.radius_meters),
+        accuracy_ceiling_meters: Number(form.accuracy_ceiling_meters),
+        accuracy_allowance_meters: Number(form.accuracy_allowance_meters),
         is_active: form.is_active,
       };
       if (editing) {
@@ -302,6 +318,24 @@ export function BranchesPage() {
               max="10000"
               value={form.radius_meters}
               onChange={(e) => setForm({ ...form, radius_meters: e.target.value })}
+            />
+          </Field>
+          <Field label="GPS accuracy ceiling (m)" required error={fieldErrors.accuracy_ceiling_meters?.[0]}>
+            <Input
+              type="number"
+              min="1"
+              max="10000"
+              value={form.accuracy_ceiling_meters}
+              onChange={(e) => setForm({ ...form, accuracy_ceiling_meters: e.target.value })}
+            />
+          </Field>
+          <Field label="GPS accuracy allowance (m)" required error={fieldErrors.accuracy_allowance_meters?.[0]}>
+            <Input
+              type="number"
+              min="0"
+              max="10000"
+              value={form.accuracy_allowance_meters}
+              onChange={(e) => setForm({ ...form, accuracy_allowance_meters: e.target.value })}
             />
           </Field>
           <div className="flex items-center gap-2">

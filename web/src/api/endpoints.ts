@@ -147,6 +147,8 @@ export interface BranchPayload {
   latitude: number;
   longitude: number;
   radius_meters: number;
+  accuracy_ceiling_meters: number;
+  accuracy_allowance_meters: number;
   is_active: boolean;
 }
 

@@ -207,6 +207,8 @@ export interface Branch {
   latitude: number;
   longitude: number;
   radius_meters: number;
+  accuracy_ceiling_meters: number;
+  accuracy_allowance_meters: number;
   is_active: boolean;
   employee_count: number;
   created_at?: string;

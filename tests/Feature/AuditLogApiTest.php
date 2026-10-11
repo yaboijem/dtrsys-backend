@@ -55,6 +55,8 @@ class AuditLogApiTest extends TestCase
             'latitude' => 10.3157,
             'longitude' => 123.8854,
             'radius_meters' => 300,
+            'accuracy_ceiling_meters' => 100,
+            'accuracy_allowance_meters' => 30,
             'is_active' => true,
         ])->assertCreated();
 
@@ -111,6 +113,8 @@ class AuditLogApiTest extends TestCase
             'latitude' => 7.1907,
             'longitude' => 125.4553,
             'radius_meters' => 300,
+            'accuracy_ceiling_meters' => 100,
+            'accuracy_allowance_meters' => 30,
             'is_active' => true,
         ])->assertCreated();
 

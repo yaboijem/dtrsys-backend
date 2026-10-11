@@ -41,6 +41,8 @@ class AdminCrudTest extends TestCase
             'latitude' => 10.3157,
             'longitude' => 123.8854,
             'radius_meters' => 300,
+            'accuracy_ceiling_meters' => 100,
+            'accuracy_allowance_meters' => 30,
             'is_active' => true,
         ], $overrides);
     }
@@ -74,6 +76,36 @@ class AdminCrudTest extends TestCase
             ->assertJsonPath('data.code', 'CEB-001');
 
         $this->assertDatabaseHas('branches', ['code' => 'CEB-001', 'is_active' => true]);
+    }
+
+    public function test_hr_can_set_branch_gps_accuracy_bounds(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->postJson('/api/admin/branches', $this->branchPayload([
+                'accuracy_ceiling_meters' => 150,
+                'accuracy_allowance_meters' => 40,
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.accuracy_ceiling_meters', 150)
+            ->assertJsonPath('data.accuracy_allowance_meters', 40);
+
+        $this->assertDatabaseHas('branches', [
+            'code' => 'CEB-001',
+            'accuracy_ceiling_meters' => 150,
+            'accuracy_allowance_meters' => 40,
+        ]);
+    }
+
+    public function test_branch_accuracy_allowance_cannot_be_negative(): void
+    {
+        $admin = $this->makeAdmin();
+
+        $this->actingAs($admin->user, 'sanctum')
+            ->postJson('/api/admin/branches', $this->branchPayload(['accuracy_allowance_meters' => -1]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('accuracy_allowance_meters');
     }
 
     public function test_branch_code_must_be_unique(): void

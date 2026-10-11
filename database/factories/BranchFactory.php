@@ -19,6 +19,8 @@ class BranchFactory extends Factory
             'latitude' => fake()->latitude(14.4, 14.8),
             'longitude' => fake()->longitude(120.9, 121.1),
             'radius_meters' => 200,
+            'accuracy_ceiling_meters' => 100,
+            'accuracy_allowance_meters' => 30,
             'is_active' => true,
         ];
     }

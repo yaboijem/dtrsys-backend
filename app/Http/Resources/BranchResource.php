@@ -17,6 +17,8 @@ class BranchResource extends JsonResource
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'radius_meters' => $this->radius_meters,
+            'accuracy_ceiling_meters' => $this->accuracy_ceiling_meters,
+            'accuracy_allowance_meters' => $this->accuracy_allowance_meters,
             'is_active' => $this->is_active,
             'employee_count' => $this->whenCounted('employees'),
             'created_at' => $this->created_at?->toISOString(),

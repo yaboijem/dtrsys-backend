@@ -21,6 +21,8 @@ class UpdateBranchRequest extends FormRequest
             'latitude' => ['sometimes', 'numeric', 'between:-90,90'],
             'longitude' => ['sometimes', 'numeric', 'between:-180,180'],
             'radius_meters' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+            'accuracy_ceiling_meters' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+            'accuracy_allowance_meters' => ['sometimes', 'integer', 'min:0', 'max:10000'],
             'is_active' => ['boolean'],
         ];
     }
