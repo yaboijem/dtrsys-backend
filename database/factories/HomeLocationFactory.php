@@ -19,7 +19,7 @@ class HomeLocationFactory extends Factory
             'label' => fake()->optional()->streetAddress(),
             'latitude' => fake()->latitude(14.4, 14.8),
             'longitude' => fake()->longitude(120.9, 121.1),
-            'radius_meters' => (int) config('dtr.gps.home_radius_meters', 150),
+            'radius_meters' => (int) config('dtr.gps.home_radius_meters', 200),
             'address_text' => fake()->optional()->address(),
             'street' => fake()->optional()->streetName(),
             'city' => fake()->optional()->city(),

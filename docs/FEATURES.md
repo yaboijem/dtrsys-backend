@@ -234,7 +234,7 @@ Installable Progressive Web App for employees.
 | **Alerts** | Grouped inbox; mark read / mark all read; per-alert trash + clear all via `ConfirmModal`; unread badge |
 | **More** | Profile (department, branch, position, roles); consent link; **Home location** (WFH pin submit); light / dark / system theme; logout via `ConfirmModal` |
 | **Consent** | Biometric + GPS toggles |
-| **Home location** | WFH employees submit current GPS as home pin; status none/pending/approved |
+| **Home location** | WFH employees submit current GPS as home pin; status none/pending/approved; default 200 m fence, HR may override on approval |
 | **PWA** | Removed. The portal is an online website. A stored token is restored only when `/api/auth/me` succeeds. |
 
 Routes: `/login`, `/home`, `/history`, `/alerts`, `/more`, `/more/consent`, `/more/home-location`.

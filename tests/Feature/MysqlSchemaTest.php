@@ -24,6 +24,7 @@ class MysqlSchemaTest extends TestCase
                 '2026_10_06_120000_create_push_subscriptions_table',
                 '2026_10_07_000000_add_overbreak_fraud_flag_type',
                 '2026_10_11_000000_add_gps_accuracy_columns_to_branches',
+                '2026_10_11_000001_set_home_location_radius_default_to_200',
             ],
             DB::table('migrations')->pluck('migration')->all(),
         );

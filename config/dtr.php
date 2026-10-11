@@ -4,7 +4,7 @@ return [
     'gps' => [
         'speed_threshold_kmh' => env('GPS_JUMP_THRESHOLD_KMH', 120),
         'rapid_clock_minutes' => env('RAPID_CLOCK_MINUTES', 1),
-        'home_radius_meters' => (int) env('GPS_HOME_RADIUS_METERS', 150),
+        'home_radius_meters' => (int) env('GPS_HOME_RADIUS_METERS', 200),
     ],
 
     'attendance' => [

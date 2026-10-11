@@ -37,7 +37,7 @@ class HomeLocationService
                 'label' => $data['label'] ?? ($employee->full_name.' Home'),
                 'latitude' => $data['latitude'],
                 'longitude' => $data['longitude'],
-                'radius_meters' => (int) config('dtr.gps.home_radius_meters', 150),
+                'radius_meters' => (int) config('dtr.gps.home_radius_meters', 200),
                 'address_text' => $resolved['address_text'],
                 'street' => $resolved['street'],
                 'city' => $resolved['city'],

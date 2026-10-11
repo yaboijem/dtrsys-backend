@@ -207,6 +207,23 @@ class HomeLocationApiTest extends TestCase
     }
 
     #[Test]
+    public function submitted_home_defaults_to_a_200_meter_radius(): void
+    {
+        $employee = $this->makeWfhEmployee();
+
+        $submit = $this->actingAs($employee->user, 'sanctum')->postJson('/api/home-location', [
+            'latitude' => 14.6100000,
+            'longitude' => 121.0100000,
+        ])->assertCreated();
+
+        $this->assertSame(200, $submit->json('data.radius_meters'));
+        $this->assertDatabaseHas('home_locations', [
+            'id' => $submit->json('data.id'),
+            'radius_meters' => 200,
+        ]);
+    }
+
+    #[Test]
     public function shared_home_pin_works_for_two_employees(): void
     {
         Storage::fake('public');
