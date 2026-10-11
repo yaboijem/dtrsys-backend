@@ -3,6 +3,7 @@
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\ConsentRequiredException;
+use App\Exceptions\GpsAccuracyTooPoorException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
 use App\Http\Middleware\AuthenticateFromCookie;
@@ -62,6 +63,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'code' => 'gps_out_of_range',
                 'details' => $e->details,
+            ], 422);
+        });
+
+        $exceptions->render(function (GpsAccuracyTooPoorException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => 'gps_accuracy_too_poor',
+                'details' => [
+                    'accuracy_meters' => $e->accuracyMeters,
+                    'ceiling_meters' => $e->ceilingMeters,
+                ],
             ], 422);
         });
 

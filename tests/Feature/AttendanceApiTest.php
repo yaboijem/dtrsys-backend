@@ -108,6 +108,48 @@ class AttendanceApiTest extends TestCase
     }
 
     #[Test]
+    public function huge_accuracy_cannot_bypass_the_geofence(): void
+    {
+        $employee = $this->makeEmployee();
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
+            ...$this->punchPayload($employee->branch, [
+                'latitude' => (float) $employee->branch->latitude - 1,
+                'longitude' => (float) $employee->branch->longitude - 1,
+                'accuracy_meters' => 99999999,
+            ]),
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertUnprocessable()
+            ->assertJsonPath('code', 'gps_accuracy_too_poor');
+
+        $this->assertDatabaseCount('attendance', 0);
+    }
+
+    #[Test]
+    public function accuracy_above_the_branch_ceiling_is_rejected(): void
+    {
+        $employee = $this->makeEmployee();
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
+            ...$this->punchPayload($employee->branch, ['accuracy_meters' => 101]),
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertUnprocessable()
+            ->assertJsonPath('code', 'gps_accuracy_too_poor');
+    }
+
+    #[Test]
+    public function accuracy_at_the_branch_ceiling_is_accepted(): void
+    {
+        Storage::fake('public');
+        $employee = $this->makeEmployee();
+
+        $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
+            ...$this->punchPayload($employee->branch, ['accuracy_meters' => 100]),
+            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
+        ])->assertCreated();
+    }
+
+    #[Test]
     public function employee_can_time_out_and_get_work_minutes(): void
     {
         $employee = $this->makeEmployee();

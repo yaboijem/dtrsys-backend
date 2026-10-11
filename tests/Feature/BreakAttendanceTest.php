@@ -116,6 +116,21 @@ class BreakAttendanceTest extends TestCase
     }
 
     #[Test]
+    public function break_in_rejects_accuracy_above_the_branch_ceiling(): void
+    {
+        $employee = $this->makeEmployee();
+        $this->timeIn($employee);
+
+        $this->actingAs($employee->user, 'sanctum')
+            ->postJson('/api/attendance/break-in', [
+                ...$this->gps($employee->branch, ['accuracy_meters' => 101]),
+                'break_kind' => 'bio',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'gps_accuracy_too_poor');
+    }
+
+    #[Test]
     public function employee_can_break_in_and_out_without_selfie(): void
     {
         $employee = $this->makeEmployee();

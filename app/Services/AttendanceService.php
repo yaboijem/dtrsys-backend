@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\AttendanceConflictException;
 use App\Exceptions\BreaksDisabledException;
 use App\Exceptions\ConsentRequiredException;
+use App\Exceptions\GpsAccuracyTooPoorException;
 use App\Exceptions\GpsOutOfRangeException;
 use App\Exceptions\HomeLocationRequiredException;
 use App\Jobs\NotifyBreakPastDueJob;
@@ -398,6 +399,17 @@ class AttendanceService
 
     private function verifyGps(Employee $employee, array $data): array
     {
+        $accuracy = isset($data['accuracy_meters']) ? (float) $data['accuracy_meters'] : null;
+        $ceiling = (float) ($employee->branch->accuracy_ceiling_meters ?? 100);
+
+        if ($accuracy !== null && $accuracy > $ceiling) {
+            throw new GpsAccuracyTooPoorException(
+                'GPS signal is too weak to verify this punch. Move near a window or outdoors and try again.',
+                $accuracy,
+                $ceiling,
+            );
+        }
+
         $result = $this->resolveGpsVerification($employee, $data);
 
         if (! $result['is_within_radius']) {
