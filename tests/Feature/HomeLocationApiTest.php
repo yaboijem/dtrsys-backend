@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Employee;
 use App\Models\HomeLocation;
 use App\Models\User;
+use App\Services\HomeLocationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -231,7 +232,7 @@ class HomeLocationApiTest extends TestCase
         $b = $this->makeWfhEmployee();
         $home = $this->attachApprovedHome($a);
 
-        app(\App\Services\HomeLocationService::class)->setPrimary($b, $home);
+        app(HomeLocationService::class)->setPrimary($b, $home);
 
         foreach ([$a, $b] as $employee) {
             $this->actingAs($employee->user, 'sanctum')->postJson('/api/attendance/time-in', [
