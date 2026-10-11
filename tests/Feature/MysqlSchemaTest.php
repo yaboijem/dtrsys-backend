@@ -23,6 +23,7 @@ class MysqlSchemaTest extends TestCase
                 '2026_10_06_000000_drop_shifts_and_schedules',
                 '2026_10_06_120000_create_push_subscriptions_table',
                 '2026_10_07_000000_add_overbreak_fraud_flag_type',
+                '2026_10_11_000000_add_gps_accuracy_columns_to_branches',
             ],
             DB::table('migrations')->pluck('migration')->all(),
         );
@@ -31,6 +32,8 @@ class MysqlSchemaTest extends TestCase
         $this->assertFalse(Schema::hasColumn('users', 'two_factor_recovery_codes'));
         $this->assertTrue(Schema::hasColumn('attendance', 'break_kind'));
         $this->assertTrue(Schema::hasColumn('attendance', 'expected_end_at'));
+        $this->assertTrue(Schema::hasColumn('branches', 'accuracy_ceiling_meters'));
+        $this->assertTrue(Schema::hasColumn('branches', 'accuracy_allowance_meters'));
 
         $this->assertFalse(Schema::hasTable('shifts'));
         $this->assertFalse(Schema::hasTable('schedules'));
